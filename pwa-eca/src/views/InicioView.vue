@@ -324,14 +324,16 @@ const accesos = [
 .inicio-hero__medio-circulo--izquierda {
   left: 0;
   transform: translateX(-50%);
-  justify-content: flex-end;
-  padding-right: 1.4rem;
+  /* El ícono queda centrado en el círculo COMPLETO (no en la mitad
+     visible): como el círculo está centrado justo en el borde de la
+     tarjeta, la otra mitad del ícono queda recortada por el
+     `overflow: hidden` del contenedor — pedido explícito. */
+  justify-content: center;
 }
 .inicio-hero__medio-circulo--derecha {
   right: 0;
   transform: translateX(50%);
-  justify-content: flex-start;
-  padding-left: 1.4rem;
+  justify-content: center;
 }
 
 .inicio-hero__icono {
@@ -341,8 +343,8 @@ const accesos = [
   color: #fff;
 }
 .inicio-hero__icono svg {
-  width: 2.1rem;
-  height: 2.1rem;
+  width: 3rem;
+  height: 3rem;
 }
 
 .inicio-hero__texto {
