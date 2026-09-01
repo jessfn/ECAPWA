@@ -414,9 +414,10 @@ const accesos = [
 .inicio-acceso {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  text-align: center;
   gap: 0.6rem;
-  padding: 1rem 0.9rem;
+  padding: 1.1rem 0.9rem;
   text-decoration: none;
   color: var(--eca-ink);
   transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s ease;

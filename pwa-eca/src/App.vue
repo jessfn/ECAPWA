@@ -37,7 +37,7 @@ const mostrarHeader = computed(() => !esRutaAuth.value && auth.estaAutenticado)
 
 <style>
 .app-main--con-header {
-  padding-top: calc(52px + env(safe-area-inset-top, 0px));
+  padding-top: calc(64px + env(safe-area-inset-top, 0px));
   position: relative;
   z-index: 1;
 }
