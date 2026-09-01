@@ -110,6 +110,15 @@
       <path d="M8.2 15.9a5.6 5.6 0 0 1 7.6 0" />
       <path d="M12 19.2h.01" />
     </template>
+    <template v-else-if="name === 'briefcase'">
+      <rect x="2.5" y="7.5" width="19" height="12.5" rx="2.2" />
+      <path d="M8 7.5V5.8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2V7.5" />
+      <path d="M2.5 12.8h19M10.5 12v1.6h3V12" />
+    </template>
+    <template v-else-if="name === 'camera'">
+      <path d="M3 8.5a2 2 0 0 1 2-2h1.6l1-1.8h8.8l1 1.8H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9z" />
+      <circle cx="12" cy="13" r="3.6" />
+    </template>
   </svg>
 </template>
 

@@ -32,12 +32,12 @@ const iniciales = computed(() => {
 
 const jornadaTexto = computed(() => {
   if (!jornada.actual) {
-    return { icono: 'calendar', desc: 'Registra la hora y el lugar en que inicia tu jornada laboral.' }
+    return { desc: 'Registra la hora y el lugar en que inicia tu jornada laboral.' }
   }
   if (jornada.abierta) {
-    return { icono: 'logout', desc: 'Tu jornada está activa. Registra la hora y el lugar de tu salida al finalizar.' }
+    return { desc: 'Tu jornada está activa. Registra la hora y el lugar de tu salida al finalizar.' }
   }
-  return { icono: 'check', desc: 'Jornada laboral registrada correctamente para hoy.' }
+  return { desc: 'Jornada laboral registrada correctamente para hoy.' }
 })
 
 const accesos = [
@@ -90,8 +90,8 @@ const accesos = [
 
     <RouterLink :to="{ name: 'jornada' }" class="inicio-hero inicio-hero--jornada eca-entrar" style="--eca-delay: 0.06s">
       <span class="inicio-hero__medio-circulo inicio-hero__medio-circulo--izquierda">
-        <span class="inicio-hero__icono" :class="{ 'inicio-hero__icono--listo': !jornada.abierta && jornada.actual }">
-          <AuthIcon :name="jornadaTexto.icono" />
+        <span class="inicio-hero__icono">
+          <AuthIcon name="briefcase" />
         </span>
       </span>
       <span class="inicio-hero__texto inicio-hero__texto--izquierda">
@@ -109,7 +109,7 @@ const accesos = [
       </span>
       <span class="inicio-hero__medio-circulo inicio-hero__medio-circulo--derecha">
         <span class="inicio-hero__icono">
-          <AuthIcon name="plus-circle" />
+          <AuthIcon name="camera" />
         </span>
       </span>
     </RouterLink>
@@ -267,20 +267,21 @@ const accesos = [
 }
 
 /* ---- Héroes (Jornada / Actividad): medio círculo "pegado" al borde,
-   con el ícono dentro — sin canvas, pedido explícito. El círculo completo
-   se dibuja de tamaño fijo pero con margen negativo igual a su radio, así
-   que solo la mitad visible queda dentro de la tarjeta (overflow: hidden
-   recorta el resto); el ícono se ancla hacia el lado visible en vez de
-   centrarse en el círculo completo, para no quedar cortado a la mitad. */
+   de esquina a esquina verticalmente — sin canvas, sin animación, pedido
+   explícito. El círculo mide el 100% del alto del botón y se posiciona
+   con `left/right: 0` + `translateX(±50%)`: como el porcentaje de un
+   `transform` es relativo al propio tamaño del elemento, queda centrado
+   exactamente sobre el borde de la tarjeta sin importar el alto real
+   (responsive, sin medir nada por JS). El ícono va en un círculo pequeño
+   y estático, dentro de la mitad visible. */
 .inicio-hero {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 1.1rem;
   width: 100%;
-  min-height: 172px;
+  min-height: 176px;
   margin-bottom: 0.9rem;
-  padding: 1.5rem 1.6rem;
+  padding: 1.5rem 1.7rem;
   border-radius: var(--eca-r-lg);
   overflow: hidden;
   text-decoration: none;
@@ -293,7 +294,7 @@ const accesos = [
   transform: scale(0.98);
 }
 .inicio-hero--jornada {
-  padding-left: 0;
+  padding-left: 5.5rem;
   background: linear-gradient(160deg, #1d4ed8 0%, #1e3a8a 100%);
   box-shadow: 0 16px 36px rgba(29, 78, 216, 0.3);
 }
@@ -301,7 +302,7 @@ const accesos = [
   box-shadow: 0 22px 44px rgba(29, 78, 216, 0.38);
 }
 .inicio-hero--actividad {
-  padding-right: 0;
+  padding-right: 5.5rem;
   background: linear-gradient(160deg, #7e22ce 0%, #4c1d95 100%);
   box-shadow: 0 16px 36px rgba(126, 34, 206, 0.3);
 }
@@ -310,55 +311,46 @@ const accesos = [
 }
 
 .inicio-hero__medio-circulo {
-  flex-shrink: 0;
-  width: 7.5rem;
-  height: 7.5rem;
+  position: absolute;
+  top: 0;
+  height: 100%;
+  aspect-ratio: 1 / 1;
   border-radius: 50%;
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.14);
-  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
 }
 .inicio-hero__medio-circulo--izquierda {
-  margin-left: -3.75rem;
+  left: 0;
+  transform: translateX(-50%);
   justify-content: flex-end;
-  padding-right: 1rem;
+  padding-right: 1.4rem;
 }
 .inicio-hero__medio-circulo--derecha {
-  margin-right: -3.75rem;
+  right: 0;
+  transform: translateX(50%);
   justify-content: flex-start;
-  padding-left: 1rem;
+  padding-left: 1.4rem;
 }
 
 .inicio-hero__icono {
-  width: 2.75rem;
-  height: 2.75rem;
+  width: 2.6rem;
+  height: 2.6rem;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.22);
   color: #fff;
-  animation: inicio-hero-pulso 2.2s ease-in-out infinite;
-}
-.inicio-hero__icono--listo {
-  animation: none;
-  background: rgba(255, 255, 255, 0.32);
 }
 .inicio-hero__icono svg {
-  width: 1.5rem;
-  height: 1.5rem;
-}
-@keyframes inicio-hero-pulso {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.28);
-  }
-  50% {
-    box-shadow: 0 0 0 12px rgba(255, 255, 255, 0);
-  }
+  width: 1.4rem;
+  height: 1.4rem;
 }
 
 .inicio-hero__texto {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
@@ -425,20 +417,10 @@ const accesos = [
     min-height: 150px;
   }
   .inicio-hero--jornada {
-    padding: 1.2rem 1.2rem 1.2rem 0;
+    padding: 1.2rem 1.1rem 1.2rem 4.75rem;
   }
   .inicio-hero--actividad {
-    padding: 1.2rem 0 1.2rem 1.2rem;
-  }
-  .inicio-hero__medio-circulo {
-    width: 6rem;
-    height: 6rem;
-  }
-  .inicio-hero__medio-circulo--izquierda {
-    margin-left: -3rem;
-  }
-  .inicio-hero__medio-circulo--derecha {
-    margin-right: -3rem;
+    padding: 1.2rem 4.75rem 1.2rem 1.1rem;
   }
   .inicio-hero__titulo {
     font-size: 1.02rem;
