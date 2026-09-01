@@ -283,13 +283,13 @@ const accesos = [
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* Nombre en amarillo oscuro solido, tipografia formal (serif) — pedido
-   explicito: sin animacion ni difuminado/degradado (antes usaba un
-   gradiente con background-clip: text), color plano nada mas. */
+/* Nombre en guinda oscuro solido, tipografia moderna y redondeada —
+   pedido explicito: sin animacion ni difuminado/degradado (antes usaba
+   un gradiente con background-clip: text), color plano nada mas. */
 .inicio-saludo__nombre {
-  color: #92400e;
-  font-family: Georgia, 'Times New Roman', serif;
-  font-weight: 700;
+  color: #6b1530;
+  font-family: 'Quicksand', ui-rounded, 'SF Pro Rounded', 'Segoe UI Rounded', -apple-system, sans-serif;
+  font-weight: 800;
   letter-spacing: 0.01em;
 }
 .inicio-saludo__sub {
