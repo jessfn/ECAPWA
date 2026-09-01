@@ -38,10 +38,10 @@ function crearManchas() {
   manchas = props.colores.map((color, i) => ({
     cx: Math.random() * ancho,
     cy: Math.random() * alto,
-    orbita: (0.18 + Math.random() * 0.14) * Math.max(ancho, alto),
-    velocidad: 0.12 + i * 0.05,
+    orbita: (0.2 + Math.random() * 0.16) * Math.max(ancho, alto),
+    velocidad: 0.18 + i * 0.07,
     fase: i * 2.1,
-    r: (0.3 + Math.random() * 0.16) * Math.max(ancho, alto),
+    r: (0.4 + Math.random() * 0.2) * Math.max(ancho, alto),
     color,
   }))
 }

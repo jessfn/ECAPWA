@@ -92,7 +92,7 @@ const accesos = [
     <RouterLink :to="{ name: 'jornada' }" class="inicio-hero inicio-hero--jornada eca-entrar" style="--eca-delay: 0.06s">
       <CanvasFondo
         class="inicio-hero__canvas inicio-hero__canvas--izquierda"
-        :colores="['rgba(191, 219, 254, 0.22)', 'rgba(255, 255, 255, 0.14)', 'rgba(147, 197, 253, 0.18)']"
+        :colores="['rgba(191, 219, 254, 0.4)', 'rgba(255, 255, 255, 0.26)', 'rgba(147, 197, 253, 0.32)']"
       />
       <span class="inicio-hero__medio-circulo inicio-hero__medio-circulo--izquierda">
         <span class="inicio-hero__icono">
@@ -108,7 +108,7 @@ const accesos = [
     <RouterLink :to="{ name: 'nueva-actividad' }" class="inicio-hero inicio-hero--actividad eca-entrar" style="--eca-delay: 0.09s">
       <CanvasFondo
         class="inicio-hero__canvas inicio-hero__canvas--derecha"
-        :colores="['rgba(233, 213, 255, 0.22)', 'rgba(255, 255, 255, 0.14)', 'rgba(216, 180, 254, 0.18)']"
+        :colores="['rgba(233, 213, 255, 0.4)', 'rgba(255, 255, 255, 0.26)', 'rgba(216, 180, 254, 0.32)']"
       />
       <span class="inicio-hero__texto inicio-hero__texto--derecha">
         <strong class="inicio-hero__titulo">Registro de actividades</strong>
@@ -332,10 +332,16 @@ const accesos = [
 .inicio-hero__canvas--izquierda {
   left: 6.75rem;
   right: 0;
+  /* Desvanecido en ambos bordes: sin esto, el corte recto del canvas se
+     nota como una línea contra el degradado del botón. */
+  -webkit-mask-image: linear-gradient(to right, transparent, black 2.5rem, black calc(100% - 1.5rem), transparent);
+  mask-image: linear-gradient(to right, transparent, black 2.5rem, black calc(100% - 1.5rem), transparent);
 }
 .inicio-hero__canvas--derecha {
   left: 0;
   right: 6.75rem;
+  -webkit-mask-image: linear-gradient(to left, transparent, black 2.5rem, black calc(100% - 1.5rem), transparent);
+  mask-image: linear-gradient(to left, transparent, black 2.5rem, black calc(100% - 1.5rem), transparent);
 }
 
 .inicio-hero__medio-circulo {
