@@ -678,6 +678,12 @@
   align-self: center;
   margin-bottom: 12px;
 }
+.au-card-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+}
 
 @media (min-width: 1000px) {
   .au-shell { flex-direction: row; align-items: center; justify-content: center; }

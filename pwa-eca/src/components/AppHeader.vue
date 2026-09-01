@@ -129,7 +129,7 @@ onUnmounted(() => {
     <div class="app-header__fila">
       <div class="app-header__marca">
         <span class="app-header__logo">
-          <AuthIcon name="leaf" />
+          <img src="/logo.png" alt="ECA" />
         </span>
         <span class="app-header__marca-texto">
           <span class="app-header__nombre">ECA</span>
@@ -246,6 +246,12 @@ onUnmounted(() => {
 .app-header__logo svg {
   width: 1.05rem;
   height: 1.05rem;
+}
+.app-header__logo img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
 }
 .app-header__marca-texto {
   display: flex;

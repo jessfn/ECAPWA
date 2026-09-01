@@ -41,7 +41,9 @@
       <main class="au-pane">
         <div class="au-card-wrap" :style="{ maxWidth: maxWidth }">
           <div class="au-card">
-            <span class="au-wordmark au-card-mark"><b>ECA</b></span>
+            <span class="au-card-mark">
+              <img src="/logo.png" alt="ECA" class="au-card-logo" />
+            </span>
             <slot />
           </div>
         </div>
