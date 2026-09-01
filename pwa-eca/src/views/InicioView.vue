@@ -127,6 +127,7 @@ const accesos = [
         <strong class="inicio-hero__titulo">Registro de inicio y salida</strong>
         <span class="inicio-hero__descripcion">{{ jornadaTexto.desc }}</span>
       </span>
+      <span class="inicio-hero__etiqueta-bloqueado">Bloqueado</span>
     </div>
     <RouterLink v-else :to="{ name: 'jornada' }" class="inicio-hero inicio-hero--jornada eca-entrar" style="--eca-delay: 0.06s">
       <CanvasFondo
@@ -161,6 +162,7 @@ const accesos = [
           <AuthIcon name="lock" />
         </span>
       </span>
+      <span class="inicio-hero__etiqueta-bloqueado">Bloqueado</span>
     </div>
     <RouterLink v-else :to="{ name: 'nueva-actividad' }" class="inicio-hero inicio-hero--actividad eca-entrar" style="--eca-delay: 0.09s">
       <CanvasFondo
@@ -281,17 +283,14 @@ const accesos = [
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* Nombre en degradado dorado, más oscuro/intenso que el brillo pastel del
-   logo "ECA" del header. Sin animación — pedido explícito: el movimiento
-   debe verse solo en el canvas de Jornada/Actividad, no aquí. */
+/* Nombre en amarillo oscuro solido, tipografia formal (serif) — pedido
+   explicito: sin animacion ni difuminado/degradado (antes usaba un
+   gradiente con background-clip: text), color plano nada mas. */
 .inicio-saludo__nombre {
-  background: linear-gradient(100deg, #b45309 0%, #d97706 22%, #f59e0b 42%, #fbbf24 58%, #d97706 78%, #92400e 100%);
-  background-size: 220% 100%;
-  background-position: 30% 50%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  text-shadow: 0 1px 1px rgba(146, 64, 14, 0.15);
+  color: #92400e;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 .inicio-saludo__sub {
   margin: 0.1rem 0 0;
@@ -399,6 +398,24 @@ const accesos = [
 }
 .inicio-hero__texto--derecha .inicio-hero__etiqueta {
   align-self: flex-end;
+}
+
+/* Etiqueta "Bloqueado" en la esquina inferior de las tarjetas
+   deshabilitadas — pedido explícito, distinta de "Completado" (esa
+   avisa que ya se hizo; esta avisa que el acceso está cerrado). */
+.inicio-hero__etiqueta-bloqueado {
+  position: absolute;
+  right: 0.9rem;
+  bottom: 0.7rem;
+  padding: 0.18rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: rgba(31, 41, 55, 0.35);
+  color: #f3f4f6;
+  z-index: 1;
 }
 
 /* Canvas de fondo: solo cubre la zona del texto (desde donde empieza el
