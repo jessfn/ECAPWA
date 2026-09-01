@@ -5,7 +5,7 @@
      (antes solo `InicioView` tenía un header improvisado; el resto de
      pantallas no tenía ninguna forma de navegar entre sí). -->
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useConectividad } from '../services/conectividad'
@@ -17,6 +17,20 @@ const auth = useAuthStore()
 const { enLinea } = useConectividad()
 
 const menuAbierto = ref(false)
+
+// Hora local del técnico según su ubicación (huso horario de México,
+// AM/PM) — pedido explícito, se actualiza sola cada segundo.
+const horaActual = ref('')
+let intervaloReloj = null
+
+function actualizarHora() {
+  horaActual.value = new Intl.DateTimeFormat('es-MX', {
+    timeZone: 'America/Mexico_City',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(new Date())
+}
 
 const enlaces = [
   { nombre: 'inicio', etiqueta: 'Inicio', icono: 'home' },
@@ -40,6 +54,14 @@ async function cerrarSesion() {
   await auth.logout()
   router.push({ name: 'login' })
 }
+
+onMounted(() => {
+  actualizarHora()
+  intervaloReloj = setInterval(actualizarHora, 1000)
+})
+onUnmounted(() => {
+  if (intervaloReloj) clearInterval(intervaloReloj)
+})
 </script>
 
 <template>
@@ -68,9 +90,12 @@ async function cerrarSesion() {
       </div>
     </div>
 
-    <div class="app-header__estado" :class="{ 'app-header__estado--offline': !enLinea }" role="status">
-      <AuthIcon :name="enLinea ? 'wifi' : 'wifi-off'" />
-      <span>{{ enLinea ? 'En línea' : 'Sin conexión' }}</span>
+    <div class="app-header__estado">
+      <span class="app-header__estado-pill" :class="{ 'app-header__estado-pill--offline': !enLinea }" role="status">
+        <AuthIcon :name="enLinea ? 'wifi' : 'wifi-off'" />
+        <span>{{ enLinea ? 'En línea' : 'Sin conexión' }}</span>
+      </span>
+      <span class="app-header__hora">{{ horaActual }}</span>
     </div>
   </header>
 
@@ -172,26 +197,44 @@ async function cerrarSesion() {
   gap: 0.5rem;
   flex-shrink: 0;
 }
-/* Barra de estado de conexión: pegada justo debajo de la barra superior
-   (mismo contenedor, `overflow: hidden` del padre le da las esquinas
-   redondeadas solo abajo), en verde claro — pedido explícito. */
+/* Fila de estado: pegada justo debajo de la barra superior (mismo
+   contenedor, `overflow: hidden` del padre le da las esquinas redondeadas
+   solo abajo). Adentro: una píldora compacta de conexión (verde manzana
+   fuerte, angosta — no toda la fila) a la izquierda, y la hora local del
+   técnico a la derecha — pedido explícito. */
 .app-header__estado {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.4rem 0.9rem;
-  font-size: 0.72rem;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.45rem 0.9rem 0.55rem;
+}
+.app-header__estado-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.22rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: #4ade80;
+  color: #052e16;
+  flex-shrink: 0;
+}
+.app-header__estado-pill svg {
+  width: 11px;
+  height: 11px;
+}
+.app-header__estado-pill--offline {
+  background: #fbbf24;
+  color: #451a03;
+}
+.app-header__hora {
+  font-size: 0.75rem;
   font-weight: 600;
-  background: var(--eca-green-100);
-  color: var(--eca-green-800);
-}
-.app-header__estado svg {
-  width: 13px;
-  height: 13px;
-}
-.app-header__estado--offline {
-  background: #fef3c7;
-  color: #92400e;
+  color: rgba(255, 255, 255, 0.85);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .app-header__hamburguesa {
   width: 34px;
