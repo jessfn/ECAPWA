@@ -97,7 +97,7 @@ const accesos = [
       </div>
 
       <span class="inicio-saludo__linea" aria-hidden="true"></span>
-      <p class="inicio-saludo__lema">Tu app para el seguimiento de Escuelas de Campo</p>
+      <p class="inicio-saludo__lema">Seguimiento y monitoreo de actividades</p>
 
       <p v-if="!enLinea && !auth.sesionServidorValida" class="inicio-saludo__alerta">
         <AuthIcon name="wifi-off" />
@@ -214,7 +214,7 @@ const accesos = [
   margin-bottom: 0.9rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.3rem;
 }
 .inicio-saludo__marca-agua {
   position: absolute;
@@ -287,17 +287,18 @@ const accesos = [
    un gradiente con background-clip: text), color plano nada mas. */
 .inicio-saludo__nombre {
   color: #6b1530;
-  font-family: 'Quicksand', ui-rounded, 'SF Pro Rounded', 'Segoe UI Rounded', -apple-system, sans-serif;
-  font-weight: 800;
-  letter-spacing: 0.01em;
+  font-family: 'Poppins', -apple-system, 'Segoe UI', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0;
 }
 /* Línea desvanecida de lado a lado + lema centrado — pedido explícito
-   en reemplazo del renglón "Jornada y actividades en campo". */
+   en reemplazo del renglón "Jornada y actividades en campo". Espaciado
+   ajustado y pegado (antes quedaba muy separado de ambos lados). */
 .inicio-saludo__linea {
   display: block;
   width: 100%;
   height: 1px;
-  margin: 0.85rem 0 0.6rem;
+  margin: 0;
   background: linear-gradient(90deg, transparent 0%, var(--eca-green-300) 50%, transparent 100%);
 }
 .inicio-saludo__lema {
