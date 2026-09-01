@@ -18,18 +18,48 @@ const { enLinea } = useConectividad()
 
 const menuAbierto = ref(false)
 
-// Hora local del técnico según su ubicación (huso horario de México,
-// AM/PM) — pedido explícito, se actualiza sola cada segundo.
+// Hora y fecha de Ciudad de México — pedido explícito: "sin editarse del
+// dispositivo", o sea que no dependa del reloj del celular (un técnico
+// puede traerlo mal puesto). Se obtiene la hora real de un servicio de
+// internet una vez, se calcula el desfase contra el reloj del propio
+// dispositivo, y de ahí en adelante se corrige ese desfase cada segundo
+// (sin volver a pedirla constantemente) — con resincronización periódica
+// por si acaso. Si no hay red, se usa el reloj del dispositivo como
+// respaldo (mejor esfuerzo, nunca bloquea — mismo espíritu que el GPS).
 const horaActual = ref('')
+const fechaActual = ref('')
 let intervaloReloj = null
+let intervaloResincronizar = null
+let desfaseMs = 0
 
-function actualizarHora() {
+async function sincronizarConInternet() {
+  try {
+    const respuesta = await fetch('https://worldtimeapi.org/api/timezone/America/Mexico_City', {
+      cache: 'no-store',
+    })
+    if (!respuesta.ok) return
+    const { unixtime } = await respuesta.json()
+    desfaseMs = unixtime * 1000 - Date.now()
+  } catch {
+    // Sin red: se sigue mostrando la hora del dispositivo (con el huso de
+    // CDMX ya aplicado), nunca se bloquea la barra por esto.
+  }
+}
+
+function actualizarReloj() {
+  const ahora = new Date(Date.now() + desfaseMs)
   horaActual.value = new Intl.DateTimeFormat('es-MX', {
     timeZone: 'America/Mexico_City',
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
-  }).format(new Date())
+  }).format(ahora)
+  fechaActual.value = new Intl.DateTimeFormat('es-MX', {
+    timeZone: 'America/Mexico_City',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(ahora)
 }
 
 const enlaces = [
@@ -55,12 +85,18 @@ async function cerrarSesion() {
   router.push({ name: 'login' })
 }
 
-onMounted(() => {
-  actualizarHora()
-  intervaloReloj = setInterval(actualizarHora, 1000)
+onMounted(async () => {
+  await sincronizarConInternet()
+  actualizarReloj()
+  intervaloReloj = setInterval(actualizarReloj, 1000)
+  // Resincroniza cada 5 minutos: corrige cualquier deriva del reloj del
+  // dispositivo en sesiones largas, sin pedir la hora a internet a cada
+  // segundo.
+  intervaloResincronizar = setInterval(sincronizarConInternet, 5 * 60 * 1000)
 })
 onUnmounted(() => {
   if (intervaloReloj) clearInterval(intervaloReloj)
+  if (intervaloResincronizar) clearInterval(intervaloResincronizar)
 })
 </script>
 
@@ -95,7 +131,10 @@ onUnmounted(() => {
         <AuthIcon :name="enLinea ? 'wifi' : 'wifi-off'" />
         <span>{{ enLinea ? 'En línea' : 'Sin conexión' }}</span>
       </span>
-      <span class="app-header__hora">{{ horaActual }}</span>
+      <span class="app-header__reloj">
+        <span class="app-header__hora">{{ horaActual }}</span>
+        <span class="app-header__fecha">{{ fechaActual }}</span>
+      </span>
     </div>
   </header>
 
@@ -229,10 +268,24 @@ onUnmounted(() => {
   background: #fbbf24;
   color: #451a03;
 }
+.app-header__reloj {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  line-height: 1.2;
+}
 .app-header__hora {
   font-size: 0.75rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.9);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.app-header__fecha {
+  font-size: 0.62rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.55);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
