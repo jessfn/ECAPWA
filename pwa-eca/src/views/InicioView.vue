@@ -8,8 +8,6 @@ import { useAuthStore } from '../stores/auth'
 import { useJornadaStore } from '../stores/jornada'
 import { useConectividad } from '../services/conectividad'
 import AuthIcon from '../components/auth/AuthIcon.vue'
-import CanvasBlobs from '../components/CanvasBlobs.vue'
-import CanvasConstelacion from '../components/CanvasConstelacion.vue'
 
 const auth = useAuthStore()
 const jornada = useJornadaStore()
@@ -90,23 +88,29 @@ const accesos = [
       </p>
     </div>
 
-    <RouterLink :to="{ name: 'jornada' }" class="inicio-jornada eca-entrar" style="--eca-delay: 0.06s">
-      <CanvasBlobs class="inicio-jornada__canvas" />
-      <span class="inicio-jornada__icono" :class="{ 'inicio-jornada__icono--listo': !jornada.abierta && jornada.actual }">
-        <AuthIcon :name="jornadaTexto.icono" />
+    <RouterLink :to="{ name: 'jornada' }" class="inicio-hero inicio-hero--jornada eca-entrar" style="--eca-delay: 0.06s">
+      <span class="inicio-hero__medio-circulo inicio-hero__medio-circulo--izquierda">
+        <span class="inicio-hero__icono" :class="{ 'inicio-hero__icono--listo': !jornada.abierta && jornada.actual }">
+          <AuthIcon :name="jornadaTexto.icono" />
+        </span>
       </span>
-      <strong class="inicio-jornada__titulo">Registro de jornada laboral</strong>
-      <span class="inicio-jornada__descripcion">{{ jornadaTexto.desc }}</span>
+      <span class="inicio-hero__texto inicio-hero__texto--izquierda">
+        <strong class="inicio-hero__titulo">Registro de jornada laboral</strong>
+        <span class="inicio-hero__descripcion">{{ jornadaTexto.desc }}</span>
+      </span>
     </RouterLink>
 
-    <RouterLink :to="{ name: 'nueva-actividad' }" class="inicio-actividad eca-entrar" style="--eca-delay: 0.09s">
-      <CanvasConstelacion class="inicio-actividad__canvas" />
-      <span class="inicio-actividad__icono">
-        <AuthIcon name="plus-circle" />
+    <RouterLink :to="{ name: 'nueva-actividad' }" class="inicio-hero inicio-hero--actividad eca-entrar" style="--eca-delay: 0.09s">
+      <span class="inicio-hero__texto inicio-hero__texto--derecha">
+        <strong class="inicio-hero__titulo">Registro de actividades</strong>
+        <span class="inicio-hero__descripcion">
+          Documenta la actividad realizada: modalidad, tema y evidencia fotográfica.
+        </span>
       </span>
-      <strong class="inicio-actividad__titulo">Registro de actividades de campo</strong>
-      <span class="inicio-actividad__descripcion">
-        Documenta la actividad realizada: modalidad, tema y evidencia fotográfica.
+      <span class="inicio-hero__medio-circulo inicio-hero__medio-circulo--derecha">
+        <span class="inicio-hero__icono">
+          <AuthIcon name="plus-circle" />
+        </span>
       </span>
     </RouterLink>
 
@@ -262,130 +266,90 @@ const accesos = [
   flex-shrink: 0;
 }
 
-/* ---- Jornada: acceso grande, con canvas animado ---- */
-.inicio-jornada {
+/* ---- Héroes (Jornada / Actividad): medio círculo "pegado" al borde,
+   con el ícono dentro — sin canvas, pedido explícito. El círculo completo
+   se dibuja de tamaño fijo pero con margen negativo igual a su radio, así
+   que solo la mitad visible queda dentro de la tarjeta (overflow: hidden
+   recorta el resto); el ícono se ancla hacia el lado visible en vez de
+   centrarse en el círculo completo, para no quedar cortado a la mitad. */
+.inicio-hero {
   position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
+  gap: 1.1rem;
   width: 100%;
-  min-height: 190px;
+  min-height: 172px;
   margin-bottom: 0.9rem;
-  padding: 1.6rem 1.5rem;
+  padding: 1.5rem 1.6rem;
   border-radius: var(--eca-r-lg);
   overflow: hidden;
-  text-align: center;
   text-decoration: none;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+}
+.inicio-hero:hover {
+  transform: translateY(-3px);
+}
+.inicio-hero:active {
+  transform: scale(0.98);
+}
+.inicio-hero--jornada {
+  padding-left: 0;
   background: linear-gradient(160deg, #1d4ed8 0%, #1e3a8a 100%);
   box-shadow: 0 16px 36px rgba(29, 78, 216, 0.3);
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
 }
-.inicio-jornada:hover {
-  transform: translateY(-3px);
+.inicio-hero--jornada:hover {
   box-shadow: 0 22px 44px rgba(29, 78, 216, 0.38);
 }
-.inicio-jornada:active {
-  transform: scale(0.98);
-}
-.inicio-jornada__canvas {
-  z-index: 0;
-}
-.inicio-jornada__icono {
-  position: relative;
-  z-index: 1;
-  width: 3.25rem;
-  height: 3.25rem;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.16);
-  border: 1.5px solid rgba(255, 255, 255, 0.35);
-  color: #fff;
-  animation: inicio-jornada-pulso 2.2s ease-in-out infinite;
-}
-.inicio-jornada__icono--listo {
-  animation: none;
-  background: rgba(255, 255, 255, 0.28);
-}
-.inicio-jornada__icono svg {
-  width: 1.5rem;
-  height: 1.5rem;
-}
-@keyframes inicio-jornada-pulso {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.28);
-  }
-  50% {
-    box-shadow: 0 0 0 12px rgba(255, 255, 255, 0);
-  }
-}
-.inicio-jornada__titulo {
-  position: relative;
-  z-index: 1;
-  color: #fff;
-  font-size: 1.2rem;
-}
-.inicio-jornada__descripcion {
-  position: relative;
-  z-index: 1;
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 0.82rem;
-  line-height: 1.4;
-  max-width: 32ch;
-}
-
-/* ---- Actividad: acceso grande, con canvas de constelación ---- */
-.inicio-actividad {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  width: 100%;
-  min-height: 190px;
-  margin-bottom: 0.9rem;
-  padding: 1.6rem 1.5rem;
-  border-radius: var(--eca-r-lg);
-  overflow: hidden;
-  text-align: center;
-  text-decoration: none;
+.inicio-hero--actividad {
+  padding-right: 0;
   background: linear-gradient(160deg, #7e22ce 0%, #4c1d95 100%);
   box-shadow: 0 16px 36px rgba(126, 34, 206, 0.3);
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
 }
-.inicio-actividad:hover {
-  transform: translateY(-3px);
+.inicio-hero--actividad:hover {
   box-shadow: 0 22px 44px rgba(126, 34, 206, 0.38);
 }
-.inicio-actividad:active {
-  transform: scale(0.98);
+
+.inicio-hero__medio-circulo {
+  flex-shrink: 0;
+  width: 7.5rem;
+  height: 7.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
 }
-.inicio-actividad__canvas {
-  z-index: 0;
+.inicio-hero__medio-circulo--izquierda {
+  margin-left: -3.75rem;
+  justify-content: flex-end;
+  padding-right: 1rem;
 }
-.inicio-actividad__icono {
-  position: relative;
-  z-index: 1;
-  width: 3.25rem;
-  height: 3.25rem;
+.inicio-hero__medio-circulo--derecha {
+  margin-right: -3.75rem;
+  justify-content: flex-start;
+  padding-left: 1rem;
+}
+
+.inicio-hero__icono {
+  width: 2.75rem;
+  height: 2.75rem;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.16);
-  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.2);
   color: #fff;
-  animation: inicio-actividad-pulso 2.2s ease-in-out infinite;
+  animation: inicio-hero-pulso 2.2s ease-in-out infinite;
 }
-.inicio-actividad__icono svg {
+.inicio-hero__icono--listo {
+  animation: none;
+  background: rgba(255, 255, 255, 0.32);
+}
+.inicio-hero__icono svg {
   width: 1.5rem;
   height: 1.5rem;
 }
-@keyframes inicio-actividad-pulso {
+@keyframes inicio-hero-pulso {
   0%, 100% {
     box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.28);
   }
@@ -393,19 +357,26 @@ const accesos = [
     box-shadow: 0 0 0 12px rgba(255, 255, 255, 0);
   }
 }
-.inicio-actividad__titulo {
-  position: relative;
-  z-index: 1;
-  color: #fff;
-  font-size: 1.2rem;
+
+.inicio-hero__texto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+  flex: 1;
 }
-.inicio-actividad__descripcion {
-  position: relative;
-  z-index: 1;
+.inicio-hero__texto--derecha {
+  align-items: flex-end;
+  text-align: right;
+}
+.inicio-hero__titulo {
+  color: #fff;
+  font-size: 1.15rem;
+}
+.inicio-hero__descripcion {
   color: rgba(255, 255, 255, 0.82);
   font-size: 0.82rem;
   line-height: 1.4;
-  max-width: 32ch;
 }
 
 .inicio-accesos {
@@ -450,14 +421,27 @@ const accesos = [
 }
 
 @media (max-width: 360px) {
-  .inicio-jornada,
-  .inicio-actividad {
-    min-height: 170px;
-    padding: 1.3rem 1.1rem;
+  .inicio-hero {
+    min-height: 150px;
   }
-  .inicio-jornada__titulo,
-  .inicio-actividad__titulo {
-    font-size: 1.05rem;
+  .inicio-hero--jornada {
+    padding: 1.2rem 1.2rem 1.2rem 0;
+  }
+  .inicio-hero--actividad {
+    padding: 1.2rem 0 1.2rem 1.2rem;
+  }
+  .inicio-hero__medio-circulo {
+    width: 6rem;
+    height: 6rem;
+  }
+  .inicio-hero__medio-circulo--izquierda {
+    margin-left: -3rem;
+  }
+  .inicio-hero__medio-circulo--derecha {
+    margin-right: -3rem;
+  }
+  .inicio-hero__titulo {
+    font-size: 1.02rem;
   }
 }
 </style>
