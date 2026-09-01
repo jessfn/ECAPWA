@@ -31,31 +31,46 @@ const fechaActual = ref('')
 let intervaloReloj = null
 let intervaloResincronizar = null
 let desfaseMs = 0
+// Si nunca se logra sincronizar (sin red, o el servicio no responde), se
+// cae de vuelta al reloj del dispositivo — pero convertido de verdad al
+// huso de CDMX (no la falsa base UTC de abajo), para que al menos la
+// zona horaria salga bien aunque la hora exacta dependa del celular.
+let sincronizado = false
 
 async function sincronizarConInternet() {
   try {
-    const respuesta = await fetch('https://worldtimeapi.org/api/timezone/America/Mexico_City', {
+    // timeapi.io ya entrega los campos de la hora de pared de CDMX
+    // directamente (año/mes/día/hora/minuto/segundo), sin que este código
+    // tenga que calcular el desfase UTC de México (que además cambia con
+    // el horario de verano) — se arma una fecha "UTC falsa" con esos
+    // mismos números y se ancla contra el reloj del dispositivo una sola
+    // vez; de ahí en adelante solo se le suma el tiempo transcurrido.
+    const respuesta = await fetch('https://timeapi.io/api/Time/current/zone?timeZone=America/Mexico_City', {
       cache: 'no-store',
     })
     if (!respuesta.ok) return
-    const { unixtime } = await respuesta.json()
-    desfaseMs = unixtime * 1000 - Date.now()
+    const d = await respuesta.json()
+    const baseFalsoUtc = Date.UTC(d.year, d.month - 1, d.day, d.hour, d.minute, d.seconds)
+    desfaseMs = baseFalsoUtc - Date.now()
+    sincronizado = true
   } catch {
+    sincronizado = false
     // Sin red: se sigue mostrando la hora del dispositivo (con el huso de
     // CDMX ya aplicado), nunca se bloquea la barra por esto.
   }
 }
 
 function actualizarReloj() {
-  const ahora = new Date(Date.now() + desfaseMs)
+  const ahora = sincronizado ? new Date(Date.now() + desfaseMs) : new Date()
+  const huso = sincronizado ? 'UTC' : 'America/Mexico_City'
   horaActual.value = new Intl.DateTimeFormat('es-MX', {
-    timeZone: 'America/Mexico_City',
+    timeZone: huso,
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
   }).format(ahora)
   fechaActual.value = new Intl.DateTimeFormat('es-MX', {
-    timeZone: 'America/Mexico_City',
+    timeZone: huso,
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
