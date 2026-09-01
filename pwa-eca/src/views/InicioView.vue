@@ -107,7 +107,7 @@ const accesos = [
         </span>
       </span>
       <span class="inicio-hero__texto inicio-hero__texto--izquierda">
-        <strong class="inicio-hero__titulo">Registro de jornada laboral</strong>
+        <strong class="inicio-hero__titulo">Registro de inicio y salida</strong>
         <span class="inicio-hero__descripcion">{{ jornadaTexto.desc }}</span>
       </span>
     </RouterLink>
