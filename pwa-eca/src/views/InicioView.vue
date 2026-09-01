@@ -131,14 +131,13 @@ const accesos = [
         class="eca-card inicio-acceso eca-entrar"
         :style="{ '--eca-delay': `${0.12 + i * 0.05}s` }"
       >
-        <span class="eca-icon-badge" :class="acceso.color">
+        <span class="eca-icon-badge inicio-acceso__icono" :class="acceso.color">
           <AuthIcon :name="acceso.icono" />
         </span>
         <span class="inicio-acceso__texto">
           <strong>{{ acceso.titulo }}</strong>
           <span class="eca-ayuda">{{ acceso.ayuda }}</span>
         </span>
-        <AuthIcon name="arrow-right" class="inicio-acceso__flecha" />
       </RouterLink>
     </nav>
   </div>
@@ -406,14 +405,18 @@ const accesos = [
   line-height: 1.4;
 }
 
+/* ---- Sincronización / Historial: dos columnas, tarjetas compactas ---- */
 .inicio-accesos {
   display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
 }
 .inicio-acceso {
   display: flex;
-  align-items: center;
-  gap: 0.9rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 1rem 0.9rem;
   text-decoration: none;
   color: var(--eca-ink);
   transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s ease;
@@ -422,29 +425,33 @@ const accesos = [
   transform: translateY(-2px);
   box-shadow: 0 16px 32px rgba(2, 20, 10, 0.14), 0 4px 10px rgba(2, 20, 10, 0.08);
 }
-.inicio-acceso:hover .eca-icon-badge {
+.inicio-acceso:hover .inicio-acceso__icono {
   transform: scale(1.08) rotate(-4deg);
 }
 .inicio-acceso:active {
   transform: scale(0.98);
 }
+.inicio-acceso__icono {
+  width: 2.4rem;
+  height: 2.4rem;
+}
+.inicio-acceso__icono svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
 .inicio-acceso__texto {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.1rem;
   min-width: 0;
-  flex: 1;
+  width: 100%;
 }
-.inicio-acceso__flecha {
-  width: 16px;
-  height: 16px;
-  color: var(--eca-ink-faint);
-  flex-shrink: 0;
-  transition: transform 0.15s ease;
+.inicio-acceso__texto strong {
+  font-size: 0.85rem;
 }
-.inicio-acceso:hover .inicio-acceso__flecha {
-  transform: translateX(3px);
-  color: var(--eca-green-600);
+.inicio-acceso__texto .eca-ayuda {
+  font-size: 0.72rem;
+  line-height: 1.3;
 }
 
 @media (max-width: 360px) {
