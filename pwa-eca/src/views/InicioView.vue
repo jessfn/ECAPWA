@@ -9,6 +9,7 @@ import { useJornadaStore } from '../stores/jornada'
 import { useConectividad } from '../services/conectividad'
 import AuthIcon from '../components/auth/AuthIcon.vue'
 import CanvasBlobs from '../components/CanvasBlobs.vue'
+import CanvasConstelacion from '../components/CanvasConstelacion.vue'
 
 const auth = useAuthStore()
 const jornada = useJornadaStore()
@@ -42,13 +43,6 @@ const jornadaTexto = computed(() => {
 })
 
 const accesos = [
-  {
-    ruta: 'nueva-actividad',
-    icono: 'plus-circle',
-    color: 'eca-icon-badge--azul',
-    titulo: 'Nueva actividad',
-    ayuda: 'Registrar una actividad de campo',
-  },
   {
     ruta: 'sincronizacion',
     icono: 'sync',
@@ -103,6 +97,17 @@ const accesos = [
       </span>
       <strong class="inicio-jornada__titulo">Registro de jornada laboral</strong>
       <span class="inicio-jornada__descripcion">{{ jornadaTexto.desc }}</span>
+    </RouterLink>
+
+    <RouterLink :to="{ name: 'nueva-actividad' }" class="inicio-actividad eca-entrar" style="--eca-delay: 0.09s">
+      <CanvasConstelacion class="inicio-actividad__canvas" />
+      <span class="inicio-actividad__icono">
+        <AuthIcon name="plus-circle" />
+      </span>
+      <strong class="inicio-actividad__titulo">Registro de actividades de campo</strong>
+      <span class="inicio-actividad__descripcion">
+        Documenta la actividad realizada: modalidad, tema y evidencia fotográfica.
+      </span>
     </RouterLink>
 
     <nav class="inicio-accesos">
@@ -332,6 +337,77 @@ const accesos = [
   max-width: 32ch;
 }
 
+/* ---- Actividad: acceso grande, con canvas de constelación ---- */
+.inicio-actividad {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 190px;
+  margin-bottom: 0.9rem;
+  padding: 1.6rem 1.5rem;
+  border-radius: var(--eca-r-lg);
+  overflow: hidden;
+  text-align: center;
+  text-decoration: none;
+  background: linear-gradient(160deg, #7e22ce 0%, #4c1d95 100%);
+  box-shadow: 0 16px 36px rgba(126, 34, 206, 0.3);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+}
+.inicio-actividad:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 22px 44px rgba(126, 34, 206, 0.38);
+}
+.inicio-actividad:active {
+  transform: scale(0.98);
+}
+.inicio-actividad__canvas {
+  z-index: 0;
+}
+.inicio-actividad__icono {
+  position: relative;
+  z-index: 1;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  color: #fff;
+  animation: inicio-actividad-pulso 2.2s ease-in-out infinite;
+}
+.inicio-actividad__icono svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+@keyframes inicio-actividad-pulso {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.28);
+  }
+  50% {
+    box-shadow: 0 0 0 12px rgba(255, 255, 255, 0);
+  }
+}
+.inicio-actividad__titulo {
+  position: relative;
+  z-index: 1;
+  color: #fff;
+  font-size: 1.2rem;
+}
+.inicio-actividad__descripcion {
+  position: relative;
+  z-index: 1;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  max-width: 32ch;
+}
+
 .inicio-accesos {
   display: grid;
   gap: 0.75rem;
@@ -374,11 +450,13 @@ const accesos = [
 }
 
 @media (max-width: 360px) {
-  .inicio-jornada {
+  .inicio-jornada,
+  .inicio-actividad {
     min-height: 170px;
     padding: 1.3rem 1.1rem;
   }
-  .inicio-jornada__titulo {
+  .inicio-jornada__titulo,
+  .inicio-actividad__titulo {
     font-size: 1.05rem;
   }
 }

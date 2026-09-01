@@ -95,7 +95,7 @@ async function guardar() {
     <div class="eca-card eca-entrar" style="--eca-delay: 0.06s">
       <h1 class="eca-titulo">Nueva actividad</h1>
 
-      <p v-if="!jornada.actual || jornada.actual.estado !== 'ABIERTA'" class="eca-alerta-aviso">
+      <p v-if="!jornada.abierta" class="eca-alerta-aviso">
         Necesitas una jornada abierta para registrar una actividad.
         <RouterLink :to="{ name: 'jornada' }">Ir a Jornada</RouterLink>
       </p>
