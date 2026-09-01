@@ -201,22 +201,13 @@ const accesos = [
   font-weight: 300;
   letter-spacing: 0.04em;
 }
+/* Borde dorado estático — pedido explícito: sin animación aquí (el
+   movimiento debe verse solo en el canvas de Jornada/Actividad). */
 .inicio-saludo__avatar-anillo {
   position: absolute;
-  inset: -4px;
+  inset: -3px;
   border-radius: 50%;
-  border: 1.5px solid var(--eca-green-400);
-  animation: inicio-avatar-pulso 2.4s ease-out infinite;
-}
-@keyframes inicio-avatar-pulso {
-  0% {
-    transform: scale(0.92);
-    opacity: 0.9;
-  }
-  100% {
-    transform: scale(1.28);
-    opacity: 0;
-  }
+  border: 2px solid #d4af37;
 }
 .inicio-saludo__texto {
   min-width: 0;
@@ -241,23 +232,16 @@ const accesos = [
   text-overflow: ellipsis;
 }
 /* Nombre en degradado dorado, más oscuro/intenso que el brillo pastel del
-   logo "ECA" del header — pedido explícito: "dorado más oscuro fuerte". */
+   logo "ECA" del header. Sin animación — pedido explícito: el movimiento
+   debe verse solo en el canvas de Jornada/Actividad, no aquí. */
 .inicio-saludo__nombre {
   background: linear-gradient(100deg, #b45309 0%, #d97706 22%, #f59e0b 42%, #fbbf24 58%, #d97706 78%, #92400e 100%);
   background-size: 220% 100%;
+  background-position: 30% 50%;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   text-shadow: 0 1px 1px rgba(146, 64, 14, 0.15);
-  animation: inicio-nombre-dorado 5s ease infinite;
-}
-@keyframes inicio-nombre-dorado {
-  0%, 100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
 }
 .inicio-saludo__sub {
   margin: 0.1rem 0 0;
