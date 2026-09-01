@@ -93,12 +93,11 @@ const accesos = [
           <h1 class="inicio-saludo__titulo">
             <span class="inicio-saludo__nombre">{{ nombreCompleto }}</span>
           </h1>
-          <p class="inicio-saludo__sub">
-            <AuthIcon name="map-pin" />
-            <span>Jornada y actividades en campo</span>
-          </p>
         </div>
       </div>
+
+      <span class="inicio-saludo__linea" aria-hidden="true"></span>
+      <p class="inicio-saludo__lema">Tu app para el seguimiento de Escuelas de Campo</p>
 
       <p v-if="!enLinea && !auth.sesionServidorValida" class="inicio-saludo__alerta">
         <AuthIcon name="wifi-off" />
@@ -292,18 +291,21 @@ const accesos = [
   font-weight: 800;
   letter-spacing: 0.01em;
 }
-.inicio-saludo__sub {
-  margin: 0.1rem 0 0;
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.78rem;
-  color: var(--eca-ink-soft);
+/* Línea desvanecida de lado a lado + lema centrado — pedido explícito
+   en reemplazo del renglón "Jornada y actividades en campo". */
+.inicio-saludo__linea {
+  display: block;
+  width: 100%;
+  height: 1px;
+  margin: 0.85rem 0 0.6rem;
+  background: linear-gradient(90deg, transparent 0%, var(--eca-green-300) 50%, transparent 100%);
 }
-.inicio-saludo__sub svg {
-  width: 12px;
-  height: 12px;
-  flex-shrink: 0;
+.inicio-saludo__lema {
+  margin: 0;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--eca-green-700);
 }
 .inicio-saludo__alerta {
   margin: 0;
