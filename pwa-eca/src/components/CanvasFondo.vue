@@ -1,9 +1,16 @@
 <!-- pwa-eca — fondo animado en <canvas> para los héroes de Inicio: manchas
      suaves a la deriva (movimiento orbital lento, no rebote), muy
      desvanecidas para no competir con el texto. Se posiciona desde fuera
-     (ver InicioView.vue) para no quedar debajo del medio círculo. Se
-     redibuja con requestAnimationFrame y se limpia al desmontar; respeta
-     prefers-reduced-motion dibujando un solo cuadro estático. -->
+     (ver InicioView.vue) para no quedar debajo del medio círculo.
+
+     Bug real encontrado: con `requestAnimationFrame` la animación se
+     congelaba en cuanto la ventana/pestaña perdía el foco (aunque
+     siguiera visible) — comportamiento estándar de los navegadores para
+     ahorrar batería, pero aquí dejaba el fondo completamente estático
+     ("no se mueve nada") en cualquier caso donde la pestaña no tuviera el
+     foco activo. Se usa `setInterval` en su lugar: no depende del foco,
+     solo de que la pestaña esté visible. Respeta prefers-reduced-motion
+     dibujando un solo cuadro estático (sin arrancar el temporizador). -->
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 
@@ -15,11 +22,15 @@ const props = defineProps({
 })
 
 const lienzo = ref(null)
-let idAnimacion = null
+let idIntervalo = null
 let manchas = []
 let ancho = 0
 let alto = 0
 let t = 0
+
+// ~24 fps: de sobra para un movimiento tan lento, y más barato que 60fps
+// para algo que no necesita ser fluido cuadro a cuadro.
+const INTERVALO_MS = 42
 
 function redimensionar() {
   const el = lienzo.value
@@ -39,7 +50,7 @@ function crearManchas() {
     cx: Math.random() * ancho,
     cy: Math.random() * alto,
     orbita: (0.2 + Math.random() * 0.16) * Math.max(ancho, alto),
-    velocidad: 0.18 + i * 0.07,
+    velocidad: 0.4 + i * 0.16,
     fase: i * 2.1,
     r: (0.4 + Math.random() * 0.2) * Math.max(ancho, alto),
     color,
@@ -51,7 +62,10 @@ function dibujar() {
   if (!el) return
   const ctx = el.getContext('2d')
   ctx.clearRect(0, 0, ancho, alto)
-  t += 0.01
+  // A ~24fps (INTERVALO_MS) hace falta un paso más grande que a 60fps
+  // para que la velocidad angular real (t * velocidad) no salga más lenta
+  // solo por dibujar menos cuadros por segundo.
+  t += 0.025
 
   for (const m of manchas) {
     const angulo = m.fase + t * m.velocidad
@@ -66,23 +80,20 @@ function dibujar() {
     ctx.arc(x, y, m.r, 0, Math.PI * 2)
     ctx.fill()
   }
-  idAnimacion = requestAnimationFrame(dibujar)
 }
 
 onMounted(() => {
   redimensionar()
   crearManchas()
+  dibujar()
   const reducido = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  if (reducido) {
-    dibujar()
-    cancelAnimationFrame(idAnimacion)
-  } else {
-    dibujar()
+  if (!reducido) {
+    idIntervalo = setInterval(dibujar, INTERVALO_MS)
   }
   window.addEventListener('resize', redimensionar)
 })
 onUnmounted(() => {
-  if (idAnimacion) cancelAnimationFrame(idAnimacion)
+  if (idIntervalo) clearInterval(idIntervalo)
   window.removeEventListener('resize', redimensionar)
 })
 </script>
