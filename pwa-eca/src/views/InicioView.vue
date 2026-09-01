@@ -37,6 +37,17 @@ const nombreCompleto = computed(() => {
   return [u.nombre, u.apellido_paterno].filter(Boolean).join(' ')
 })
 
+// Etiquetas amigables para las claves de rol que manda el backend
+// (`roles: list[str]`, p. ej. ["TECNICO"] — ver `schemas/usuario.py`).
+const ETIQUETAS_ROL = {
+  ADMIN: 'Administrador',
+  TECNICO: 'Técnico de campo',
+}
+const rolEtiqueta = computed(() => {
+  const clave = auth.usuario?.roles?.[0]
+  return ETIQUETAS_ROL[clave] || 'Técnico de campo'
+})
+
 // El registro de jornada es una vez al día (se reinicia al día
 // siguiente): en cuanto queda inicio + salida, se bloquea hasta mañana.
 // Mientras esté bloqueada, "Registro de actividades" también se bloquea
@@ -93,6 +104,10 @@ const accesos = [
           <h1 class="inicio-saludo__titulo">
             <span class="inicio-saludo__nombre">{{ nombreCompleto }}</span>
           </h1>
+          <span class="inicio-saludo__rol">
+            <AuthIcon name="shield-check" />
+            <span>{{ rolEtiqueta }}</span>
+          </span>
         </div>
       </div>
 
@@ -290,6 +305,27 @@ const accesos = [
   font-family: 'Poppins', -apple-system, 'Segoe UI', sans-serif;
   font-weight: 700;
   letter-spacing: 0;
+}
+/* Etiqueta de rol bajo el nombre — pedido explícito, verde fuerte con
+   icono, para que quede claro qué tipo de cuenta es. */
+.inicio-saludo__rol {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.3rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: var(--eca-green-600);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.inicio-saludo__rol svg {
+  width: 11px;
+  height: 11px;
+  flex-shrink: 0;
 }
 /* Línea desvanecida de lado a lado + lema centrado — pedido explícito
    en reemplazo del renglón "Jornada y actividades en campo". Espaciado
