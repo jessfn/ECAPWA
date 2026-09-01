@@ -294,7 +294,7 @@ const accesos = [
   transform: scale(0.98);
 }
 .inicio-hero--jornada {
-  padding-left: 5.5rem;
+  padding-left: 6.75rem;
   background: linear-gradient(160deg, #1d4ed8 0%, #1e3a8a 100%);
   box-shadow: 0 16px 36px rgba(29, 78, 216, 0.3);
 }
@@ -302,7 +302,7 @@ const accesos = [
   box-shadow: 0 22px 44px rgba(29, 78, 216, 0.38);
 }
 .inicio-hero--actividad {
-  padding-right: 5.5rem;
+  padding-right: 6.75rem;
   background: linear-gradient(160deg, #7e22ce 0%, #4c1d95 100%);
   box-shadow: 0 16px 36px rgba(126, 34, 206, 0.3);
 }
@@ -335,18 +335,14 @@ const accesos = [
 }
 
 .inicio-hero__icono {
-  width: 2.6rem;
-  height: 2.6rem;
-  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.22);
   color: #fff;
 }
 .inicio-hero__icono svg {
-  width: 1.4rem;
-  height: 1.4rem;
+  width: 2.1rem;
+  height: 2.1rem;
 }
 
 .inicio-hero__texto {
@@ -417,10 +413,10 @@ const accesos = [
     min-height: 150px;
   }
   .inicio-hero--jornada {
-    padding: 1.2rem 1.1rem 1.2rem 4.75rem;
+    padding: 1.2rem 1.1rem 1.2rem 5.75rem;
   }
   .inicio-hero--actividad {
-    padding: 1.2rem 4.75rem 1.2rem 1.1rem;
+    padding: 1.2rem 5.75rem 1.2rem 1.1rem;
   }
   .inicio-hero__titulo {
     font-size: 1.02rem;
