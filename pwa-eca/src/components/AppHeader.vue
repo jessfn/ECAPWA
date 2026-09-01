@@ -232,15 +232,14 @@ onUnmounted(() => {
   min-width: 0;
 }
 .app-header__logo {
-  width: 2rem;
-  height: 2rem;
+  width: 2.1rem;
+  height: 2.1rem;
   flex-shrink: 0;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--eca-green-900);
-  border: 1.5px solid rgba(255, 255, 255, 0.65);
   color: var(--eca-green-200);
 }
 .app-header__logo svg {
@@ -251,7 +250,8 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
 }
 .app-header__marca-texto {
   display: flex;

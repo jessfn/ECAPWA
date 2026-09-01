@@ -676,21 +676,56 @@
 
 .au-card-mark {
   align-self: center;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.au-card-mark-circulo {
   width: 72px;
   height: 72px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at 50% 42%, rgba(250, 204, 21, 0.55) 0%, #16a34a 38%, #15803d 68%, #14532d 100%);
+  background: radial-gradient(circle at 50% 42%, rgba(202, 138, 4, 0.6) 0%, #16a34a 32%, #15803d 66%, #14532d 100%);
   box-shadow: 0 6px 18px rgba(21, 128, 61, 0.35);
+  border: 2.5px solid #a16207;
+  animation: au-card-mark-pulso 2.4s ease-in-out infinite;
 }
 .au-card-logo {
   width: 56px;
   height: 56px;
   border-radius: 50%;
   object-fit: cover;
+}
+.au-card-mark-texto {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.25;
+}
+.au-card-mark-texto b {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--au-ink, #0d2b19);
+}
+.au-card-mark-texto small {
+  font-size: 0.78rem;
+  color: var(--au-ink-soft, #4d7360);
+}
+
+@keyframes au-card-mark-pulso {
+  0%, 100% {
+    border-color: #a16207;
+    box-shadow: 0 6px 18px rgba(21, 128, 61, 0.35), 0 0 0 0 rgba(161, 98, 7, 0.45);
+  }
+  50% {
+    border-color: #ca8a04;
+    box-shadow: 0 6px 18px rgba(21, 128, 61, 0.35), 0 0 0 6px rgba(161, 98, 7, 0);
+  }
 }
 
 @media (min-width: 1000px) {
