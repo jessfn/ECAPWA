@@ -45,7 +45,7 @@
               <span class="au-card-mark-circulo">
                 <img src="/logo.png" alt="ECA" class="au-card-logo" />
               </span>
-              <span class="au-card-mark-texto">
+              <span class="au-wordmark au-card-mark-texto">
                 <b>ECA</b>
                 <small>App de seguimiento</small>
               </span>

@@ -136,7 +136,7 @@ async function enviar() {
 
       <template v-else>
         <div class="au-card-head">
-          <h1>Solicitud enviada</h1>
+          <h1>¡Solicitud enviada!</h1>
           <p>El administrador la revisará y te contactará</p>
         </div>
 

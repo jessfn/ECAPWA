@@ -51,7 +51,7 @@ async function enviar() {
   <div class="login-pantalla">
     <AuthLayout>
       <div class="au-card-head">
-        <h1>Bienvenido de vuelta</h1>
+        <h1>¡Bienvenido de vuelta!</h1>
         <p>Ingresa tus credenciales para continuar</p>
       </div>
 
