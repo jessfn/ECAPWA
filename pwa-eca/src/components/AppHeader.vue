@@ -186,6 +186,14 @@ onUnmounted(() => {
   left: 8px;
   right: 8px;
   z-index: 40;
+  /* Fila y barra de estado deben verse como una sola pieza, sin ninguna
+     costura entre ellas — a prueba de fallos: en vez de depender solo del
+     recorte de `overflow: hidden` (que en algunos navegadores móviles no
+     siempre recorta bien un `border-radius` sobre `position: fixed`), la
+     franja de estado también lleva el MISMO fondo explícito abajo, así
+     que aunque el recorte fallara no se vería ninguna línea. */
+  display: flex;
+  flex-direction: column;
   background: var(--eca-green-900);
   color: #fff;
   border-radius: 24px;
@@ -196,12 +204,17 @@ onUnmounted(() => {
 .app-header--abierto {
   border-radius: 24px 24px 0 0;
 }
+.app-header--abierto .app-header__estado {
+  border-radius: 0;
+}
 .app-header__fila {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.6rem 0.9rem;
+  margin: 0;
+  flex-shrink: 0;
 }
 .app-header__marca {
   display: flex;
@@ -262,6 +275,10 @@ onUnmounted(() => {
   justify-content: space-between;
   gap: 0.6rem;
   padding: 0.45rem 0.9rem 0.55rem;
+  margin: 0;
+  background: var(--eca-green-900);
+  border-radius: 0 0 24px 24px;
+  flex-shrink: 0;
 }
 .app-header__estado-pill {
   display: inline-flex;
