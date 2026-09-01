@@ -6,13 +6,12 @@
      pantallas no tenía ninguna forma de navegar entre sí). -->
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useConectividad } from '../services/conectividad'
 import AuthIcon from './auth/AuthIcon.vue'
 
 const route = useRoute()
-const router = useRouter()
 const auth = useAuthStore()
 const { enLinea } = useConectividad()
 
@@ -97,7 +96,17 @@ function cerrarMenu() {
 async function cerrarSesion() {
   cerrarMenu()
   await auth.logout()
-  router.push({ name: 'login' })
+  // Bug real encontrado: `router.push({ name: 'login' })` (navegación de
+  // Vue Router dentro de la SPA) se quedaba pegado en la pantalla actual
+  // — el store SÍ quedaba sin sesión (tokens y sesión local borrados),
+  // pero la vista no cambiaba y el usuario seguía viendo el contenido
+  // protegido. Confirmado que una recarga completa de la página sí
+  // redirige bien a `/login` (el guard de rutas funciona correctamente
+  // en la carga inicial). Se fuerza entonces una navegación completa del
+  // navegador en vez de depender del router de la SPA — así funciona sin
+  // importar la causa exacta de esa navegación pegada, y de paso deja el
+  // estado de la app completamente limpio para la siguiente sesión.
+  window.location.href = '/login'
 }
 
 onMounted(async () => {
