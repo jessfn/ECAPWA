@@ -8,6 +8,7 @@ import { useAuthStore } from '../stores/auth'
 import { useJornadaStore } from '../stores/jornada'
 import { useConectividad } from '../services/conectividad'
 import AuthIcon from '../components/auth/AuthIcon.vue'
+import CanvasFondo from '../components/CanvasFondo.vue'
 
 const auth = useAuthStore()
 const jornada = useJornadaStore()
@@ -89,6 +90,10 @@ const accesos = [
     </div>
 
     <RouterLink :to="{ name: 'jornada' }" class="inicio-hero inicio-hero--jornada eca-entrar" style="--eca-delay: 0.06s">
+      <CanvasFondo
+        class="inicio-hero__canvas inicio-hero__canvas--izquierda"
+        :colores="['rgba(191, 219, 254, 0.22)', 'rgba(255, 255, 255, 0.14)', 'rgba(147, 197, 253, 0.18)']"
+      />
       <span class="inicio-hero__medio-circulo inicio-hero__medio-circulo--izquierda">
         <span class="inicio-hero__icono">
           <AuthIcon name="briefcase" />
@@ -101,6 +106,10 @@ const accesos = [
     </RouterLink>
 
     <RouterLink :to="{ name: 'nueva-actividad' }" class="inicio-hero inicio-hero--actividad eca-entrar" style="--eca-delay: 0.09s">
+      <CanvasFondo
+        class="inicio-hero__canvas inicio-hero__canvas--derecha"
+        :colores="['rgba(233, 213, 255, 0.22)', 'rgba(255, 255, 255, 0.14)', 'rgba(216, 180, 254, 0.18)']"
+      />
       <span class="inicio-hero__texto inicio-hero__texto--derecha">
         <strong class="inicio-hero__titulo">Registro de actividades</strong>
         <span class="inicio-hero__descripcion">
@@ -310,6 +319,25 @@ const accesos = [
   box-shadow: 0 22px 44px rgba(126, 34, 206, 0.38);
 }
 
+/* Canvas de fondo: solo cubre la zona del texto (desde donde empieza el
+   padding, que es justo donde termina la mitad visible del círculo) —
+   pedido explícito: "que no quede abajo de los medios círculos". */
+.inicio-hero__canvas {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.inicio-hero__canvas--izquierda {
+  left: 6.75rem;
+  right: 0;
+}
+.inicio-hero__canvas--derecha {
+  left: 0;
+  right: 6.75rem;
+}
+
 .inicio-hero__medio-circulo {
   position: absolute;
   top: 0;
@@ -320,6 +348,7 @@ const accesos = [
   align-items: center;
   background: rgba(255, 255, 255, 0.12);
   border: 1.5px solid rgba(255, 255, 255, 0.28);
+  z-index: 2;
 }
 .inicio-hero__medio-circulo--izquierda {
   left: 0;
@@ -350,6 +379,7 @@ const accesos = [
 
 .inicio-hero__texto {
   position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
@@ -420,6 +450,12 @@ const accesos = [
   }
   .inicio-hero--actividad {
     padding: 1.2rem 5.75rem 1.2rem 1.1rem;
+  }
+  .inicio-hero__canvas--izquierda {
+    left: 5.75rem;
+  }
+  .inicio-hero__canvas--derecha {
+    right: 5.75rem;
   }
   .inicio-hero__titulo {
     font-size: 1.02rem;
