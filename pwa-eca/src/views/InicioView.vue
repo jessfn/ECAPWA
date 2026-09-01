@@ -37,6 +37,13 @@ const nombreCompleto = computed(() => {
   return [u.nombre, u.apellido_paterno].filter(Boolean).join(' ')
 })
 
+// El registro de jornada es una vez al día (se reinicia al día
+// siguiente): en cuanto queda inicio + salida, se bloquea hasta mañana.
+// Mientras esté bloqueada, "Registro de actividades" también se bloquea
+// — solo se puede registrar actividad con la jornada abierta (entre que
+// se marca el inicio y se marca la salida del mismo día).
+const jornadaCompletada = computed(() => Boolean(jornada.actual) && !jornada.abierta)
+
 const jornadaTexto = computed(() => {
   if (!jornada.actual) {
     return { desc: 'Registra la hora y el lugar en que inicia tu jornada laboral.' }
@@ -45,6 +52,13 @@ const jornadaTexto = computed(() => {
     return { desc: 'Tu jornada está activa. Registra la hora y el lugar de tu salida al finalizar.' }
   }
   return { desc: 'Jornada laboral registrada correctamente para hoy.' }
+})
+
+const actividadTexto = computed(() => {
+  if (jornadaCompletada.value) {
+    return 'Ya completaste tu jornada de hoy. Vuelve mañana para registrar actividades.'
+  }
+  return 'Inicia tu jornada para poder registrar actividades.'
 })
 
 const accesos = [
@@ -96,7 +110,25 @@ const accesos = [
       </p>
     </div>
 
-    <RouterLink :to="{ name: 'jornada' }" class="inicio-hero inicio-hero--jornada eca-entrar" style="--eca-delay: 0.06s">
+    <!-- Jornada: bloqueada (gris, candado, etiqueta "Completado") en
+         cuanto ya se registró inicio + salida de hoy; se reinicia mañana. -->
+    <div
+      v-if="jornadaCompletada"
+      class="inicio-hero inicio-hero--jornada inicio-hero--bloqueado eca-entrar"
+      style="--eca-delay: 0.06s"
+    >
+      <span class="inicio-hero__medio-circulo inicio-hero__medio-circulo--izquierda">
+        <span class="inicio-hero__icono">
+          <AuthIcon name="lock" />
+        </span>
+      </span>
+      <span class="inicio-hero__texto inicio-hero__texto--izquierda">
+        <span class="inicio-hero__etiqueta">Completado</span>
+        <strong class="inicio-hero__titulo">Registro de inicio y salida</strong>
+        <span class="inicio-hero__descripcion">{{ jornadaTexto.desc }}</span>
+      </span>
+    </div>
+    <RouterLink v-else :to="{ name: 'jornada' }" class="inicio-hero inicio-hero--jornada eca-entrar" style="--eca-delay: 0.06s">
       <CanvasFondo
         class="inicio-hero__canvas inicio-hero__canvas--izquierda"
         :colores="['rgba(191, 219, 254, 0.4)', 'rgba(255, 255, 255, 0.26)', 'rgba(147, 197, 253, 0.32)']"
@@ -112,7 +144,25 @@ const accesos = [
       </span>
     </RouterLink>
 
-    <RouterLink :to="{ name: 'nueva-actividad' }" class="inicio-hero inicio-hero--actividad eca-entrar" style="--eca-delay: 0.09s">
+    <!-- Actividades: solo se puede acceder con la jornada abierta (ya se
+         marcó el inicio, todavía no la salida). Antes de iniciar y
+         después de marcar salida queda bloqueada. -->
+    <div
+      v-if="!jornada.abierta"
+      class="inicio-hero inicio-hero--actividad inicio-hero--bloqueado eca-entrar"
+      style="--eca-delay: 0.09s"
+    >
+      <span class="inicio-hero__texto inicio-hero__texto--derecha">
+        <strong class="inicio-hero__titulo">Registro de actividades</strong>
+        <span class="inicio-hero__descripcion">{{ actividadTexto }}</span>
+      </span>
+      <span class="inicio-hero__medio-circulo inicio-hero__medio-circulo--derecha">
+        <span class="inicio-hero__icono">
+          <AuthIcon name="lock" />
+        </span>
+      </span>
+    </div>
+    <RouterLink v-else :to="{ name: 'nueva-actividad' }" class="inicio-hero inicio-hero--actividad eca-entrar" style="--eca-delay: 0.09s">
       <CanvasFondo
         class="inicio-hero__canvas inicio-hero__canvas--derecha"
         :colores="['rgba(233, 213, 255, 0.4)', 'rgba(255, 255, 255, 0.26)', 'rgba(216, 180, 254, 0.32)']"
@@ -317,6 +367,38 @@ const accesos = [
 }
 .inicio-hero--actividad:hover {
   box-shadow: 0 22px 44px rgba(126, 34, 206, 0.38);
+}
+/* Bloqueado: gris, sin animación al pasar el mouse (ya no es un enlace) */
+.inicio-hero--bloqueado {
+  background: linear-gradient(160deg, #9ca3af 0%, #6b7280 100%);
+  box-shadow: 0 10px 24px rgba(75, 85, 99, 0.22);
+  cursor: default;
+}
+.inicio-hero--bloqueado:hover {
+  transform: none;
+  box-shadow: 0 10px 24px rgba(75, 85, 99, 0.22);
+}
+.inicio-hero--bloqueado .inicio-hero__medio-circulo {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+/* Etiqueta dorada "Completado" — pedido explícito */
+.inicio-hero__etiqueta {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  padding: 0.18rem 0.6rem;
+  margin-bottom: 0.1rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: linear-gradient(100deg, #92400e 0%, #f59e0b 50%, #b45309 100%);
+  color: #1a1200;
+}
+.inicio-hero__texto--derecha .inicio-hero__etiqueta {
+  align-self: flex-end;
 }
 
 /* Canvas de fondo: solo cubre la zona del texto (desde donde empieza el
