@@ -31,6 +31,12 @@ const iniciales = computed(() => {
   return (n + a).toUpperCase() || 'TE'
 })
 
+const nombreCompleto = computed(() => {
+  const u = auth.usuario
+  if (!u) return 'Técnico'
+  return [u.nombre, u.apellido_paterno].filter(Boolean).join(' ')
+})
+
 const jornadaTexto = computed(() => {
   if (!jornada.actual) {
     return { desc: 'Registra la hora y el lugar en que inicia tu jornada laboral.' }
@@ -69,8 +75,9 @@ const accesos = [
           <span class="inicio-saludo__avatar-anillo"></span>
         </span>
         <div class="inicio-saludo__texto">
+          <span class="inicio-saludo__saludo">¡{{ saludo }}!</span>
           <h1 class="inicio-saludo__titulo">
-            {{ saludo }}, <span class="inicio-saludo__nombre">{{ auth.usuario?.nombre || 'técnico' }}</span>
+            <span class="inicio-saludo__nombre">{{ nombreCompleto }}</span>
           </h1>
           <p class="inicio-saludo__sub">
             <AuthIcon name="map-pin" />
@@ -213,6 +220,16 @@ const accesos = [
 }
 .inicio-saludo__texto {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* "¡Buenas tardes!" arriba, en verde — pedido explícito, con signos de
+   exclamación (arriba y abajo, como corresponde en español). */
+.inicio-saludo__saludo {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--eca-green-600);
+  letter-spacing: 0.02em;
 }
 .inicio-saludo__titulo {
   margin: 0;

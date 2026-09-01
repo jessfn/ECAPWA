@@ -56,11 +56,6 @@ async function cerrarSesion() {
       </div>
 
       <div class="app-header__acciones">
-        <span class="app-header__conexion" :class="{ 'app-header__conexion--offline': !enLinea }" role="status">
-          <AuthIcon :name="enLinea ? 'wifi' : 'wifi-off'" />
-          <span class="app-header__conexion-texto">{{ enLinea ? 'En línea' : 'Sin conexión' }}</span>
-        </span>
-
         <button
           type="button"
           class="app-header__hamburguesa"
@@ -71,6 +66,11 @@ async function cerrarSesion() {
           <AuthIcon :name="menuAbierto ? 'close' : 'menu'" />
         </button>
       </div>
+    </div>
+
+    <div class="app-header__estado" :class="{ 'app-header__estado--offline': !enLinea }" role="status">
+      <AuthIcon :name="enLinea ? 'wifi' : 'wifi-off'" />
+      <span>{{ enLinea ? 'En línea' : 'Sin conexión' }}</span>
     </div>
   </header>
 
@@ -110,6 +110,7 @@ async function cerrarSesion() {
   background: var(--eca-green-900);
   color: #fff;
   border-radius: 24px;
+  overflow: hidden;
   box-shadow: var(--eca-shadow-card);
   transition: border-radius 0.2s ease;
 }
@@ -171,30 +172,26 @@ async function cerrarSesion() {
   gap: 0.5rem;
   flex-shrink: 0;
 }
-.app-header__conexion {
-  display: inline-flex;
+/* Barra de estado de conexión: pegada justo debajo de la barra superior
+   (mismo contenedor, `overflow: hidden` del padre le da las esquinas
+   redondeadas solo abajo), en verde claro — pedido explícito. */
+.app-header__estado {
+  display: flex;
   align-items: center;
-  gap: 0.3rem;
-  font-size: 0.7rem;
-  padding: 0.25rem 0.55rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
+  gap: 0.35rem;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: var(--eca-green-100);
+  color: var(--eca-green-800);
 }
-.app-header__conexion svg {
+.app-header__estado svg {
   width: 13px;
   height: 13px;
 }
-.app-header__conexion--offline {
-  background: rgba(245, 196, 81, 0.25);
-  color: var(--eca-gold);
-}
-.app-header__conexion-texto {
-  display: none;
-}
-@media (min-width: 400px) {
-  .app-header__conexion-texto {
-    display: inline;
-  }
+.app-header__estado--offline {
+  background: #fef3c7;
+  color: #92400e;
 }
 .app-header__hamburguesa {
   width: 34px;
@@ -219,7 +216,7 @@ async function cerrarSesion() {
 
 .app-menu {
   position: fixed;
-  top: calc(56px + env(safe-area-inset-top, 0px));
+  top: calc(90px + env(safe-area-inset-top, 0px));
   left: 8px;
   right: 8px;
   z-index: 30;

@@ -37,7 +37,9 @@ const mostrarHeader = computed(() => !esRutaAuth.value && auth.estaAutenticado)
 
 <style>
 .app-main--con-header {
-  padding-top: calc(64px + env(safe-area-inset-top, 0px));
+  /* El header creció con la barra de "En línea"/"Sin conexión" pegada
+     debajo; se suma el alto aproximado de esa barra (~34px). */
+  padding-top: calc(98px + env(safe-area-inset-top, 0px));
   position: relative;
   z-index: 1;
 }
