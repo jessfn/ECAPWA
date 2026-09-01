@@ -279,12 +279,14 @@ const accesos = [
   min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 0.1rem;
 }
 /* "¡Buenas tardes!" arriba, en verde — pedido explícito, con signos de
    exclamación (arriba y abajo, como corresponde en español). */
 .inicio-saludo__saludo {
   font-size: 0.78rem;
   font-weight: 700;
+  line-height: 1.1;
   color: var(--eca-green-600);
   letter-spacing: 0.02em;
 }
@@ -292,6 +294,7 @@ const accesos = [
   margin: 0;
   font-size: 1.1rem;
   font-weight: 700;
+  line-height: 1.15;
   color: var(--eca-green-900);
   white-space: nowrap;
   overflow: hidden;
@@ -313,8 +316,8 @@ const accesos = [
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  margin-top: 0.3rem;
-  padding: 0.2rem 0.55rem;
+  margin-top: 0.05rem;
+  padding: 0.15rem 0.55rem;
   border-radius: 999px;
   background: var(--eca-green-600);
   color: #fff;
