@@ -5,7 +5,7 @@
      (antes solo `InicioView` tenía un header improvisado; el resto de
      pantallas no tenía ninguna forma de navegar entre sí). -->
 <script setup>
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useConectividad } from '../services/conectividad'
@@ -26,12 +26,6 @@ const enlaces = [
   { nombre: 'historial', etiqueta: 'Historial', icono: 'clock' },
   { nombre: 'perfil', etiqueta: 'Mi perfil', icono: 'user' },
 ]
-
-const nombreCompleto = computed(() => {
-  const u = auth.usuario
-  if (!u) return 'Técnico'
-  return [u.nombre, u.apellido_paterno].filter(Boolean).join(' ')
-})
 
 function alternarMenu() {
   menuAbierto.value = !menuAbierto.value
@@ -57,7 +51,7 @@ async function cerrarSesion() {
         </span>
         <span class="app-header__marca-texto">
           <span class="app-header__nombre">ECA</span>
-          <span class="app-header__usuario">{{ nombreCompleto }}</span>
+          <span class="app-header__usuario">Aplicación de seguimiento</span>
         </span>
       </div>
 

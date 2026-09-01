@@ -117,7 +117,10 @@ a {
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
-  padding: 1.5rem 1.25rem 3rem;
+  /* El espacio entre el header y la primera tarjeta debe verse igual que
+     el espacio entre tarjetas (0.9rem, `margin-bottom` de `.inicio-saludo`
+     en InicioView.vue) — pedido explícito. */
+  padding: 0.9rem 1.25rem 3rem;
 }
 @media (max-width: 360px) {
   .eca-contenido {
@@ -127,7 +130,7 @@ a {
 @media (min-width: 700px) {
   .eca-contenido {
     max-width: 560px;
-    padding-top: 2rem;
+    padding-top: 0.9rem;
   }
 }
 
