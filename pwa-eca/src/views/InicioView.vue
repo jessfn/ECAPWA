@@ -162,7 +162,7 @@ const accesos = [
           <AuthIcon name="lock" />
         </span>
       </span>
-      <span class="inicio-hero__etiqueta-bloqueado">Bloqueado</span>
+      <span class="inicio-hero__etiqueta-bloqueado inicio-hero__etiqueta-bloqueado--izquierda">Bloqueado</span>
     </div>
     <RouterLink v-else :to="{ name: 'nueva-actividad' }" class="inicio-hero inicio-hero--actividad eca-entrar" style="--eca-delay: 0.09s">
       <CanvasFondo
@@ -416,6 +416,12 @@ const accesos = [
   background: rgba(31, 41, 55, 0.35);
   color: #f3f4f6;
   z-index: 1;
+}
+/* Actividades: el candado va del lado derecho, así que la etiqueta se
+   coloca del lado izquierdo — pedido explícito. */
+.inicio-hero__etiqueta-bloqueado--izquierda {
+  right: auto;
+  left: 0.9rem;
 }
 
 /* Canvas de fondo: solo cubre la zona del texto (desde donde empieza el
