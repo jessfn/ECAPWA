@@ -1,0 +1,19 @@
+# backend-eca — entorno de desarrollo local (ECA-002).
+#
+# Uso: docker compose up -d
+# Levanta solo PostgreSQL; el backend se corre localmente con `uvicorn` para
+# facilitar recarga en caliente durante el desarrollo.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: eca_db
+      POSTGRES_USER: eca
+      POSTGRES_PASSWORD: eca_dev_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - eca_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  eca_postgres_data:

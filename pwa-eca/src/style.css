@@ -1,0 +1,351 @@
+/* pwa-eca — sistema de diseño (alineado a la identidad verde de
+   `pwasuper`/SeguimientoSADER: misma escala de verdes y forma orgánica,
+   sin importar su código — ECA es un proyecto independiente). */
+
+:root {
+  --eca-green-950: #041c0e;
+  --eca-green-900: #052e18;
+  --eca-green-800: #0b3d22;
+  --eca-green-700: #0f4c26;
+  --eca-green-600: #15803d;
+  --eca-green-500: #16a34a;
+  --eca-green-400: #22c55e;
+  --eca-green-300: #4ade80;
+  --eca-green-200: #86efac;
+  --eca-green-100: #bbf7d0;
+  --eca-gold: #f5c451;
+
+  --eca-card: rgba(255, 255, 255, 0.96);
+  --eca-surface: #f6faf7;
+  --eca-surface-border: #e2ece6;
+
+  --eca-ink: #0d2b19;
+  --eca-ink-soft: #4d7360;
+  --eca-ink-faint: #7d9c8b;
+
+  --eca-danger: #dc2626;
+  --eca-danger-bg: #fff0f1;
+  --eca-danger-border: #fca5a5;
+  --eca-warn: #92400e;
+  --eca-warn-bg: #fef3c7;
+
+  --eca-r-lg: 28px;
+  --eca-r-md: 16px;
+  --eca-r-sm: 10px;
+
+  --eca-shadow-card: 0 12px 28px rgba(2, 20, 10, 0.12), 0 2px 8px rgba(2, 20, 10, 0.08);
+
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: var(--eca-ink);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  /* Verde manzana suave con blanco (pedido explícito). El degradado real
+     con las manchas animadas vive en `App.vue` (`.app-liquid-bg`); esto es
+     solo el respaldo estático para el primer pintado antes de que Vue
+     monte, y para cualquier pantalla fuera de ese layer. */
+  background: linear-gradient(160deg, #ffffff 0%, #eafaf1 45%, #d3f3e0 100%);
+  color: var(--eca-ink);
+}
+
+#app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+a {
+  color: var(--eca-green-700);
+}
+
+/* ---- Componentes compartidos ---- */
+
+.eca-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.eca-header {
+  background: var(--eca-green-900);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1.25rem;
+  border-radius: 0 0 var(--eca-r-md) var(--eca-r-md);
+  box-shadow: var(--eca-shadow-card);
+}
+
+.eca-header__marca {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  flex: 1;
+  color: var(--eca-green-200);
+}
+
+.eca-header a,
+.eca-header .eca-link-boton {
+  color: #fff;
+  text-decoration: none;
+  font-size: 0.9rem;
+  opacity: 0.92;
+  border-radius: 999px;
+  padding: 0.3rem 0.6rem;
+  transition: background 0.15s ease;
+}
+
+.eca-header a:hover,
+.eca-header .eca-link-boton:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.eca-contenido {
+  flex: 1;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 3rem;
+}
+@media (max-width: 360px) {
+  .eca-contenido {
+    padding: 1.1rem 0.85rem 2.5rem;
+  }
+}
+@media (min-width: 700px) {
+  .eca-contenido {
+    max-width: 560px;
+    padding-top: 2rem;
+  }
+}
+
+.eca-card {
+  background: var(--eca-card);
+  border-radius: var(--eca-r-lg);
+  box-shadow: var(--eca-shadow-card);
+  padding: 1.25rem 1.5rem;
+  border: 1px solid rgba(21, 128, 61, 0.06);
+}
+
+/* ---- Insignia de ícono a color (acciones, cabeceras de tarjeta) ---- */
+.eca-icon-badge {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--eca-green-100);
+  color: var(--eca-green-700);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.eca-icon-badge svg {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+.eca-icon-badge--ambar {
+  background: #fef3c7;
+  color: #b45309;
+}
+.eca-icon-badge--azul {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+.eca-icon-badge--morado {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+/* ---- Entrada suave, escalonada por índice (--eca-delay) ---- */
+@keyframes eca-entrar {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.eca-entrar {
+  animation: eca-entrar 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--eca-delay, 0s);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eca-entrar {
+    animation: none;
+  }
+}
+
+.eca-titulo {
+  color: var(--eca-green-900);
+  margin: 0 0 0.5rem;
+}
+
+.eca-ayuda {
+  color: var(--eca-ink-soft);
+  font-size: 0.9rem;
+}
+
+.eca-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.eca-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  color: var(--eca-ink-soft);
+  font-weight: 600;
+}
+
+.eca-input,
+.eca-form input[type='text'],
+.eca-form input[type='email'],
+.eca-form input[type='password'],
+.eca-form input[type='number'],
+.eca-form input[type='date'],
+.eca-form select,
+.eca-form textarea {
+  width: 100%;
+  padding: 0.75rem 0.9rem;
+  border-radius: var(--eca-r-sm);
+  border: 1px solid var(--eca-surface-border);
+  background: #fff;
+  font-size: 16px;
+  color: var(--eca-ink);
+  font-family: inherit;
+}
+
+.eca-form input:focus,
+.eca-form select:focus,
+.eca-form textarea:focus {
+  outline: none;
+  border-color: var(--eca-green-500);
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18);
+}
+
+.eca-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.8rem 1.25rem;
+  border-radius: var(--eca-r-sm);
+  border: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.15s ease;
+  min-height: 44px;
+}
+
+.eca-btn:active {
+  transform: scale(0.97);
+}
+
+.eca-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.eca-btn-primary {
+  background: linear-gradient(135deg, var(--eca-green-500) 0%, var(--eca-green-600) 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(21, 128, 61, 0.28);
+}
+
+.eca-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--eca-green-600) 0%, var(--eca-green-700) 100%);
+  box-shadow: 0 6px 18px rgba(21, 128, 61, 0.34);
+  transform: translateY(-1px);
+}
+
+.eca-btn-secundario {
+  background: #fff;
+  color: var(--eca-green-800);
+  border: 1px solid var(--eca-surface-border);
+}
+
+.eca-btn-secundario:hover:not(:disabled) {
+  background: var(--eca-surface);
+}
+
+.eca-btn-peligro {
+  background: #fff;
+  color: var(--eca-danger);
+  border: 1px solid var(--eca-danger-border);
+}
+
+.eca-alerta-error {
+  background: var(--eca-danger-bg);
+  color: var(--eca-danger);
+  border: 1px solid var(--eca-danger-border);
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--eca-r-sm);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.eca-alerta-aviso {
+  background: var(--eca-warn-bg);
+  color: var(--eca-warn);
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--eca-r-sm);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.eca-alerta-ok {
+  background: var(--eca-green-100);
+  color: var(--eca-green-800);
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--eca-r-sm);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.eca-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.eca-badge__punto {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.eca-lista-limpia {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}

@@ -1,0 +1,212 @@
+/* admin-eca — sistema de diseño (alineado a la identidad de
+   `admin-pwa`/SeguimientoSADER: fondo morado degradado + acentos verdes,
+   sidebar oscuro — sin importar su código, ECA es independiente). */
+
+:root {
+  --eca-purple-700: #5b3a99;
+  --eca-purple-600: #667eea;
+  --eca-purple-500: #764ba2;
+  --eca-green-900: #052e18;
+  --eca-green-700: #0f4c26;
+  --eca-green-600: #15803d;
+  --eca-green-500: #16a34a;
+  --eca-green-100: #bbf7d0;
+  --eca-gold: #f5c451;
+
+  --eca-ink: #1f2430;
+  --eca-ink-soft: #5b6472;
+  --eca-surface: #f5f6fb;
+  --eca-surface-border: #e3e6f0;
+
+  --eca-danger: #dc2626;
+  --eca-danger-bg: #fff0f1;
+  --eca-danger-border: #fca5a5;
+  --eca-ok: #166534;
+  --eca-ok-bg: #dcfce7;
+
+  --eca-r-lg: 20px;
+  --eca-r-md: 12px;
+  --eca-r-sm: 8px;
+
+  --eca-shadow-card: 0 10px 24px rgba(30, 20, 60, 0.1), 0 2px 6px rgba(30, 20, 60, 0.06);
+
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: var(--eca-ink);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  /* El panel autenticado usa el mismo fondo plano que admin-pwa (#f5f5f5);
+     el degradado morado solo se ve en el login, puesto por `.auth-route`
+     (`styles/auth.css`), que cubre toda la pantalla mientras esa ruta está
+     activa. */
+  background: #f5f5f5;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+a {
+  color: var(--eca-green-700);
+}
+
+/* ---- Componentes compartidos ---- */
+
+.eca-card {
+  background: #fff;
+  border-radius: var(--eca-r-lg);
+  box-shadow: var(--eca-shadow-card);
+  padding: 1.25rem 1.5rem;
+}
+
+.eca-titulo {
+  color: var(--eca-purple-700);
+  margin: 0 0 0.5rem;
+}
+
+.eca-ayuda {
+  color: var(--eca-ink-soft);
+  font-size: 0.9rem;
+}
+
+.eca-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.eca-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  color: var(--eca-ink-soft);
+  font-weight: 600;
+}
+
+.eca-input,
+.eca-form input[type='text'],
+.eca-form input[type='email'],
+.eca-form input[type='password'],
+.eca-form input[type='number'],
+.eca-form select,
+.eca-form textarea {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--eca-r-sm);
+  border: 1px solid var(--eca-surface-border);
+  background: #fff;
+  font-size: 0.95rem;
+  color: var(--eca-ink);
+  font-family: inherit;
+}
+
+.eca-form input:focus,
+.eca-form select:focus,
+.eca-form textarea:focus {
+  outline: none;
+  border-color: var(--eca-purple-600);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+}
+
+.eca-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.1rem;
+  border-radius: var(--eca-r-sm);
+  border: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.eca-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.eca-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.eca-btn-primary {
+  background: var(--eca-green-600);
+  color: #fff;
+}
+
+.eca-btn-primary:hover:not(:disabled) {
+  background: var(--eca-green-700);
+  box-shadow: 0 4px 12px rgba(21, 128, 61, 0.3);
+}
+
+.eca-btn-secundario {
+  background: #fff;
+  color: var(--eca-purple-700);
+  border: 1px solid var(--eca-surface-border);
+}
+
+.eca-btn-peligro {
+  background: #fff;
+  color: var(--eca-danger);
+  border: 1px solid var(--eca-danger-border);
+}
+
+.eca-alerta-error {
+  background: var(--eca-danger-bg);
+  color: var(--eca-danger);
+  border: 1px solid var(--eca-danger-border);
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--eca-r-sm);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.eca-alerta-ok {
+  background: var(--eca-ok-bg);
+  color: var(--eca-ok);
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--eca-r-sm);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.eca-alerta-aviso {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--eca-r-sm);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.eca-tabla {
+  width: 100%;
+  border-collapse: collapse;
+}
+.eca-tabla th,
+.eca-tabla td {
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid var(--eca-surface-border);
+}
+.eca-tabla th {
+  color: var(--eca-ink-soft);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}

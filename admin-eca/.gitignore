@@ -1,0 +1,36 @@
+# Dependencias
+node_modules/
+.npm/
+
+# Build
+dist/
+dist-ssr/
+*.local
+
+# Entorno / secretos
+.env
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Caché de herramientas
+.vite/
+.eslintcache
+
+# IDE / editores
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# SO
+.DS_Store
+Thumbs.db

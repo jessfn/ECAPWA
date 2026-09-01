@@ -1,0 +1,30 @@
+{
+  "name": "pwa-eca",
+  "private": true,
+  "version": "0.0.1",
+  "description": "PWA de técnicos del sistema ECA (Escuelas de Campo). ECA-011: estructura, autenticación y sesión local offline.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "idb": "^8.0.3",
+    "pinia": "^2.2.4",
+    "vue": "^3.4.38",
+    "vue-router": "^4.4.5"
+  },
+  "devDependencies": {
+    "@pinia/testing": "^0.1.7",
+    "@vitejs/plugin-vue": "^5.1.4",
+    "@vue/test-utils": "^2.4.6",
+    "fake-indexeddb": "^6.2.5",
+    "jsdom": "^25.0.1",
+    "vite": "^5.4.10",
+    "vite-plugin-pwa": "^0.20.5",
+    "vitest": "^2.1.4"
+  }
+}

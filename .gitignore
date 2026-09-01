@@ -1,0 +1,54 @@
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+.eslintcache
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.venv/
+venv/
+ENV/
+env/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+
+# Entorno / secretos
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Almacenamiento local (backend-eca)
+backend-eca/storage/
+backend-eca/evidencias/
+
+# IDE / editores
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+*.swo
+*~
+
+# SO
+.DS_Store
+Thumbs.db
