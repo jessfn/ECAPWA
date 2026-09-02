@@ -247,7 +247,14 @@ onUnmounted(() => {
   z-index: 40;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  /* Header y menú deben verse como una sola pieza continua cuando el
+     menú está abierto (pedido explícito: "que no quede esa línea entre
+     el menú y la barra") — el `gap` anterior dejaba ver el fondo claro
+     de la página entre ambos. Sin gap: el propio `border-radius` de
+     cada uno (header con esquinas de abajo cuadradas cuando está
+     abierto, menú con esquinas de arriba cuadradas siempre) hace que
+     encajen exactos, sin costura. */
+  gap: 0;
 }
 .app-header {
   /* Fila y barra de estado deben verse como una sola pieza, sin ninguna
