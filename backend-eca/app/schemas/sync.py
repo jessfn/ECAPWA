@@ -28,8 +28,16 @@ class JornadaSyncItem(BaseModel):
     uuid: uuid_lib.UUID
     inicio_en: datetime
     gps_inicio: GpsPeticion | None = None
+    # Detalle obligatorio de inicio — validado de nuevo en
+    # `sync_service._procesar_jornada` (aquí solo se exige no-vacío en
+    # cuanto al *formato*; la regla de negocio vive en el servicio, igual
+    # que el resto de reglas de jornadas/actividades).
+    nota: str = Field(min_length=1)
     fin_en: datetime | None = None
     gps_fin: GpsPeticion | None = None
+    # Solo obligatorio cuando `fin_en` viene en el mismo item (un push de
+    # solo-inicio no cierra nada, así que no tiene nota de cierre todavía).
+    nota_fin: str | None = None
 
 
 class ActividadSyncItem(BaseModel):

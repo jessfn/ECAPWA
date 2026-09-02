@@ -90,7 +90,7 @@ INICIO = datetime(2026, 3, 5, 8, 0, tzinfo=timezone.utc)
 
 
 def test_iniciar_jornada_crea_una_nueva(repo, actor: Usuario) -> None:
-    jornada = jornadas_service.iniciar(DB, uuid=uuid_lib.uuid4(), inicio_en=INICIO, gps=None, actor=actor)
+    jornada = jornadas_service.iniciar(DB, uuid=uuid_lib.uuid4(), inicio_en=INICIO, gps=None, nota="Detalle de prueba.", actor=actor)
 
     assert jornada.estado == "ABIERTA"
     assert jornada.usuario_id == actor.id
@@ -99,16 +99,16 @@ def test_iniciar_jornada_crea_una_nueva(repo, actor: Usuario) -> None:
 
 def test_iniciar_jornada_mismo_uuid_es_idempotente(repo, actor: Usuario) -> None:
     identificador = uuid_lib.uuid4()
-    primera = jornadas_service.iniciar(DB, uuid=identificador, inicio_en=INICIO, gps=None, actor=actor)
-    segunda = jornadas_service.iniciar(DB, uuid=identificador, inicio_en=INICIO, gps=None, actor=actor)
+    primera = jornadas_service.iniciar(DB, uuid=identificador, inicio_en=INICIO, gps=None, nota="Detalle de prueba.", actor=actor)
+    segunda = jornadas_service.iniciar(DB, uuid=identificador, inicio_en=INICIO, gps=None, nota="Detalle de prueba.", actor=actor)
 
     assert primera.id == segunda.id
     assert len(repo.filas) == 1
 
 
 def test_iniciar_jornada_mismo_dia_distinto_uuid_devuelve_la_existente(repo, actor: Usuario) -> None:
-    primera = jornadas_service.iniciar(DB, uuid=uuid_lib.uuid4(), inicio_en=INICIO, gps=None, actor=actor)
-    segunda = jornadas_service.iniciar(DB, uuid=uuid_lib.uuid4(), inicio_en=INICIO, gps=None, actor=actor)
+    primera = jornadas_service.iniciar(DB, uuid=uuid_lib.uuid4(), inicio_en=INICIO, gps=None, nota="Detalle de prueba.", actor=actor)
+    segunda = jornadas_service.iniciar(DB, uuid=uuid_lib.uuid4(), inicio_en=INICIO, gps=None, nota="Detalle de prueba.", actor=actor)
 
     assert primera.id == segunda.id
     assert len(repo.filas) == 1  # no se duplicó
@@ -117,7 +117,7 @@ def test_iniciar_jornada_mismo_dia_distinto_uuid_devuelve_la_existente(repo, act
 def test_iniciar_jornada_con_gps(repo, actor: Usuario) -> None:
     gps = GpsPeticion(latitud=19.4, longitud=-99.1, precision_gps_m=8.5, estado_gps="CON_GPS")
 
-    jornada = jornadas_service.iniciar(DB, uuid=uuid_lib.uuid4(), inicio_en=INICIO, gps=gps, actor=actor)
+    jornada = jornadas_service.iniciar(DB, uuid=uuid_lib.uuid4(), inicio_en=INICIO, gps=gps, nota="Detalle de prueba.", actor=actor)
 
     assert jornada.latitud_inicio == 19.4
     assert jornada.estado_gps_inicio == "CON_GPS"
@@ -125,10 +125,10 @@ def test_iniciar_jornada_con_gps(repo, actor: Usuario) -> None:
 
 def test_cerrar_jornada(repo, actor: Usuario) -> None:
     identificador = uuid_lib.uuid4()
-    jornadas_service.iniciar(DB, uuid=identificador, inicio_en=INICIO, gps=None, actor=actor)
+    jornadas_service.iniciar(DB, uuid=identificador, inicio_en=INICIO, gps=None, nota="Detalle de prueba.", actor=actor)
     fin = datetime(2026, 3, 5, 17, 0, tzinfo=timezone.utc)
 
-    jornada = jornadas_service.cerrar(DB, uuid=identificador, fin_en=fin, gps=None, actor=actor)
+    jornada = jornadas_service.cerrar(DB, uuid=identificador, fin_en=fin, gps=None, nota_fin="Detalle de cierre.", actor=actor)
 
     assert jornada.estado == "CERRADA"
     assert jornada.fin_en == fin
@@ -136,35 +136,49 @@ def test_cerrar_jornada(repo, actor: Usuario) -> None:
 
 def test_cerrar_jornada_ya_cerrada_es_idempotente(repo, actor: Usuario) -> None:
     identificador = uuid_lib.uuid4()
-    jornadas_service.iniciar(DB, uuid=identificador, inicio_en=INICIO, gps=None, actor=actor)
+    jornadas_service.iniciar(DB, uuid=identificador, inicio_en=INICIO, gps=None, nota="Detalle de prueba.", actor=actor)
     fin = datetime(2026, 3, 5, 17, 0, tzinfo=timezone.utc)
-    jornadas_service.cerrar(DB, uuid=identificador, fin_en=fin, gps=None, actor=actor)
+    jornadas_service.cerrar(DB, uuid=identificador, fin_en=fin, gps=None, nota_fin="Detalle de cierre.", actor=actor)
 
     # Segundo cierre con otra hora: no debe cambiar nada, solo devolver la ya cerrada.
     otra_hora = datetime(2026, 3, 5, 18, 0, tzinfo=timezone.utc)
-    jornada = jornadas_service.cerrar(DB, uuid=identificador, fin_en=otra_hora, gps=None, actor=actor)
+    jornada = jornadas_service.cerrar(DB, uuid=identificador, fin_en=otra_hora, gps=None, nota_fin="Detalle de cierre.", actor=actor)
 
     assert jornada.fin_en == fin  # no se sobrescribió
 
 
 def test_cerrar_jornada_fin_antes_de_inicio_es_error(repo, actor: Usuario) -> None:
     identificador = uuid_lib.uuid4()
-    jornadas_service.iniciar(DB, uuid=identificador, inicio_en=INICIO, gps=None, actor=actor)
+    jornadas_service.iniciar(DB, uuid=identificador, inicio_en=INICIO, gps=None, nota="Detalle de prueba.", actor=actor)
     antes = datetime(2026, 3, 5, 7, 0, tzinfo=timezone.utc)
 
     with pytest.raises(jornadas_service.RangoFechasInvalidoError):
-        jornadas_service.cerrar(DB, uuid=identificador, fin_en=antes, gps=None, actor=actor)
+        jornadas_service.cerrar(DB, uuid=identificador, fin_en=antes, gps=None, nota_fin="Detalle de cierre.", actor=actor)
 
 
 def test_cerrar_jornada_desconocida_es_error(repo, actor: Usuario) -> None:
     with pytest.raises(jornadas_service.JornadaNoEncontradaError):
-        jornadas_service.cerrar(DB, uuid=uuid_lib.uuid4(), fin_en=INICIO, gps=None, actor=actor)
+        jornadas_service.cerrar(DB, uuid=uuid_lib.uuid4(), fin_en=INICIO, gps=None, nota_fin="Detalle de cierre.", actor=actor)
 
 
 def test_cerrar_jornada_de_otro_usuario_es_error(repo, actor: Usuario) -> None:
     identificador = uuid_lib.uuid4()
-    jornadas_service.iniciar(DB, uuid=identificador, inicio_en=INICIO, gps=None, actor=actor)
+    jornadas_service.iniciar(DB, uuid=identificador, inicio_en=INICIO, gps=None, nota="Detalle de prueba.", actor=actor)
     otro = Usuario(id=2, nombre="B", apellido_paterno="B", correo="otro@ejemplo.org", contrasena_hash="x")
 
     with pytest.raises(jornadas_service.JornadaNoEncontradaError):
-        jornadas_service.cerrar(DB, uuid=identificador, fin_en=INICIO, gps=None, actor=otro)
+        jornadas_service.cerrar(DB, uuid=identificador, fin_en=INICIO, gps=None, nota_fin="Detalle de cierre.", actor=otro)
+
+
+def test_iniciar_jornada_sin_nota_es_error(repo, actor: Usuario) -> None:
+    with pytest.raises(jornadas_service.DetalleRequeridoError):
+        jornadas_service.iniciar(DB, uuid=uuid_lib.uuid4(), inicio_en=INICIO, gps=None, nota="   ", actor=actor)
+
+
+def test_cerrar_jornada_sin_nota_fin_es_error(repo, actor: Usuario) -> None:
+    identificador = uuid_lib.uuid4()
+    jornadas_service.iniciar(DB, uuid=identificador, inicio_en=INICIO, gps=None, nota="Detalle.", actor=actor)
+    fin = datetime(2026, 3, 5, 17, 0, tzinfo=timezone.utc)
+
+    with pytest.raises(jornadas_service.DetalleRequeridoError):
+        jornadas_service.cerrar(DB, uuid=identificador, fin_en=fin, gps=None, nota_fin="", actor=actor)

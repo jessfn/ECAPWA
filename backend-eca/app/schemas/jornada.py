@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid as uuid_lib
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.gps import GpsPeticion
 
@@ -15,11 +15,15 @@ class JornadaIniciarPeticion(BaseModel):
     uuid: uuid_lib.UUID
     inicio_en: datetime
     gps: GpsPeticion | None = None
+    # Detalle obligatorio del inicio — pedido explícito.
+    nota: str = Field(min_length=1)
 
 
 class JornadaCerrarPeticion(BaseModel):
     fin_en: datetime
     gps: GpsPeticion | None = None
+    # Detalle obligatorio del cierre — pedido explícito.
+    nota_fin: str = Field(min_length=1)
 
 
 class JornadaPublica(BaseModel):
@@ -40,3 +44,4 @@ class JornadaPublica(BaseModel):
     precision_gps_fin_m: float | None
     estado_gps_fin: str | None
     nota: str | None
+    nota_fin: str | None

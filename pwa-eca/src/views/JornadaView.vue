@@ -1,7 +1,12 @@
-<!-- pwa-eca — pantalla "Jornada" (ECA-012): "Iniciar jornada" y "Terminar
-     jornada" van en fila, lado a lado; "Terminar" queda bloqueado hasta que
-     se registre el inicio. Cada acción abre `JornadaAccionModal` (animación
-     de ubicación + reloj en vivo) antes de confirmar. -->
+<!-- pwa-eca — pantalla "Jornada" (ECA-012). Rediseño pedido explícito:
+     tarjetas grandes (como las de "inicio/salida" de pwasuper) lado a lado,
+     altas verticalmente para ocupar el alto disponible de la pantalla, con
+     un círculo de icono centrado; la acción todavía no disponible se ve en
+     gris con candado y una franja "BLOQUEADO" abajo, igual que en las
+     imágenes de referencia. "Terminar" queda bloqueada hasta que se
+     registre el inicio, y viceversa una vez ya registrada. Cada acción abre
+     `JornadaAccionModal` (ubicación + reloj en vivo + detalle obligatorio)
+     antes de confirmar. -->
 <script setup>
 import { onMounted, ref } from 'vue'
 import { useJornadaStore } from '../stores/jornada'
@@ -16,75 +21,83 @@ onMounted(() => {
   jornada.cargarHoy()
 })
 
-async function confirmarModal(gps) {
+async function confirmarModal({ nota, gps }) {
   if (modalAbierto.value === 'inicio') {
-    await jornada.iniciar(gps)
+    await jornada.iniciar(nota, gps)
   } else if (modalAbierto.value === 'fin') {
-    await jornada.cerrar(gps)
+    await jornada.cerrar(nota, gps)
   }
   modalAbierto.value = null
 }
 </script>
 
 <template>
-  <main class="eca-contenido">
+  <main class="eca-contenido jornada-pantalla">
     <BackButton class="eca-entrar" />
 
-    <div class="eca-card eca-entrar" style="--eca-delay: 0.06s">
+    <div class="jornada-encabezado eca-entrar" style="--eca-delay: 0.05s">
       <h1 class="eca-titulo">Jornada de hoy</h1>
-      <p class="eca-ayuda">Registra tu inicio y tu salida; cada uno pide tu ubicación al momento.</p>
-
+      <p class="eca-ayuda">Registra tu inicio y tu salida; cada uno pide tu ubicación y un detalle.</p>
       <p v-if="jornada.error" class="eca-alerta-error" role="alert">{{ jornada.error }}</p>
+    </div>
 
-      <template v-if="jornada.abierta">
-        <p class="eca-alerta-ok jornada-estado">
+    <div class="jornada-fila">
+      <!-- Registro de inicio -->
+      <button
+        v-if="!jornada.actual"
+        type="button"
+        class="jornada-tarjeta jornada-tarjeta--activa jornada-tarjeta--inicio"
+        :disabled="jornada.cargando"
+        @click="modalAbierto = 'inicio'"
+      >
+        <span class="jornada-tarjeta__circulo">
+          <AuthIcon name="login" />
+        </span>
+        <span class="jornada-tarjeta__titulo">Registro de Inicio</span>
+        <span class="jornada-tarjeta__subtitulo">Inicia tu jornada</span>
+      </button>
+      <div v-else class="jornada-tarjeta jornada-tarjeta--hecha">
+        <span class="jornada-tarjeta__circulo jornada-tarjeta__circulo--hecho">
           <AuthIcon name="check" />
-          Jornada abierta desde {{ new Date(jornada.actual.inicio_en).toLocaleTimeString('es-MX') }}
-        </p>
-      </template>
-      <template v-else-if="jornada.actual">
-        <p class="eca-ayuda jornada-estado">
-          Jornada ya cerrada hoy ({{ new Date(jornada.actual.fin_en).toLocaleTimeString('es-MX') }}).
-        </p>
-      </template>
-      <template v-else>
-        <p class="eca-ayuda jornada-estado">Aún no inicias tu jornada de hoy.</p>
-      </template>
+        </span>
+        <span class="jornada-tarjeta__titulo jornada-tarjeta__titulo--oscuro">Registro de Inicio</span>
+        <span class="jornada-tarjeta__subtitulo jornada-tarjeta__subtitulo--oscuro">
+          {{ new Date(jornada.actual.inicio_en).toLocaleTimeString('es-MX') }}
+        </span>
+        <span class="jornada-tarjeta__franja jornada-tarjeta__franja--hecha">REGISTRADO</span>
+      </div>
 
-      <div class="jornada-fila">
-        <button
-          type="button"
-          class="jornada-accion jornada-accion--inicio"
-          :class="{ 'jornada-accion--hecho': jornada.actual }"
-          :disabled="Boolean(jornada.actual) || jornada.cargando"
-          @click="modalAbierto = 'inicio'"
-        >
-          <span class="jornada-accion__icono">
-            <AuthIcon :name="jornada.actual ? 'check' : 'calendar'" />
-          </span>
-          <span class="jornada-accion__texto">
-            <strong>Iniciar jornada</strong>
-            <span>{{ jornada.actual ? 'Registrado' : 'Marca tu llegada' }}</span>
-          </span>
-        </button>
-
-        <button
-          type="button"
-          class="jornada-accion jornada-accion--fin"
-          :class="{ 'jornada-accion--hecho': jornada.actual && !jornada.abierta }"
-          :disabled="!jornada.abierta || jornada.cargando"
-          @click="modalAbierto = 'fin'"
-        >
-          <span class="jornada-accion__icono">
-            <AuthIcon :name="jornada.actual && !jornada.abierta ? 'check' : jornada.abierta ? 'logout' : 'lock'" />
-          </span>
-          <span class="jornada-accion__texto">
-            <strong>Terminar jornada</strong>
-            <span v-if="!jornada.abierta && !(jornada.actual && !jornada.abierta)">Inicia primero</span>
-            <span v-else-if="jornada.actual && !jornada.abierta">Registrado</span>
-            <span v-else>Marca tu salida</span>
-          </span>
-        </button>
+      <!-- Registro de término -->
+      <button
+        v-if="jornada.abierta"
+        type="button"
+        class="jornada-tarjeta jornada-tarjeta--activa jornada-tarjeta--fin"
+        :disabled="jornada.cargando"
+        @click="modalAbierto = 'fin'"
+      >
+        <span class="jornada-tarjeta__circulo">
+          <AuthIcon name="logout" />
+        </span>
+        <span class="jornada-tarjeta__titulo">Registro de Término</span>
+        <span class="jornada-tarjeta__subtitulo">Marca tu salida</span>
+      </button>
+      <div v-else-if="jornada.actual" class="jornada-tarjeta jornada-tarjeta--hecha">
+        <span class="jornada-tarjeta__circulo jornada-tarjeta__circulo--hecho">
+          <AuthIcon name="check" />
+        </span>
+        <span class="jornada-tarjeta__titulo jornada-tarjeta__titulo--oscuro">Registro de Término</span>
+        <span class="jornada-tarjeta__subtitulo jornada-tarjeta__subtitulo--oscuro">
+          {{ new Date(jornada.actual.fin_en).toLocaleTimeString('es-MX') }}
+        </span>
+        <span class="jornada-tarjeta__franja jornada-tarjeta__franja--hecha">REGISTRADO</span>
+      </div>
+      <div v-else class="jornada-tarjeta jornada-tarjeta--bloqueada">
+        <span class="jornada-tarjeta__circulo jornada-tarjeta__circulo--bloqueado">
+          <AuthIcon name="lock" />
+        </span>
+        <span class="jornada-tarjeta__titulo jornada-tarjeta__titulo--oscuro">Registro de Término</span>
+        <span class="jornada-tarjeta__subtitulo">Primero registra tu inicio</span>
+        <span class="jornada-tarjeta__franja jornada-tarjeta__franja--bloqueada">BLOQUEADO</span>
       </div>
     </div>
 
@@ -98,89 +111,156 @@ async function confirmarModal(gps) {
 </template>
 
 <style scoped>
-.jornada-estado {
+.jornada-pantalla {
   display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  width: fit-content;
+  flex-direction: column;
 }
-.jornada-estado svg {
-  width: 15px;
-  height: 15px;
+.jornada-encabezado {
+  margin-bottom: 1rem;
+}
+.jornada-encabezado .eca-titulo {
+  margin-bottom: 0.3rem;
 }
 
 .jornada-fila {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-  margin-top: 1.1rem;
+  gap: 0.9rem;
+  flex: 1;
+  /* Alto acoplado a la pantalla donde se abra — pedido explícito: no un
+     tamaño fijo, sino lo que quede disponible de viewport bajo el
+     encabezado (aprox. header + BackButton + título/ayuda). */
+  min-height: calc(100svh - 15.5rem);
 }
-.jornada-accion {
+
+.jornada-tarjeta {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  padding: 1.1rem 0.75rem;
-  border-radius: var(--eca-r-md);
-  border: 1.5px solid var(--eca-surface-border);
-  background: #fff;
-  cursor: pointer;
-  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s ease, border-color 0.15s ease;
+  justify-content: center;
+  gap: 0.9rem;
+  width: 100%;
+  min-height: 20rem;
+  padding: 1.5rem 1rem;
+  border-radius: var(--eca-r-lg);
+  border: none;
+  cursor: default;
   text-align: center;
+  overflow: hidden;
+  box-shadow: var(--eca-shadow-card);
+  font: inherit;
 }
-.jornada-accion:not(:disabled):hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 24px rgba(2, 20, 10, 0.1);
+
+/* Tarjeta activa (clicable): degradado a color, como pwasuper. Azul para
+   iniciar, rojo/anaranjado para terminar — mismo lenguaje visual que el
+   resto de la app (verde=ok, dorado=logro, rojo=acción de salida). */
+.jornada-tarjeta--activa {
+  cursor: pointer;
+  color: #fff;
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s ease;
 }
-.jornada-accion:not(:disabled):active {
-  transform: scale(0.97);
+.jornada-tarjeta--activa:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 32px rgba(2, 20, 10, 0.18);
 }
-.jornada-accion:disabled {
+.jornada-tarjeta--activa:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.jornada-tarjeta--activa:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
+  opacity: 0.7;
 }
-.jornada-accion__icono {
-  width: 2.75rem;
-  height: 2.75rem;
+.jornada-tarjeta--inicio {
+  background: linear-gradient(160deg, #3b82f6 0%, #1d4ed8 100%);
+}
+.jornada-tarjeta--fin {
+  background: linear-gradient(160deg, #fb7185 0%, #dc2626 100%);
+}
+
+.jornada-tarjeta__circulo {
+  width: 5.5rem;
+  height: 5.5rem;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: rgba(255, 255, 255, 0.22);
+  flex-shrink: 0;
+}
+.jornada-tarjeta__circulo svg {
+  width: 2.3rem;
+  height: 2.3rem;
+}
+.jornada-tarjeta__circulo--bloqueado {
   background: var(--eca-surface);
   color: var(--eca-ink-faint);
-  transition: background 0.15s ease, color 0.15s ease;
 }
-.jornada-accion__icono svg {
-  width: 1.3rem;
-  height: 1.3rem;
-}
-.jornada-accion--inicio:not(:disabled) .jornada-accion__icono {
+.jornada-tarjeta__circulo--hecho {
   background: var(--eca-green-100);
   color: var(--eca-green-700);
 }
-.jornada-accion--fin:not(:disabled) .jornada-accion__icono {
-  background: #fee2e2;
-  color: #dc2626;
+
+.jornada-tarjeta__titulo {
+  font-size: 1.05rem;
+  font-weight: 800;
 }
-.jornada-accion--hecho .jornada-accion__icono {
-  background: var(--eca-green-600);
-  color: #fff;
-}
-.jornada-accion--hecho {
-  border-color: var(--eca-green-300);
-  opacity: 1;
-}
-.jornada-accion__texto {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-}
-.jornada-accion__texto strong {
-  font-size: 0.92rem;
+.jornada-tarjeta__titulo--oscuro {
   color: var(--eca-ink);
 }
-.jornada-accion__texto span {
-  font-size: 0.75rem;
-  color: var(--eca-ink-faint);
+.jornada-tarjeta__subtitulo {
+  font-size: 0.85rem;
+  opacity: 0.92;
+}
+.jornada-tarjeta__subtitulo--oscuro {
+  color: var(--eca-ink-soft);
+  opacity: 1;
+}
+
+/* Tarjeta bloqueada / ya hecha: blanca, con franja inferior de ancho
+   completo — pedido explícito, calcado de la imagen de referencia. */
+.jornada-tarjeta--bloqueada,
+.jornada-tarjeta--hecha {
+  background: #fff;
+  border: 1.5px solid var(--eca-surface-border);
+  padding-bottom: 0;
+}
+.jornada-tarjeta__franja {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0.85rem 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #fff;
+}
+.jornada-tarjeta__franja--bloqueada {
+  background: #4b5563;
+}
+.jornada-tarjeta__franja--hecha {
+  background: linear-gradient(100deg, #92400e 0%, #f59e0b 50%, #b45309 100%);
+}
+
+@media (max-width: 480px) {
+  .jornada-fila {
+    gap: 0.6rem;
+  }
+  .jornada-tarjeta {
+    min-height: 17rem;
+    padding: 1.1rem 0.75rem;
+  }
+  .jornada-tarjeta__circulo {
+    width: 4.5rem;
+    height: 4.5rem;
+  }
+  .jornada-tarjeta__circulo svg {
+    width: 1.9rem;
+    height: 1.9rem;
+  }
+  .jornada-tarjeta__titulo {
+    font-size: 0.95rem;
+  }
 }
 </style>

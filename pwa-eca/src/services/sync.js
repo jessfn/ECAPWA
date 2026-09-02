@@ -58,8 +58,10 @@ function aPayloadJornada(registro) {
     uuid: registro.uuid,
     inicio_en: registro.inicio_en,
     gps_inicio: registro.gps_inicio || null,
+    nota: registro.nota || '',
     fin_en: registro.fin_en || null,
     gps_fin: registro.gps_fin || null,
+    nota_fin: registro.nota_fin || null,
   }
 }
 

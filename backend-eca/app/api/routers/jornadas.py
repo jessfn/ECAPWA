@@ -27,9 +27,12 @@ def iniciar_jornada(
     db: Session = Depends(get_db),
     actor: Usuario = Depends(require_permission("jornadas.crear")),
 ) -> JornadaPublica:
-    jornada = jornadas_service.iniciar(
-        db, uuid=peticion.uuid, inicio_en=peticion.inicio_en, gps=peticion.gps, actor=actor
-    )
+    try:
+        jornada = jornadas_service.iniciar(
+            db, uuid=peticion.uuid, inicio_en=peticion.inicio_en, gps=peticion.gps, nota=peticion.nota, actor=actor
+        )
+    except jornadas_service.DetalleRequeridoError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
     return JornadaPublica.model_validate(jornada)
 
 
@@ -42,11 +45,13 @@ def cerrar_jornada(
 ) -> JornadaPublica:
     try:
         jornada = jornadas_service.cerrar(
-            db, uuid=uuid, fin_en=peticion.fin_en, gps=peticion.gps, actor=actor
+            db, uuid=uuid, fin_en=peticion.fin_en, gps=peticion.gps, nota_fin=peticion.nota_fin, actor=actor
         )
     except jornadas_service.JornadaNoEncontradaError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     except jornadas_service.RangoFechasInvalidoError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    except jornadas_service.DetalleRequeridoError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
     return JornadaPublica.model_validate(jornada)
 

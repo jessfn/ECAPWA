@@ -164,7 +164,7 @@ def _tipo_actividad(db: DBFalsa, **overrides) -> TipoActividad:
 
 
 def test_push_jornada_nueva_es_aplicado(db: DBFalsa, repos, actor: Usuario) -> None:
-    item = JornadaSyncItem(uuid=uuid_lib.uuid4(), inicio_en=INICIO)
+    item = JornadaSyncItem(uuid=uuid_lib.uuid4(), inicio_en=INICIO, nota="Detalle.")
 
     resultados = sync_service.push(db, dispositivo_uuid=DISPOSITIVO_UUID, jornadas=[item], actividades=[], actor=actor)
 
@@ -175,7 +175,7 @@ def test_push_jornada_nueva_es_aplicado(db: DBFalsa, repos, actor: Usuario) -> N
 
 def test_push_mismo_lote_dos_veces_no_duplica(db: DBFalsa, repos, actor: Usuario) -> None:
     tipo = _tipo_actividad(db)
-    jornada_item = JornadaSyncItem(uuid=uuid_lib.uuid4(), inicio_en=INICIO)
+    jornada_item = JornadaSyncItem(uuid=uuid_lib.uuid4(), inicio_en=INICIO, nota="Detalle.")
     actividad_item = ActividadSyncItem(
         uuid=uuid_lib.uuid4(),
         jornada_uuid=jornada_item.uuid,
@@ -200,7 +200,7 @@ def test_push_mismo_lote_dos_veces_no_duplica(db: DBFalsa, repos, actor: Usuario
 
 def test_push_tipo_actividad_inexistente_es_rechazado_los_demas_aplicados(db: DBFalsa, repos, actor: Usuario) -> None:
     tipo = _tipo_actividad(db)
-    jornada_item = JornadaSyncItem(uuid=uuid_lib.uuid4(), inicio_en=INICIO)
+    jornada_item = JornadaSyncItem(uuid=uuid_lib.uuid4(), inicio_en=INICIO, nota="Detalle.")
     buena = ActividadSyncItem(
         uuid=uuid_lib.uuid4(),
         jornada_uuid=jornada_item.uuid,
@@ -248,11 +248,11 @@ def test_push_actividad_con_jornada_inexistente_es_rechazada(db: DBFalsa, repos,
 
 def test_push_cierre_de_jornada_ya_sincronizada_se_aplica(db: DBFalsa, repos, actor: Usuario) -> None:
     identificador = uuid_lib.uuid4()
-    inicio_item = JornadaSyncItem(uuid=identificador, inicio_en=INICIO)
+    inicio_item = JornadaSyncItem(uuid=identificador, inicio_en=INICIO, nota="Detalle.")
     sync_service.push(db, dispositivo_uuid=DISPOSITIVO_UUID, jornadas=[inicio_item], actividades=[], actor=actor)
 
     fin = datetime(2026, 3, 5, 17, 0, tzinfo=timezone.utc)
-    cierre_item = JornadaSyncItem(uuid=identificador, inicio_en=INICIO, fin_en=fin)
+    cierre_item = JornadaSyncItem(uuid=identificador, inicio_en=INICIO, nota="Detalle.", fin_en=fin, nota_fin="Detalle de cierre.")
     resultados = sync_service.push(
         db, dispositivo_uuid=DISPOSITIVO_UUID, jornadas=[cierre_item], actividades=[], actor=actor
     )
@@ -263,7 +263,7 @@ def test_push_cierre_de_jornada_ya_sincronizada_se_aplica(db: DBFalsa, repos, ac
 
 
 def test_push_registra_dispositivo_sobre_la_marcha(db: DBFalsa, repos, actor: Usuario) -> None:
-    item = JornadaSyncItem(uuid=uuid_lib.uuid4(), inicio_en=INICIO)
+    item = JornadaSyncItem(uuid=uuid_lib.uuid4(), inicio_en=INICIO, nota="Detalle.")
 
     sync_service.push(db, dispositivo_uuid=DISPOSITIVO_UUID, jornadas=[item], actividades=[], actor=actor)
 

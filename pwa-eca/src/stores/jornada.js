@@ -38,10 +38,12 @@ function remotaALocal(remota) {
       remota.precision_gps_inicio_m,
       remota.estado_gps_inicio,
     ),
+    nota: remota.nota || '',
     fin_en: remota.fin_en,
     gps_fin: remota.fin_en
       ? gpsDeRemota(remota.latitud_fin, remota.longitud_fin, remota.precision_gps_fin_m, remota.estado_gps_fin)
       : null,
+    nota_fin: remota.nota_fin || null,
     estado_local: 'SINCRONIZADO',
     intentos: 0,
     ultimo_error: null,
@@ -107,8 +109,16 @@ export const useJornadaStore = defineStore('jornada', {
     // Se copia a un objeto plano: si viene de un `ref()` de Vue, es un
     // Proxy reactivo y `IDBObjectStore.put` no puede clonarlo
     // (`DataCloneError`) — reventaba en silencio, atrapado por el catch.
-    async iniciar(gpsPrevio = null) {
+    // `nota`: detalle obligatorio del inicio — pedido explícito. Se valida
+    // aquí (además de en la pantalla, para no depender solo de la UI) y de
+    // nuevo en el backend (`DetalleRequeridoError`), como toda regla de
+    // negocio real.
+    async iniciar(nota, gpsPrevio = null) {
       if (this.actual) return
+      if (!nota || !nota.trim()) {
+        this.error = 'El detalle de inicio de jornada es obligatorio.'
+        return
+      }
       this.cargando = true
       this.error = ''
       try {
@@ -117,8 +127,10 @@ export const useJornadaStore = defineStore('jornada', {
           uuid: crypto.randomUUID(),
           inicio_en: new Date().toISOString(),
           gps_inicio: gps,
+          nota: nota.trim(),
           fin_en: null,
           gps_fin: null,
+          nota_fin: null,
         })
         await useOutboxStore().refrescar()
         sincronizarOportunista()
@@ -129,8 +141,12 @@ export const useJornadaStore = defineStore('jornada', {
       }
     },
 
-    async cerrar(gpsPrevio = null) {
+    async cerrar(notaFin, gpsPrevio = null) {
       if (!this.actual) return
+      if (!notaFin || !notaFin.trim()) {
+        this.error = 'El detalle de cierre de jornada es obligatorio.'
+        return
+      }
       this.cargando = true
       this.error = ''
       try {
@@ -138,6 +154,7 @@ export const useJornadaStore = defineStore('jornada', {
         this.actual = await actualizar(TIENDA, this.actual.uuid, {
           fin_en: new Date().toISOString(),
           gps_fin: gps,
+          nota_fin: notaFin.trim(),
           // Se vuelve a marcar PENDIENTE: aunque ya se hubiera intentado
           // sincronizar el inicio, el cierre es información nueva que el
           // motor de sync (ECA-017) todavía no ha enviado.

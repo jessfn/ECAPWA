@@ -43,7 +43,7 @@ describe('useJornadaStore', () => {
   it('iniciar encola la jornada localmente (nunca llama a la red)', async () => {
     const jornada = useJornadaStore()
 
-    await jornada.iniciar()
+    await jornada.iniciar("Detalle de inicio.")
 
     expect(jornada.actual.estado_local).toBe('PENDIENTE')
     expect(jornada.actual.fin_en).toBeNull()
@@ -53,14 +53,14 @@ describe('useJornadaStore', () => {
   it('iniciar funciona aunque el GPS falle (nunca bloquea)', async () => {
     const jornada = useJornadaStore()
 
-    await jornada.iniciar()
+    await jornada.iniciar("Detalle de inicio.")
 
     expect(jornada.actual.gps_inicio.estado_gps).toBe('SIN_GPS')
   })
 
   it('cargarHoy recupera del outbox la jornada ya encolada', async () => {
     const primera = useJornadaStore()
-    await primera.iniciar()
+    await primera.iniciar("Detalle de inicio.")
 
     const segunda = useJornadaStore()
     await segunda.cargarHoy()
@@ -103,7 +103,7 @@ describe('useJornadaStore', () => {
   // siempre bloqueando Actividades sin razón.
   it('cargarHoy adopta el cierre hecho en otro dispositivo', async () => {
     const jornada = useJornadaStore()
-    await jornada.iniciar()
+    await jornada.iniciar("Detalle de inicio.")
     const uuid = jornada.actual.uuid
     const inicioEn = jornada.actual.inicio_en
 
@@ -145,10 +145,10 @@ describe('useJornadaStore', () => {
 
   it('cerrar actualiza el registro local sin perder el inicio', async () => {
     const jornada = useJornadaStore()
-    await jornada.iniciar()
+    await jornada.iniciar("Detalle de inicio.")
     const inicioEn = jornada.actual.inicio_en
 
-    await jornada.cerrar()
+    await jornada.cerrar("Detalle de cierre.")
 
     expect(jornada.actual.fin_en).toBeTruthy()
     expect(jornada.actual.inicio_en).toBe(inicioEn)
@@ -167,7 +167,7 @@ describe('useJornadaStore', () => {
     const jornada = useJornadaStore()
     const gpsReactivo = reactive({ estado_gps: 'SIN_GPS' })
 
-    await jornada.iniciar(gpsReactivo)
+    await jornada.iniciar("Detalle de inicio.", gpsReactivo)
 
     expect(jornada.error).toBe('')
     expect(jornada.actual.gps_inicio.estado_gps).toBe('SIN_GPS')
@@ -175,12 +175,43 @@ describe('useJornadaStore', () => {
 
   it('cerrar acepta un gps reactivo (Proxy de Vue) sin reventar IndexedDB', async () => {
     const jornada = useJornadaStore()
-    await jornada.iniciar()
+    await jornada.iniciar("Detalle de inicio.")
     const gpsReactivo = reactive({ estado_gps: 'CON_GPS', latitud: 19.4, longitud: -99.1, precision_gps_m: 12 })
 
-    await jornada.cerrar(gpsReactivo)
+    await jornada.cerrar("Detalle de cierre.", gpsReactivo)
 
     expect(jornada.error).toBe('')
     expect(jornada.actual.gps_fin.estado_gps).toBe('CON_GPS')
+  })
+
+  // Pedido explícito: el detalle es obligatorio tanto al iniciar como al
+  // terminar la jornada — validado aquí (no solo en la UI) para que no
+  // dependa de que el componente recuerde revisarlo.
+  it('iniciar sin detalle no encola nada y deja un error claro', async () => {
+    const jornada = useJornadaStore()
+
+    await jornada.iniciar('   ')
+
+    expect(jornada.actual).toBeNull()
+    expect(jornada.error).toBe('El detalle de inicio de jornada es obligatorio.')
+  })
+
+  it('cerrar sin detalle no modifica el registro y deja un error claro', async () => {
+    const jornada = useJornadaStore()
+    await jornada.iniciar('Detalle de inicio.')
+
+    await jornada.cerrar('')
+
+    expect(jornada.actual.fin_en).toBeNull()
+    expect(jornada.error).toBe('El detalle de cierre de jornada es obligatorio.')
+  })
+
+  it('guarda la nota de inicio y de cierre en el registro local', async () => {
+    const jornada = useJornadaStore()
+    await jornada.iniciar('Visita a parcela de maíz.')
+    expect(jornada.actual.nota).toBe('Visita a parcela de maíz.')
+
+    await jornada.cerrar('Se concluyó la capacitación.')
+    expect(jornada.actual.nota_fin).toBe('Se concluyó la capacitación.')
   })
 })

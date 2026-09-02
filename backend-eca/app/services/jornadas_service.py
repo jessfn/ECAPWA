@@ -34,10 +34,19 @@ def _fecha_local(momento: datetime):
     return momento.astimezone(ZONA_MVP).date()
 
 
-def iniciar(db: Session, *, uuid, inicio_en: datetime, gps: GpsPeticion | None, actor: Usuario) -> Jornada:
+class DetalleRequeridoError(ValueError):
+    pass
+
+
+def iniciar(
+    db: Session, *, uuid, inicio_en: datetime, gps: GpsPeticion | None, nota: str, actor: Usuario
+) -> Jornada:
     existente = repo_jornadas.obtener_por_uuid(db, uuid)
     if existente is not None:
         return existente  # idempotente por uuid
+
+    if not nota or not nota.strip():
+        raise DetalleRequeridoError("El detalle de inicio de jornada es obligatorio.")
 
     fecha = _fecha_local(inicio_en)
     ya_del_dia = repo_jornadas.obtener_abierta_del_dia(db, usuario_id=actor.id, fecha=fecha)
@@ -57,6 +66,7 @@ def iniciar(db: Session, *, uuid, inicio_en: datetime, gps: GpsPeticion | None, 
         longitud_inicio=gps.longitud,
         precision_gps_inicio_m=gps.precision_gps_m,
         estado_gps_inicio=gps.estado_gps,
+        nota=nota.strip(),
         creado_por=actor.id,
         actualizado_por=actor.id,
     )
@@ -75,7 +85,9 @@ def iniciar(db: Session, *, uuid, inicio_en: datetime, gps: GpsPeticion | None, 
     return jornada
 
 
-def cerrar(db: Session, *, uuid, fin_en: datetime, gps: GpsPeticion | None, actor: Usuario) -> Jornada:
+def cerrar(
+    db: Session, *, uuid, fin_en: datetime, gps: GpsPeticion | None, nota_fin: str, actor: Usuario
+) -> Jornada:
     jornada = repo_jornadas.obtener_por_uuid(db, uuid)
     if jornada is None or jornada.usuario_id != actor.id:
         raise JornadaNoEncontradaError(f"Jornada desconocida: {uuid}")
@@ -86,6 +98,9 @@ def cerrar(db: Session, *, uuid, fin_en: datetime, gps: GpsPeticion | None, acto
     if fin_en < jornada.inicio_en:
         raise RangoFechasInvalidoError("fin_en no puede ser anterior a inicio_en.")
 
+    if not nota_fin or not nota_fin.strip():
+        raise DetalleRequeridoError("El detalle de cierre de jornada es obligatorio.")
+
     gps = gps or GpsPeticion()
     jornada.estado = "CERRADA"
     jornada.fin_en = fin_en
@@ -93,6 +108,7 @@ def cerrar(db: Session, *, uuid, fin_en: datetime, gps: GpsPeticion | None, acto
     jornada.longitud_fin = gps.longitud
     jornada.precision_gps_fin_m = gps.precision_gps_m
     jornada.estado_gps_fin = gps.estado_gps
+    jornada.nota_fin = nota_fin.strip()
     jornada.actualizado_por = actor.id
 
     db.add(jornada)

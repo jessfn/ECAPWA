@@ -82,7 +82,7 @@ def _procesar_jornada(db: Session, item: JornadaSyncItem, *, dispositivo: Dispos
     if existente is None:
         try:
             jornada = jornadas_service.iniciar(
-                db, uuid=item.uuid, inicio_en=item.inicio_en, gps=item.gps_inicio, actor=actor
+                db, uuid=item.uuid, inicio_en=item.inicio_en, gps=item.gps_inicio, nota=item.nota, actor=actor
             )
         except Exception as exc:  # nunca 500 por un objeto malo
             return ResultadoSync(uuid=item.uuid, resultado=RECHAZADO, error=str(exc))
@@ -106,11 +106,13 @@ def _procesar_jornada(db: Session, item: JornadaSyncItem, *, dispositivo: Dispos
     if item.fin_en is not None and existente.estado == "ABIERTA":
         try:
             jornadas_service.cerrar(
-                db, uuid=item.uuid, fin_en=item.fin_en, gps=item.gps_fin, actor=actor
+                db, uuid=item.uuid, fin_en=item.fin_en, gps=item.gps_fin, nota_fin=item.nota_fin or "", actor=actor
             )
         except jornadas_service.JornadaNoEncontradaError as exc:
             return ResultadoSync(uuid=item.uuid, resultado=RECHAZADO, error=str(exc))
         except jornadas_service.RangoFechasInvalidoError as exc:
+            return ResultadoSync(uuid=item.uuid, resultado=RECHAZADO, error=str(exc))
+        except jornadas_service.DetalleRequeridoError as exc:
             return ResultadoSync(uuid=item.uuid, resultado=RECHAZADO, error=str(exc))
         return ResultadoSync(uuid=item.uuid, resultado=APLICADO, id=existente.id)
 

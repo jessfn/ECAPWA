@@ -54,7 +54,11 @@ class Jornada(Base):
     precision_gps_fin_m: Mapped[float | None] = mapped_column(Numeric(7, 2), nullable=True)
     estado_gps_fin: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Detalle escrito por el técnico — pedido explícito de que iniciar y
+    # terminar jornada pidan obligatoriamente un detalle cada uno; una sola
+    # columna no alcanza porque el cierre no debe borrar el texto de inicio.
     nota: Mapped[str | None] = mapped_column(Text, nullable=True)
+    nota_fin: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # BOF (05 §1.3) — no se usa aún en este ticket (flujo online), pero deja
     # la tabla lista para que ECA-016 la escriba desde el outbox sin migrar

@@ -96,6 +96,11 @@
       <path d="M16 17l5-5-5-5" />
       <path d="M21 12H9" />
     </template>
+    <template v-else-if="name === 'login'">
+      <path d="M15 21h3.5a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H15" />
+      <path d="M8 7l-5 5 5 5" />
+      <path d="M3 12h12" />
+    </template>
     <template v-else-if="name === 'leaf'">
       <path d="M20.5 3.5c-9 0-17 5-17 14 0 1.5.3 2.6.8 3.5C6 15 11 9.5 19 6.5" />
       <path d="M4.3 21c4-.6 12.7-2.7 16.2-17.5" />

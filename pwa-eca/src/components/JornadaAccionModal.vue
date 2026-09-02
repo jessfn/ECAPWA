@@ -18,13 +18,34 @@ const FASE = { BUSCANDO: 'buscando', LISTO: 'listo', CONFIRMANDO: 'confirmando' 
 const fase = ref(FASE.BUSCANDO)
 const gps = ref(null)
 const ahora = ref(new Date())
+// Detalle obligatorio — pedido explícito: tanto iniciar como terminar
+// jornada deben preguntar qué se hizo/pasó antes de dejar confirmar.
+const nota = ref('')
+const notaTocada = ref(false)
 
 let temporizadorReloj = null
 
 const textos = computed(() =>
   props.tipo === 'inicio'
-    ? { titulo: 'Iniciar jornada', boton: 'Confirmar inicio', confirmando: 'Iniciando…' }
-    : { titulo: 'Terminar jornada', boton: 'Confirmar salida', confirmando: 'Terminando…' },
+    ? {
+        titulo: 'Iniciar jornada',
+        boton: 'Confirmar inicio',
+        confirmando: 'Iniciando…',
+        etiquetaNota: '¿Qué vas a hacer hoy?',
+        placeholderNota: 'Ej. Visita a la ECA Los Encinos para dar seguimiento al cultivo de maíz…',
+      }
+    : {
+        titulo: 'Terminar jornada',
+        boton: 'Confirmar salida',
+        confirmando: 'Terminando…',
+        etiquetaNota: '¿Qué se hizo en la jornada?',
+        placeholderNota: 'Ej. Se realizó la capacitación programada y se registraron 12 participantes…',
+      },
+)
+
+const notaInvalida = computed(() => notaTocada.value && !nota.value.trim())
+const puedeConfirmar = computed(
+  () => fase.value === FASE.LISTO && Boolean(nota.value.trim()),
 )
 
 const estadoGps = computed(() => {
@@ -57,11 +78,13 @@ async function buscarUbicacion() {
 }
 
 async function confirmar() {
+  notaTocada.value = true
+  if (!nota.value.trim()) return
   fase.value = FASE.CONFIRMANDO
   // `gps` es un `ref()`: un objeto asignado a un ref se vuelve reactivo
   // (Proxy) automáticamente. IndexedDB no puede clonar un Proxy
   // (`DataCloneError` al hacer `put`) — se emite una copia plana.
-  await emit('confirmar', gps.value ? { ...gps.value } : null)
+  await emit('confirmar', { nota: nota.value.trim(), gps: gps.value ? { ...gps.value } : null })
 }
 
 onMounted(() => {
@@ -120,6 +143,20 @@ onUnmounted(() => {
           <div class="jornada-modal__fecha">{{ fechaFormateada }}</div>
         </div>
 
+        <label class="jornada-modal__campo-nota">
+          <span>{{ textos.etiquetaNota }} <strong class="jornada-modal__requerido">*</strong></span>
+          <textarea
+            v-model="nota"
+            class="jornada-modal__nota"
+            :class="{ 'jornada-modal__nota--invalida': notaInvalida }"
+            rows="3"
+            :placeholder="textos.placeholderNota"
+            :disabled="fase === FASE.CONFIRMANDO"
+            @blur="notaTocada = true"
+          ></textarea>
+          <span v-if="notaInvalida" class="jornada-modal__nota-error">Este detalle es obligatorio.</span>
+        </label>
+
         <div class="jornada-modal__botones">
           <button type="button" class="eca-btn eca-btn-secundario" :disabled="fase === FASE.CONFIRMANDO" @click="emit('cancelar')">
             Cancelar
@@ -127,7 +164,7 @@ onUnmounted(() => {
           <button
             type="button"
             class="eca-btn eca-btn-primary"
-            :disabled="fase === FASE.BUSCANDO || fase === FASE.CONFIRMANDO"
+            :disabled="!puedeConfirmar || fase === FASE.CONFIRMANDO"
             @click="confirmar"
           >
             <span v-if="fase === FASE.CONFIRMANDO" class="jornada-modal__spin"></span>
@@ -317,6 +354,46 @@ onUnmounted(() => {
   font-size: 0.8rem;
   color: var(--eca-ink-soft);
   text-transform: capitalize;
+}
+
+.jornada-modal__campo-nota {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  text-align: left;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--eca-ink-soft);
+}
+.jornada-modal__requerido {
+  color: var(--eca-danger);
+}
+.jornada-modal__nota {
+  width: 100%;
+  resize: vertical;
+  min-height: 4.5rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: var(--eca-r-sm);
+  border: 1.5px solid var(--eca-surface-border);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: var(--eca-ink);
+  background: #fff;
+}
+.jornada-modal__nota:focus {
+  outline: none;
+  border-color: var(--eca-green-500);
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18);
+}
+.jornada-modal__nota--invalida {
+  border-color: var(--eca-danger-border);
+}
+.jornada-modal__nota-error {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--eca-danger);
 }
 
 .jornada-modal__botones {
