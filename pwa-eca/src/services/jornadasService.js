@@ -16,3 +16,11 @@ export async function obtenerJornadaDeHoy() {
   const { data } = await api.get('/jornadas/me/hoy')
   return data
 }
+
+// Historial (ECA-019): el backend ya expone `GET /jornadas` filtrado por
+// el usuario del token (`jornadas.ver_propias`) — no hacía falta ningún
+// endpoint nuevo, solo consumirlo desde el frontend.
+export async function listarMisJornadas() {
+  const { data } = await api.get('/jornadas')
+  return data
+}

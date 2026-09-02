@@ -37,6 +37,14 @@ export function subtemasDelTema(catalogos, temaId) {
   return catalogos.subtemas.filter((s) => s.tema_id === temaId)
 }
 
+// Historial (ECA-019): las actividades solo guardan el id de
+// modalidad/tipo — para mostrar el nombre hay que buscarlo en el
+// catálogo ya cacheado, aquí mismo en vez de repetir el `.find()` en
+// cada componente que lo necesite.
+export function nombrePorId(lista, id) {
+  return lista?.find((item) => item.id === id)?.nombre ?? null
+}
+
 export function _reiniciarCatalogosCacheParaPruebas() {
   cache = null
   promesaEnCurso = null
