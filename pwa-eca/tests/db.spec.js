@@ -78,17 +78,22 @@ describe('aislamiento del outbox por cuenta', () => {
     expect(db.name).toBe(NOMBRE_BD)
   })
 
-  it('migra al outbox de la cuenta lo que ya hubiera en la base genérica compartida', async () => {
-    // Simula el estado previo a este arreglo: algo quedó pendiente en la
-    // base compartida (sin usuario aún identificado en este dispositivo).
+  // Regresión sobre el primer intento de arreglo: migrar "lo que hubiera"
+  // de la base compartida hacia CADA cuenta nueva que abriera su base por
+  // primera vez terminaba heredando el outbox entero (incluida una
+  // jornada ya iniciada) a cualquier cuenta, sin importar de quién fueran
+  // esos registros — la misma contaminación que se quería resolver, solo
+  // que trasladada. Ahora una base de usuario nueva SIEMPRE arranca
+  // vacía, sin importar qué haya en la base legado compartida.
+  it('una cuenta nueva NUNCA hereda lo que haya en la base legado compartida', async () => {
     const dbLegado = await abrirBD()
-    await dbLegado.put('outbox_jornadas', { uuid: 'pendiente-de-antes', inicio_en: new Date().toISOString() })
+    await dbLegado.put('outbox_jornadas', { uuid: 'jornada-de-otra-cuenta', inicio_en: new Date().toISOString() })
     await _reiniciarBDParaPruebas()
 
     guardarSesionLocal({ usuario: { id: 1 }, permisos: [] })
     const db = await abrirBD()
     const jornadas = await db.getAll('outbox_jornadas')
 
-    expect(jornadas.map((j) => j.uuid)).toContain('pendiente-de-antes')
+    expect(jornadas).toHaveLength(0)
   })
 })

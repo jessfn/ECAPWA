@@ -4,10 +4,17 @@
 // quedarse con la mejor lectura, resolver apenas se alcanza buena
 // precisión o al agotar el tiempo de espera) — pedido explícito de
 // alinear el comportamiento del botón/permiso de ubicación con el que ya
-// funciona bien ahí. Una diferencia deliberada: aquí **nunca se inventa
-// una posición** (`03` §20, `02` §13) — pwasuper cae a una ubicación de
-// respaldo (CDMX) si todo falla; este proyecto siempre prefiere devolver
-// `SIN_GPS` antes que una coordenada falsa.
+// funciona bien ahí. Tiempos generosos (30s tope / 8s de espera extra por
+// cada mejora de precisión) igual que el primer intento de pwasuper, para
+// darle al GPS real el mismo margen de conseguir una lectura buena antes
+// de conformarse con una imprecisa.
+//
+// Una diferencia deliberada y CONFIRMADA con el usuario: aquí **nunca se
+// inventa una posición** (`03` §20, `02` §13) — pwasuper cae a una
+// ubicación de respaldo fija (CDMX) si todo falla; este proyecto siempre
+// prefiere devolver la lectura real más aproximada que haya conseguido
+// (o `SIN_GPS` si de plano no hubo ninguna) antes que guardar una
+// coordenada falsa en el registro de jornada.
 import { obtenerParametro } from './parametrosConfigService'
 
 const UMBRAL_POR_DEFECTO_M = 30
@@ -19,7 +26,7 @@ const UMBRAL_POR_DEFECTO_M = 30
 // — ni éxito ni error — así que el `timeout` de la API nunca llega a
 // dispararse y la captura se cuelga indefinidamente. Un `setTimeout` de JS
 // sí corre siempre (no depende de que el navegador resuelva el diálogo).
-export function capturarGps({ timeoutMs = 15000, maxEsperaMejorPrecisionMs = 6000 } = {}) {
+export function capturarGps({ timeoutMs = 30000, maxEsperaMejorPrecisionMs = 8000 } = {}) {
   return new Promise((resolve) => {
     if (!('geolocation' in navigator)) {
       resolve({ estado_gps: 'SIN_GPS' })

@@ -28,8 +28,8 @@ describe('JornadaAccionModal', () => {
     })
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.text()).not.toContain('Obteniendo tu ubicación…')
-    expect(wrapper.text()).toContain('Sin señal de ubicación')
+    expect(wrapper.text()).not.toContain('Obteniendo…')
+    expect(wrapper.text()).toContain('Sin ubicación')
 
     wrapper.unmount()
   })

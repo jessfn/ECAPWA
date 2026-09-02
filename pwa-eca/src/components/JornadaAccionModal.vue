@@ -1,9 +1,15 @@
 <!-- pwa-eca — modal de confirmación para iniciar/terminar jornada.
-     Pedido explícito: al tocar "Iniciar jornada" (o "Terminar jornada") se
-     abre esta ficha, se pide la ubicación con una animación tipo radar
-     (el GPS del dispositivo funciona sin internet — `services/gps.js` ya
-     usa `navigator.geolocation`, nunca la red), se muestra fecha/hora en
-     vivo, y solo entonces aparece el botón para confirmar. -->
+     Diseño y flujo de ubicación alineados a propósito con `pwasuper`
+     (mismo botón circular tipo Apple con anillo de progreso, pulso de
+     éxito y estados default/loading/success — pedido explícito de que
+     "sean exactamente igual"), con UNA diferencia deliberada y confirmada
+     con el usuario: si el GPS real no da señal, `services/gps.js` NUNCA
+     inventa una coordenada de respaldo (pwasuper cae a CDMX) — siempre
+     usa la lectura real más aproximada que haya conseguido, o admite
+     abiertamente "sin ubicación" antes que guardar un dato falso en el
+     registro de jornada. Se pide la ubicación automáticamente al abrir
+     (igual que `iniciarAsistencia()` en pwasuper), se muestra fecha/hora
+     en vivo, y solo entonces aparece el botón para confirmar. -->
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { capturarGps } from '../services/gps'
@@ -48,14 +54,32 @@ const puedeConfirmar = computed(
   () => fase.value === FASE.LISTO && Boolean(nota.value.trim()),
 )
 
+// Estado visual del botón de ubicación tipo Apple (ver `apple-location-btn`
+// en pwasuper): loading mientras se busca, success con lectura real dentro
+// del umbral de precisión, aviso si la lectura real es imprecisa, y un
+// último estado si de plano no hubo ninguna lectura real.
 const estadoGps = computed(() => {
-  if (!gps.value) return null
-  const mapa = {
-    CON_GPS: { icono: 'check', clase: 'jornada-modal__ubicacion--ok', texto: 'Ubicación exacta obtenida' },
-    GPS_IMPRECISO: { icono: 'map-pin', clase: 'jornada-modal__ubicacion--aviso', texto: 'Ubicación aproximada' },
-    SIN_GPS: { icono: 'wifi-off', clase: 'jornada-modal__ubicacion--sin', texto: 'Sin señal de ubicación' },
+  if (fase.value === FASE.BUSCANDO) {
+    return { clase: 'jornada-ubicacion__boton--cargando', icono: 'map-pin', titulo: 'Obteniendo…', subtitulo: 'Espera un momento' }
   }
-  return mapa[gps.value.estado_gps] || mapa.SIN_GPS
+  const g = gps.value
+  if (g?.estado_gps === 'CON_GPS') {
+    return { clase: 'jornada-ubicacion__boton--lista', icono: 'check', titulo: 'Ubicación lista', subtitulo: 'Coordenadas capturadas' }
+  }
+  if (g?.estado_gps === 'GPS_IMPRECISO') {
+    return {
+      clase: 'jornada-ubicacion__boton--imprecisa',
+      icono: 'map-pin',
+      titulo: 'Ubicación aproximada',
+      subtitulo: g.precision_gps_m ? `±${Math.round(g.precision_gps_m)} m de precisión` : 'Precisión limitada',
+    }
+  }
+  return {
+    clase: 'jornada-ubicacion__boton--sin-senal',
+    icono: 'alert',
+    titulo: 'Sin ubicación',
+    subtitulo: g?.permiso_denegado ? 'Permiso denegado' : 'Toca para reintentar',
+  }
 })
 
 const fechaFormateada = computed(() =>
@@ -107,34 +131,44 @@ onUnmounted(() => {
           </button>
         </div>
 
-        <div class="jornada-modal__radar">
-          <span class="jornada-modal__onda" :class="{ 'jornada-modal__onda--activa': fase === FASE.BUSCANDO }"></span>
-          <span class="jornada-modal__onda jornada-modal__onda--2" :class="{ 'jornada-modal__onda--activa': fase === FASE.BUSCANDO }"></span>
-          <button
-            type="button"
-            class="jornada-modal__pin"
-            :class="{ 'jornada-modal__pin--listo': fase !== FASE.BUSCANDO }"
-            :disabled="fase === FASE.BUSCANDO || fase === FASE.CONFIRMANDO"
-            :aria-label="fase === FASE.BUSCANDO ? 'Obteniendo ubicación' : 'Obtener ubicación de nuevo'"
-            @click="buscarUbicacion"
-          >
-            <AuthIcon name="map-pin" />
-          </button>
-        </div>
+        <div class="jornada-ubicacion">
+          <div class="jornada-ubicacion__envoltura">
+            <button
+              type="button"
+              class="jornada-ubicacion__boton"
+              :class="estadoGps.clase"
+              :disabled="fase === FASE.BUSCANDO || fase === FASE.CONFIRMANDO"
+              :aria-label="fase === FASE.BUSCANDO ? 'Obteniendo ubicación' : 'Obtener ubicación de nuevo'"
+              @click="buscarUbicacion"
+            >
+              <span v-if="fase === FASE.BUSCANDO" class="jornada-ubicacion__anillo">
+                <svg class="jornada-ubicacion__anillo-svg" viewBox="0 0 100 100">
+                  <circle class="jornada-ubicacion__anillo-fondo" cx="50" cy="50" r="45" />
+                  <circle class="jornada-ubicacion__anillo-progreso" cx="50" cy="50" r="45" />
+                </svg>
+              </span>
+              <span v-if="gps?.estado_gps === 'CON_GPS' && fase === FASE.LISTO" class="jornada-ubicacion__pulso"></span>
+              <span class="jornada-ubicacion__icono">
+                <AuthIcon :name="estadoGps.icono" />
+              </span>
+            </button>
 
-        <p v-if="fase === FASE.BUSCANDO" class="jornada-modal__estado">Obteniendo tu ubicación…</p>
-        <template v-else>
-          <div class="jornada-modal__ubicacion" :class="estadoGps.clase">
-            <AuthIcon :name="estadoGps.icono" />
-            <span>{{ estadoGps.texto }}</span>
-            <span v-if="gps?.precision_gps_m" class="jornada-modal__precision">
-              ±{{ Math.round(gps.precision_gps_m) }} m
-            </span>
+            <div class="jornada-ubicacion__info">
+              <span class="jornada-ubicacion__titulo">{{ estadoGps.titulo }}</span>
+              <span class="jornada-ubicacion__subtitulo">{{ estadoGps.subtitulo }}</span>
+            </div>
           </div>
+
+          <div v-if="gps?.latitud != null" class="jornada-ubicacion__coords" :class="{ 'jornada-ubicacion__coords--aviso': gps.estado_gps === 'GPS_IMPRECISO' }">
+            <span class="jornada-ubicacion__coord"><b>Lat</b> {{ gps.latitud.toFixed(6) }}</span>
+            <span class="jornada-ubicacion__coord-sep"></span>
+            <span class="jornada-ubicacion__coord"><b>Lon</b> {{ gps.longitud.toFixed(6) }}</span>
+          </div>
+
           <p v-if="gps?.permiso_denegado" class="jornada-modal__aviso-permiso">
             Activa el permiso de ubicación de este sitio en tu dispositivo y toca el círculo para reintentar.
           </p>
-        </template>
+        </div>
 
         <div class="jornada-modal__reloj">
           <div class="jornada-modal__hora">{{ horaFormateada }}</div>
@@ -237,96 +271,185 @@ onUnmounted(() => {
   height: 16px;
 }
 
-.jornada-modal__radar {
-  width: 7rem;
-  height: 7rem;
+/* Botón de ubicación circular tipo Apple — calcado a propósito de
+   `.apple-location-btn` en pwasuper (mismos tamaños, gradientes, anillo
+   de progreso y pulso de éxito), con una paleta propia por estado en vez
+   de la de pwasuper porque aquí SÍ existe un estado intermedio real
+   ("imprecisa": hubo lectura real de GPS pero fuera del umbral de buena
+   precisión) que pwasuper no distingue visualmente. */
+.jornada-ubicacion {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+}
+.jornada-ubicacion__envoltura {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+.jornada-ubicacion__boton {
+  position: relative;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
-  margin: 0.25rem 0;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+  -webkit-tap-highlight-color: transparent;
 }
-.jornada-modal__onda {
+.jornada-ubicacion__boton:disabled {
+  cursor: default;
+}
+.jornada-ubicacion__boton:not(:disabled):hover {
+  transform: scale(1.05);
+}
+.jornada-ubicacion__boton:not(:disabled):active {
+  transform: scale(0.95);
+}
+.jornada-ubicacion__icono {
+  display: flex;
+  color: #fff;
+  z-index: 2;
+}
+.jornada-ubicacion__icono svg {
+  width: 1.8rem;
+  height: 1.8rem;
+}
+
+/* Cargando: azul, con el anillo de progreso girando. */
+.jornada-ubicacion__boton--cargando {
+  background: linear-gradient(180deg, #5ac8fa 0%, #34aadc 100%);
+  box-shadow: 0 6px 18px rgba(90, 200, 250, 0.4);
+  cursor: wait;
+}
+/* Lista (CON_GPS): verde, con el pulso de éxito. */
+.jornada-ubicacion__boton--lista {
+  background: linear-gradient(180deg, #30d158 0%, #16a34a 100%);
+  box-shadow: 0 6px 18px rgba(22, 163, 74, 0.4);
+}
+/* Imprecisa (GPS_IMPRECISO): ámbar — hubo lectura real, pero no basta. */
+.jornada-ubicacion__boton--imprecisa {
+  background: linear-gradient(180deg, #fbbf24 0%, #d97706 100%);
+  box-shadow: 0 6px 18px rgba(217, 119, 6, 0.35);
+}
+/* Sin señal: gris — no hubo ninguna lectura real todavía. */
+.jornada-ubicacion__boton--sin-senal {
+  background: linear-gradient(180deg, #9ca3af 0%, #6b7280 100%);
+  box-shadow: 0 4px 14px rgba(107, 114, 128, 0.3);
+}
+
+.jornada-ubicacion__anillo {
+  position: absolute;
+  inset: -5px;
+  z-index: 1;
+  animation: jornada-ubicacion-girar 1s linear infinite;
+}
+.jornada-ubicacion__anillo-svg {
+  width: 100%;
+  height: 100%;
+}
+.jornada-ubicacion__anillo-fondo {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.2);
+  stroke-width: 4;
+}
+.jornada-ubicacion__anillo-progreso {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 70 213;
+  transform-origin: center;
+}
+@keyframes jornada-ubicacion-girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.jornada-ubicacion__pulso {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 2px solid var(--eca-green-400);
-  opacity: 0;
+  background: rgba(22, 163, 74, 0.3);
+  animation: jornada-ubicacion-pulso 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  z-index: 0;
 }
-.jornada-modal__onda--activa {
-  animation: jornada-radar-onda 1.8s ease-out infinite;
-}
-.jornada-modal__onda--2.jornada-modal__onda--activa {
-  animation-delay: 0.6s;
-}
-@keyframes jornada-radar-onda {
-  0% {
-    transform: scale(0.5);
-    opacity: 0.7;
+@keyframes jornada-ubicacion-pulso {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.6;
   }
-  100% {
-    transform: scale(1.35);
+  50% {
+    transform: scale(1.2);
     opacity: 0;
   }
 }
-.jornada-modal__pin {
-  width: 3.75rem;
-  height: 3.75rem;
-  border-radius: 50%;
-  border: none;
+
+.jornada-ubicacion__info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+}
+.jornada-ubicacion__titulo {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--eca-ink);
+}
+.jornada-ubicacion__subtitulo {
+  font-size: 0.75rem;
+  color: var(--eca-ink-soft);
+}
+
+.jornada-ubicacion__coords {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(145deg, var(--eca-green-400) 0%, var(--eca-green-600) 100%);
-  color: #fff;
-  box-shadow: 0 8px 20px rgba(21, 128, 61, 0.35);
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  z-index: 1;
-  cursor: pointer;
-}
-.jornada-modal__pin:disabled {
-  cursor: default;
-}
-.jornada-modal__pin svg {
-  width: 1.9rem;
-  height: 1.9rem;
-}
-.jornada-modal__pin--listo {
-  transform: scale(1.08);
-}
-
-.jornada-modal__estado {
-  margin: 0;
-  color: var(--eca-ink-soft);
-  font-size: 0.9rem;
-}
-.jornada-modal__ubicacion {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  padding: 0.4rem 0.8rem;
-  border-radius: 999px;
+  gap: 0.5rem;
   background: var(--eca-green-100);
+  border: 1px solid var(--eca-green-400);
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.72rem;
   color: var(--eca-green-800);
+  animation: jornada-ubicacion-coords-entrar 0.3s ease both;
+  max-width: 100%;
 }
-.jornada-modal__ubicacion svg {
-  width: 15px;
-  height: 15px;
-}
-.jornada-modal__ubicacion--aviso {
+.jornada-ubicacion__coords--aviso {
   background: var(--eca-warn-bg);
+  border-color: var(--eca-warn);
   color: var(--eca-warn);
 }
-.jornada-modal__ubicacion--sin {
-  background: var(--eca-surface);
-  color: var(--eca-ink-soft);
+.jornada-ubicacion__coord b {
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.62rem;
+  margin-right: 0.2rem;
 }
-.jornada-modal__precision {
-  opacity: 0.75;
-  font-weight: 400;
+.jornada-ubicacion__coord-sep {
+  width: 1px;
+  height: 0.7rem;
+  background: currentColor;
+  opacity: 0.35;
 }
+@keyframes jornada-ubicacion-coords-entrar {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .jornada-modal__aviso-permiso {
   margin: -0.4rem 0 0;
   font-size: 0.78rem;

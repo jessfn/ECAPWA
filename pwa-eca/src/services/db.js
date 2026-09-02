@@ -20,8 +20,6 @@ import { leerSesionLocal } from './sesionLocal'
 export const NOMBRE_BD = 'eca-tecnico'
 export const VERSION_BD = 1
 
-const TIENDAS_OUTBOX = ['outbox_jornadas', 'outbox_actividades', 'outbox_evidencias']
-
 export function nombreBDPara(idUsuario) {
   return idUsuario ? `${NOMBRE_BD}-${idUsuario}` : NOMBRE_BD
 }
@@ -52,34 +50,20 @@ function crearEsquema(db) {
   }
 }
 
-// Mejor esfuerzo, una sola vez por base nueva: si este dispositivo tenía
-// pendientes en la base genérica de antes de este cambio (compartida entre
-// cuentas), se copian a la base ya aislada del usuario actual — nunca se
-// pierden, y de aquí en adelante quedan correctamente separados por
-// cuenta. Sin usuario_id en los registros viejos no hay forma de saber de
-// quién eran de verdad; se asignan al usuario que los "hereda" primero,
-// que es exactamente el mismo comportamiento (ambiguo) que ya tenían
-// antes de este arreglo — no lo empeora, solo deja de repetirlo hacia
-// adelante.
-async function migrarDesdeLegadoSiHaceFalta(db) {
-  const yaMigrado = await db.get('meta', 'migrado_legado')
-  if (yaMigrado) return
-  try {
-    const dbLegado = await openDB(NOMBRE_BD, VERSION_BD, { upgrade: crearEsquema })
-    for (const tienda of TIENDAS_OUTBOX) {
-      const registros = await dbLegado.getAll(tienda)
-      for (const registro of registros) {
-        const existe = await db.get(tienda, registro.uuid)
-        if (!existe) await db.put(tienda, registro)
-      }
-    }
-    dbLegado.close()
-  } catch {
-    // Sin la base legado (navegador nuevo, ya migrado antes, etc.) no hay
-    // nada que copiar — seguir sin bloquear la apertura de la base actual.
-  }
-  await db.put('meta', { clave: 'migrado_legado', valor: true })
-}
+// Bug real de producción (ECA-021): la primera versión de este arreglo
+// migraba —de la base genérica compartida `eca-tecnico` hacia CADA base
+// nueva de usuario que se abriera por primera vez— todo lo que hubiera
+// quedado ahí. Eso "heredaba" el outbox entero (incluida una jornada ya
+// iniciada) a CUALQUIER cuenta que iniciara sesión por primera vez en ese
+// dispositivo, sin importar de quién fueran esos registros en realidad —
+// exactamente la misma contaminación entre cuentas que se quería
+// resolver, solo que trasladada a la base legado en vez de a la
+// compartida. Sin `usuario_id` en los registros viejos no hay forma
+// confiable de saber a quién pertenecían, así que ya NO se migra nada:
+// cada base nueva de usuario arranca siempre vacía. Los pendientes que
+// hubiera en la base legado de antes de este arreglo se pierden (costo
+// aceptable, único, ya pagado) en vez de seguir contaminando cuentas
+// nuevas indefinidamente.
 
 let promesaBD = null
 let idUsuarioAbierto
@@ -91,11 +75,7 @@ export function abrirBD() {
       promesaBD.then((db) => db.close()).catch(() => {})
     }
     idUsuarioAbierto = idActual
-    promesaBD = (async () => {
-      const db = await openDB(nombreBDPara(idActual), VERSION_BD, { upgrade: crearEsquema })
-      if (idActual) await migrarDesdeLegadoSiHaceFalta(db)
-      return db
-    })()
+    promesaBD = openDB(nombreBDPara(idActual), VERSION_BD, { upgrade: crearEsquema })
   }
   return promesaBD
 }

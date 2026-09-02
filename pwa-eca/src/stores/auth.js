@@ -7,7 +7,7 @@
 //   `access_token` ya haya caducado y no haya red — ver `sesionLocal.js`.
 // El guard de rutas (`router/index.js`) exige **una u otra**, no solo la
 // primera.
-import { defineStore } from 'pinia'
+import { defineStore, getActivePinia } from 'pinia'
 import { api } from '../services/api'
 import { tokenExpirado } from '../services/jwt'
 import { guardarSesionLocal, sesionLocalVigente, leerSesionLocal } from '../services/sesionLocal'
@@ -15,6 +15,28 @@ import { ejecutarBootstrap } from '../services/bootstrap'
 
 const CLAVE_ACCESS_TOKEN = 'eca_tecnico_access_token'
 const CLAVE_REFRESH_TOKEN = 'eca_tecnico_refresh_token'
+
+// Defensa en profundidad (ECA-021): además de que cada cuenta ya usa su
+// propia base IndexedDB (`services/db.js`), los demás stores de Pinia
+// (jornada, ecas, catalogos, actividad, outbox) son singletons en memoria
+// que NO se destruyen entre un logout y el login siguiente en la misma
+// pestaña — a diferencia de pwasuper, que fuerza una recarga completa de
+// página en el logout (`window.location.href = '/login'`) y así borra
+// todo el estado JS sin pedirlo explícitamente. Aquí no se recarga la
+// página (mejor UX), así que hay que vaciar a mano cualquier store con
+// datos de la cuenta anterior — evita que se alcance a pintar por un
+// instante (o, si algún flujo nuevo olvida recargar, indefinidamente) el
+// dato viejo de la Cuenta A mientras el store de la Cuenta B todavía está
+// resolviendo su propia carga. Se resuelve genérico (iterando los stores
+// ya activos) para no crear un import circular con jornada.js, que ya
+// importa este mismo archivo.
+function reiniciarStoresDeCuenta() {
+  const pinia = getActivePinia()
+  if (!pinia) return
+  for (const store of pinia._s.values()) {
+    if (store.$id !== 'auth') store.$reset()
+  }
+}
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -45,6 +67,10 @@ export const useAuthStore = defineStore('auth', {
 
     async login(correo, contrasena) {
       const { data } = await api.post('/auth/login', { correo, contrasena })
+      // Antes de tocar nada de la cuenta nueva: fuera cualquier dato en
+      // memoria que hubiera quedado de una cuenta distinta en esta misma
+      // pestaña (ver comentario de `reiniciarStoresDeCuenta`).
+      reiniciarStoresDeCuenta()
       this._guardarTokens(data.access_token, data.refresh_token)
       await this.cargarPerfilYBootstrap()
       // Bootstrap de datos offline (ECA-018): catálogos + ECA del técnico.
@@ -83,6 +109,7 @@ export const useAuthStore = defineStore('auth', {
       localStorage.removeItem('eca_tecnico_sesion_local')
       this.usuario = null
       this.permisos = []
+      reiniciarStoresDeCuenta()
     },
 
     // Cierra solo la sesión de *servidor* (tokens). Nunca toca la sesión

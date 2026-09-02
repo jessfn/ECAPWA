@@ -10,6 +10,7 @@ vi.mock('../src/services/api', () => ({
 
 import { api } from '../src/services/api'
 import { useAuthStore } from '../src/stores/auth'
+import { useJornadaStore } from '../src/stores/jornada'
 import { guardarSesionLocal } from '../src/services/sesionLocal'
 
 function crearJwt(payload) {
@@ -107,5 +108,40 @@ describe('useAuthStore', () => {
     const auth = useAuthStore()
     await expect(auth.refrescar()).rejects.toThrow()
     expect(api.post).not.toHaveBeenCalled()
+  })
+
+  // Regresión real de producción (ECA-021): la Cuenta B veía la jornada
+  // de la Cuenta A porque, aunque cada cuenta ya usa su propia base
+  // IndexedDB, el store de Pinia (singleton en memoria, no se destruye
+  // entre logout/login sin recargar la página) seguía teniendo el dato
+  // viejo de la Cuenta A un instante antes de que `cargarHoy()` de la
+  // Cuenta B resolviera. login() debe vaciar ese estado ANTES de traer
+  // los datos de la cuenta nueva.
+  it('login vacía el estado de otros stores (p. ej. la jornada de la cuenta anterior)', async () => {
+    const jornada = useJornadaStore()
+    jornada.actual = { uuid: 'jornada-de-la-cuenta-anterior', inicio_en: new Date().toISOString() }
+
+    api.post.mockResolvedValueOnce({
+      data: { access_token: TOKEN_VIGENTE, refresh_token: 'r1', expira_en: '2099-01-01T00:00:00Z' },
+    })
+    api.get.mockResolvedValueOnce({
+      data: { usuario: { nombre: 'Beto' }, permisos: [] },
+    })
+
+    const auth = useAuthStore()
+    await auth.login('beto@ejemplo.org', 'Correcta123')
+
+    expect(jornada.actual).toBeNull()
+  })
+
+  it('logout vacía el estado de otros stores', async () => {
+    const jornada = useJornadaStore()
+    jornada.actual = { uuid: 'jornada-de-la-cuenta', inicio_en: new Date().toISOString() }
+    api.post.mockRejectedValueOnce(new Error('red caída'))
+
+    const auth = useAuthStore()
+    await auth.logout()
+
+    expect(jornada.actual).toBeNull()
   })
 })
