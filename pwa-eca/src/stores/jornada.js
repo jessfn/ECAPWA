@@ -10,6 +10,8 @@ import { encolar, actualizar, listar, reemplazar } from '../services/outbox'
 import { useOutboxStore } from './outbox'
 import { sincronizarOportunista } from '../services/sync'
 import { obtenerJornadaDeHoy } from '../services/jornadasService'
+import { asegurarSesionDeServidor } from '../services/sesionServidor'
+import { useAuthStore } from './auth'
 
 const TIENDA = 'outbox_jornadas'
 
@@ -75,7 +77,12 @@ export const useJornadaStore = defineStore('jornada', {
         // desde otro dispositivo/navegador, este nunca se entera por sí
         // solo. Se contrasta con el servidor (mejor esfuerzo: sin red o
         // sin sesión, se sigue con lo local, nunca se pierde nada).
-        if (navigator.onLine) {
+        // Antes se llamaba a `/jornadas/me/hoy` directamente, sin fijarse
+        // si el `access_token` ya estaba vencido — eso garantizaba un 401
+        // visible en consola (aunque el interceptor de `api.js` lo
+        // reintentara solo tras refrescar). Al asegurar la sesión primero
+        // se evita ese roundtrip predecible.
+        if (navigator.onLine && (await asegurarSesionDeServidor(useAuthStore()))) {
           try {
             const remota = await obtenerJornadaDeHoy()
             if (remota && (!local || local.uuid !== remota.uuid || (remota.fin_en && !local.fin_en))) {
@@ -83,7 +90,7 @@ export const useJornadaStore = defineStore('jornada', {
               await useOutboxStore().refrescar()
             }
           } catch {
-            // sin red real, sesión vencida, etc. — se sigue con lo local
+            // sin red real, sesión vencida entre medio, etc. — se sigue con lo local
           }
         }
 

@@ -9,6 +9,7 @@ import { registrarDispositivo, push } from './syncPushService'
 import { subirEvidencia } from './evidenciasService'
 import { ejecutarPull } from './bootstrap'
 import { useAuthStore } from '../stores/auth'
+import { asegurarSesionDeServidor } from './sesionServidor'
 
 const CLAVE_DISPOSITIVO = 'eca_tecnico_dispositivo_uuid'
 const ESTADOS_A_ENVIAR = new Set(['PENDIENTE', 'RECHAZADO'])
@@ -79,16 +80,6 @@ function aPayloadActividad(registro) {
     requiere_seguimiento: Boolean(registro.requiere_seguimiento),
     fecha_proximo_seguimiento: registro.fecha_proximo_seguimiento ?? null,
     gps: registro.gps || null,
-  }
-}
-
-async function asegurarSesionDeServidor(auth) {
-  if (auth.sesionServidorValida) return true
-  try {
-    await auth.refrescar()
-    return true
-  } catch {
-    return false
   }
 }
 

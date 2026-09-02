@@ -6,13 +6,25 @@ import { createPinia, setActivePinia } from 'pinia'
 import { reactive } from 'vue'
 import { NOMBRE_BD, _reiniciarBDParaPruebas } from '../src/services/db'
 import { useJornadaStore } from '../src/stores/jornada'
+import { useAuthStore } from '../src/stores/auth'
 import { obtenerJornadaDeHoy } from '../src/services/jornadasService'
 
 vi.mock('../src/services/jornadasService', () => ({
   obtenerJornadaDeHoy: vi.fn(),
 }))
 
+// `cargarHoy` ahora asegura sesión de servidor (sesionServidorValida)
+// antes de llamar a `obtenerJornadaDeHoy` — sin un access_token vigente en
+// localStorage, se salta la hidratación de raíz (evita el 401 predecible
+// contra un token ya vencido). Los tests de hidratación necesitan uno.
+function crearJwt(payload) {
+  const base64url = (obj) => btoa(JSON.stringify(obj)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  return `${base64url({ alg: 'none' })}.${base64url(payload)}.firma`
+}
+const TOKEN_VIGENTE = crearJwt({ sub: '1', exp: Date.now() / 1000 + 900 })
+
 beforeEach(async () => {
+  localStorage.clear()
   setActivePinia(createPinia())
   await _reiniciarBDParaPruebas()
   await new Promise((resolve, reject) => {
@@ -62,6 +74,7 @@ describe('useJornadaStore', () => {
   // contrasta con `GET /jornadas/me/hoy` y, si el servidor ya tiene una
   // jornada que este dispositivo desconoce, la adopta localmente.
   it('cargarHoy hidrata desde el servidor una jornada iniciada en otro dispositivo', async () => {
+    useAuthStore().accessToken = TOKEN_VIGENTE
     vi.mocked(obtenerJornadaDeHoy).mockResolvedValue({
       uuid: 'servidor-uuid-1',
       inicio_en: new Date().toISOString(),
@@ -94,6 +107,7 @@ describe('useJornadaStore', () => {
     const uuid = jornada.actual.uuid
     const inicioEn = jornada.actual.inicio_en
 
+    useAuthStore().accessToken = TOKEN_VIGENTE
     vi.mocked(obtenerJornadaDeHoy).mockResolvedValue({
       uuid,
       inicio_en: inicioEn,
@@ -112,6 +126,21 @@ describe('useJornadaStore', () => {
 
     expect(jornada.abierta).toBe(false)
     expect(jornada.actual.fin_en).toBeTruthy()
+  })
+
+  // Regresión real reportada en producción: la consola mostraba un 401
+  // Unauthorized de `GET /jornadas/me/hoy` cada vez que se abría Inicio con
+  // el access_token ya vencido (y sin refresh_token con qué renovarlo) —
+  // `cargarHoy` disparaba la llamada sin fijarse primero si había sesión de
+  // servidor. Sin token en absoluto (ni refresh), ni siquiera debe
+  // intentarlo.
+  it('cargarHoy no llama al servidor sin sesión de servidor ni refresh token', async () => {
+    const jornada = useJornadaStore()
+
+    await jornada.cargarHoy()
+
+    expect(obtenerJornadaDeHoy).not.toHaveBeenCalled()
+    expect(jornada.error).toBe('')
   })
 
   it('cerrar actualiza el registro local sin perder el inicio', async () => {
