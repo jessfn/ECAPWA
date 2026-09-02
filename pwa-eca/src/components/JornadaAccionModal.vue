@@ -43,7 +43,12 @@ const fechaFormateada = computed(() =>
 const horaFormateada = computed(() => ahora.value.toLocaleTimeString('es-MX'))
 
 async function buscarUbicacion() {
-  if (fase.value === FASE.BUSCANDO) return
+  // Nota: no se guarda con "if fase===BUSCANDO return" — el estado inicial
+  // YA es BUSCANDO (línea 18), así que ese guard cortaba la primera
+  // captura automática de `onMounted` antes de llamar `capturarGps`,
+  // dejando el modal colgado para siempre en "Obteniendo tu ubicación…".
+  // El botón ya se deshabilita mientras `fase === FASE.BUSCANDO`
+  // (`:disabled` en el template), así que no hace falta un guard aquí.
   fase.value = FASE.BUSCANDO
   // Más intentos y más tiempo (antes 2/5s): pedido explícito de ubicación
   // exacta, no solo aproximada.
