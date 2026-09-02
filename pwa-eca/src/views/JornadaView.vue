@@ -12,22 +12,41 @@ import { onMounted, ref } from 'vue'
 import { useJornadaStore } from '../stores/jornada'
 import BackButton from '../components/BackButton.vue'
 import JornadaAccionModal from '../components/JornadaAccionModal.vue'
+import AvisoModal from '../components/AvisoModal.vue'
 import AuthIcon from '../components/auth/AuthIcon.vue'
 
 const jornada = useJornadaStore()
 const modalAbierto = ref(null) // null | 'inicio' | 'fin'
+const avisoBloqueo = ref(false)
+const avisoExito = ref(null) // null | { titulo, mensaje }
 
 onMounted(() => {
   jornada.cargarHoy()
 })
 
 async function confirmarModal({ nota, gps }) {
-  if (modalAbierto.value === 'inicio') {
+  const tipo = modalAbierto.value
+  if (tipo === 'inicio') {
     await jornada.iniciar(nota, gps)
-  } else if (modalAbierto.value === 'fin') {
+  } else if (tipo === 'fin') {
     await jornada.cerrar(nota, gps)
   }
   modalAbierto.value = null
+  // Si el store dejó un error (p. ej. no se pudo guardar localmente), no
+  // se muestra el aviso de éxito — el error ya se ve arriba en la
+  // pantalla (`jornada.error`).
+  if (!jornada.error) {
+    avisoExito.value =
+      tipo === 'inicio'
+        ? {
+            titulo: 'Inicio registrado',
+            mensaje: 'Tu registro de inicio de jornada se guardó correctamente en tu dispositivo y se sincronizará con el servidor en cuanto haya conexión.',
+          }
+        : {
+            titulo: 'Salida registrada',
+            mensaje: 'Tu registro de salida de jornada se guardó correctamente en tu dispositivo y se sincronizará con el servidor en cuanto haya conexión.',
+          }
+  }
 }
 </script>
 
@@ -99,7 +118,12 @@ async function confirmarModal({ nota, gps }) {
         </span>
         <span class="jornada-tarjeta__franja jornada-tarjeta__franja--hecha">REGISTRADO</span>
       </div>
-      <div v-else class="jornada-tarjeta jornada-tarjeta--bloqueada">
+      <button
+        v-else
+        type="button"
+        class="jornada-tarjeta jornada-tarjeta--bloqueada"
+        @click="avisoBloqueo = true"
+      >
         <span class="jornada-tarjeta__cuerpo">
           <span class="jornada-tarjeta__circulo jornada-tarjeta__circulo--bloqueado">
             <AuthIcon name="lock" />
@@ -108,7 +132,7 @@ async function confirmarModal({ nota, gps }) {
           <span class="jornada-tarjeta__subtitulo">Primero registra tu inicio</span>
         </span>
         <span class="jornada-tarjeta__franja jornada-tarjeta__franja--bloqueada">BLOQUEADO</span>
-      </div>
+      </button>
     </div>
 
     <JornadaAccionModal
@@ -116,6 +140,22 @@ async function confirmarModal({ nota, gps }) {
       :tipo="modalAbierto"
       @cancelar="modalAbierto = null"
       @confirmar="confirmarModal"
+    />
+
+    <AvisoModal
+      v-if="avisoBloqueo"
+      tipo="bloqueo"
+      titulo="Primero registra tu inicio"
+      mensaje="No puedes registrar tu salida sin haber registrado antes el inicio de tu jornada de hoy."
+      @cerrar="avisoBloqueo = false"
+    />
+
+    <AvisoModal
+      v-if="avisoExito"
+      tipo="exito"
+      :titulo="avisoExito.titulo"
+      :mensaje="avisoExito.mensaje"
+      @cerrar="avisoExito = null"
     />
   </main>
 </template>
@@ -250,6 +290,20 @@ async function confirmarModal({ nota, gps }) {
 .jornada-tarjeta--hecha {
   background: #fff;
   border: 1.5px solid var(--eca-surface-border);
+}
+/* Bloqueada es ahora un `<button>` clicable (pedido explícito: debe
+   avisar por qué está bloqueada, no solo verse gris) — se le da
+   feedback táctil propio en vez de reutilizar `.jornada-tarjeta--activa`
+   (que cambia todo a color). */
+.jornada-tarjeta--bloqueada {
+  cursor: pointer;
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.jornada-tarjeta--bloqueada:hover {
+  transform: translateY(-2px);
+}
+.jornada-tarjeta--bloqueada:active {
+  transform: scale(0.98);
 }
 /* Elemento normal del flujo (no `position:absolute`): al ir siempre
    DESPUÉS de `__cuerpo` en el documento, nunca puede quedar detrás ni

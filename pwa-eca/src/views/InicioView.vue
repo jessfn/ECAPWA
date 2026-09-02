@@ -3,16 +3,18 @@
      "Jornada" es un botón grande con animación y fondo en <canvas>, que
      explica para qué sirve y refleja el estado real del día). -->
 <script setup>
-import { onMounted, computed } from 'vue'
+import { onMounted, computed, ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useJornadaStore } from '../stores/jornada'
 import { useConectividad } from '../services/conectividad'
 import AuthIcon from '../components/auth/AuthIcon.vue'
 import CanvasFondo from '../components/CanvasFondo.vue'
+import AvisoModal from '../components/AvisoModal.vue'
 
 const auth = useAuthStore()
 const jornada = useJornadaStore()
 const { enLinea } = useConectividad()
+const avisoBloqueo = ref(null) // null | { titulo, mensaje }
 
 onMounted(() => {
   jornada.cargarHoy()
@@ -72,6 +74,24 @@ const actividadTexto = computed(() => {
   return 'Inicia tu jornada para poder registrar actividades.'
 })
 
+function mostrarBloqueoJornada() {
+  avisoBloqueo.value = {
+    titulo: 'Jornada ya completada',
+    mensaje: 'Ya registraste tu inicio y tu salida de hoy. Podrás volver a registrar mañana.',
+  }
+}
+function mostrarBloqueoActividad() {
+  avisoBloqueo.value = jornadaCompletada.value
+    ? {
+        titulo: 'Jornada ya finalizada',
+        mensaje: 'Ya completaste tu jornada de hoy. Vuelve mañana para registrar actividades.',
+      }
+    : {
+        titulo: 'Primero inicia tu jornada',
+        mensaje: 'Necesitas registrar tu inicio de jornada antes de poder registrar actividades.',
+      }
+}
+
 const accesos = [
   {
     ruta: 'sincronizacion',
@@ -124,10 +144,12 @@ const accesos = [
 
     <!-- Jornada: bloqueada (gris, candado, etiqueta "Completado") en
          cuanto ya se registró inicio + salida de hoy; se reinicia mañana. -->
-    <div
+    <button
       v-if="jornadaCompletada"
+      type="button"
       class="inicio-hero inicio-hero--jornada inicio-hero--bloqueado eca-entrar"
       style="--eca-delay: 0.06s"
+      @click="mostrarBloqueoJornada"
     >
       <span class="inicio-hero__medio-circulo inicio-hero__medio-circulo--izquierda">
         <span class="inicio-hero__icono">
@@ -140,7 +162,7 @@ const accesos = [
         <span class="inicio-hero__descripcion">{{ jornadaTexto.desc }}</span>
       </span>
       <span class="inicio-hero__etiqueta-bloqueado">Bloqueado</span>
-    </div>
+    </button>
     <RouterLink v-else :to="{ name: 'jornada' }" class="inicio-hero inicio-hero--jornada eca-entrar" style="--eca-delay: 0.06s">
       <CanvasFondo
         class="inicio-hero__canvas inicio-hero__canvas--izquierda"
@@ -160,10 +182,12 @@ const accesos = [
     <!-- Actividades: solo se puede acceder con la jornada abierta (ya se
          marcó el inicio, todavía no la salida). Antes de iniciar y
          después de marcar salida queda bloqueada. -->
-    <div
+    <button
       v-if="!jornada.abierta"
+      type="button"
       class="inicio-hero inicio-hero--actividad inicio-hero--bloqueado eca-entrar"
       style="--eca-delay: 0.09s"
+      @click="mostrarBloqueoActividad"
     >
       <span class="inicio-hero__texto inicio-hero__texto--derecha">
         <strong class="inicio-hero__titulo">Registro de actividades</strong>
@@ -175,7 +199,7 @@ const accesos = [
         </span>
       </span>
       <span class="inicio-hero__etiqueta-bloqueado inicio-hero__etiqueta-bloqueado--izquierda">Bloqueado</span>
-    </div>
+    </button>
     <RouterLink v-else :to="{ name: 'nueva-actividad' }" class="inicio-hero inicio-hero--actividad eca-entrar" style="--eca-delay: 0.09s">
       <CanvasFondo
         class="inicio-hero__canvas inicio-hero__canvas--derecha"
@@ -211,6 +235,14 @@ const accesos = [
         </span>
       </RouterLink>
     </nav>
+
+    <AvisoModal
+      v-if="avisoBloqueo"
+      tipo="bloqueo"
+      :titulo="avisoBloqueo.titulo"
+      :mensaje="avisoBloqueo.mensaje"
+      @cerrar="avisoBloqueo = null"
+    />
   </div>
 </template>
 
@@ -366,6 +398,13 @@ const accesos = [
    (responsive, sin medir nada por JS). El ícono va en un círculo pequeño
    y estático, dentro de la mitad visible. */
 .inicio-hero {
+  /* La versión bloqueada es un `<button>` (pedido explícito: debe avisar
+     por qué está bloqueado en vez de solo verse gris) — reset explícito
+     de los estilos por defecto del navegador para verse igual que el
+     `<RouterLink>` de la versión activa. */
+  border: none;
+  font: inherit;
+  cursor: pointer;
   position: relative;
   display: flex;
   align-items: center;
@@ -404,11 +443,12 @@ const accesos = [
 .inicio-hero--bloqueado {
   background: linear-gradient(160deg, #9ca3af 0%, #6b7280 100%);
   box-shadow: 0 10px 24px rgba(75, 85, 99, 0.22);
-  cursor: default;
 }
 .inicio-hero--bloqueado:hover {
-  transform: none;
-  box-shadow: 0 10px 24px rgba(75, 85, 99, 0.22);
+  box-shadow: 0 14px 30px rgba(75, 85, 99, 0.28);
+}
+.inicio-hero--bloqueado:active {
+  transform: scale(0.98);
 }
 .inicio-hero--bloqueado .inicio-hero__medio-circulo {
   background: rgba(255, 255, 255, 0.14);

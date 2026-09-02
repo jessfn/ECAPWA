@@ -6,16 +6,21 @@
      pantallas no tenía ninguna forma de navegar entre sí). -->
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useJornadaStore } from '../stores/jornada'
 import { useConectividad } from '../services/conectividad'
 import AuthIcon from './auth/AuthIcon.vue'
+import AvisoModal from './AvisoModal.vue'
 
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
+const jornada = useJornadaStore()
 const { enLinea } = useConectividad()
 
 const menuAbierto = ref(false)
+const avisoBloqueo = ref(null) // null | { titulo, mensaje }
 
 // Hora y fecha de Ciudad de México — pedido explícito: "sin editarse del
 // dispositivo", o sea que no dependa del reloj del celular (un técnico
@@ -93,6 +98,28 @@ function cerrarMenu() {
   menuAbierto.value = false
 }
 
+// "Nueva actividad" solo se puede usar con la jornada abierta — pedido
+// explícito: en vez de dejar navegar y que la pantalla de destino avise
+// con un texto plano (que ni siquiera todos leen), se corta aquí mismo
+// con un modal claro, con el fondo desvanecido, antes de navegar.
+function navegar(enlace) {
+  if (enlace.nombre === 'nueva-actividad' && !jornada.abierta) {
+    cerrarMenu()
+    avisoBloqueo.value = Boolean(jornada.actual)
+      ? {
+          titulo: 'Jornada ya finalizada',
+          mensaje: 'Ya completaste tu jornada de hoy. Vuelve mañana para registrar actividades.',
+        }
+      : {
+          titulo: 'Primero inicia tu jornada',
+          mensaje: 'Necesitas registrar tu inicio de jornada antes de poder registrar actividades.',
+        }
+    return
+  }
+  cerrarMenu()
+  router.push({ name: enlace.nombre })
+}
+
 async function cerrarSesion() {
   cerrarMenu()
   await auth.logout()
@@ -110,6 +137,11 @@ async function cerrarSesion() {
 }
 
 onMounted(async () => {
+  // El menú se monta una sola vez para toda la sesión — necesita saber si
+  // la jornada está abierta para decidir si "Nueva actividad" navega o
+  // muestra el aviso de bloqueo, sin depender de que la pantalla actual
+  // ya la haya cargado.
+  jornada.cargarHoy()
   await sincronizarConInternet()
   actualizarReloj()
   intervaloReloj = setInterval(actualizarReloj, 1000)
@@ -125,76 +157,99 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <header class="app-header" :class="{ 'app-header--abierto': menuAbierto }">
-    <div class="app-header__fila">
-      <div class="app-header__marca">
-        <span class="app-header__logo">
-          <img src="/logo.png" alt="ECA" />
-        </span>
-        <span class="app-header__marca-texto">
-          <span class="app-header__nombre">ECA</span>
-          <span class="app-header__usuario">Aplicación de seguimiento</span>
-        </span>
+  <!-- Header + menú van en UN SOLO contenedor con `position: fixed` — antes
+       cada uno tenía su propio `position: fixed` con un `top` calculado a
+       mano (el del menú, `90px + safe-area`, asumía una altura fija del
+       header que en la práctica varía por dispositivo/zona segura), y
+       cuando no coincidían el primer enlace ("Inicio") quedaba tapado a
+       medias detrás de la barra superior. Con un solo contenedor fijo, el
+       menú es simplemente el siguiente elemento en el flujo normal DEBAJO
+       del header — nunca se puede desalinear, sin importar su alto real. -->
+  <div class="app-header-shell">
+    <header class="app-header" :class="{ 'app-header--abierto': menuAbierto }">
+      <div class="app-header__fila">
+        <div class="app-header__marca">
+          <span class="app-header__logo">
+            <img src="/logo.png" alt="ECA" />
+          </span>
+          <span class="app-header__marca-texto">
+            <span class="app-header__nombre">ECA</span>
+            <span class="app-header__usuario">Aplicación de seguimiento</span>
+          </span>
+        </div>
+
+        <div class="app-header__acciones">
+          <button
+            type="button"
+            class="app-header__hamburguesa"
+            :aria-expanded="menuAbierto"
+            aria-label="Abrir menú"
+            @click="alternarMenu"
+          >
+            <AuthIcon :name="menuAbierto ? 'close' : 'menu'" />
+          </button>
+        </div>
       </div>
 
-      <div class="app-header__acciones">
+      <div class="app-header__estado">
+        <span class="app-header__estado-pill" :class="{ 'app-header__estado-pill--offline': !enLinea }" role="status">
+          <AuthIcon :name="enLinea ? 'wifi' : 'wifi-off'" />
+          <span>{{ enLinea ? 'En línea' : 'Sin conexión' }}</span>
+        </span>
+        <span class="app-header__reloj">
+          <span class="app-header__hora">{{ horaActual }}</span>
+          <span class="app-header__fecha">{{ fechaActual }}</span>
+        </span>
+      </div>
+    </header>
+
+    <Transition name="menu-slide">
+      <nav v-if="menuAbierto" class="app-menu">
         <button
+          v-for="enlace in enlaces"
+          :key="enlace.nombre"
           type="button"
-          class="app-header__hamburguesa"
-          :aria-expanded="menuAbierto"
-          aria-label="Abrir menú"
-          @click="alternarMenu"
+          class="app-menu__enlace"
+          :class="{ 'app-menu__enlace--activo': route.name === enlace.nombre }"
+          @click="navegar(enlace)"
         >
-          <AuthIcon :name="menuAbierto ? 'close' : 'menu'" />
+          <AuthIcon :name="enlace.icono" />
+          <span>{{ enlace.etiqueta }}</span>
         </button>
-      </div>
-    </div>
 
-    <div class="app-header__estado">
-      <span class="app-header__estado-pill" :class="{ 'app-header__estado-pill--offline': !enLinea }" role="status">
-        <AuthIcon :name="enLinea ? 'wifi' : 'wifi-off'" />
-        <span>{{ enLinea ? 'En línea' : 'Sin conexión' }}</span>
-      </span>
-      <span class="app-header__reloj">
-        <span class="app-header__hora">{{ horaActual }}</span>
-        <span class="app-header__fecha">{{ fechaActual }}</span>
-      </span>
-    </div>
-  </header>
+        <div class="app-menu__separador"></div>
 
-  <Transition name="menu-slide">
-    <nav v-if="menuAbierto" class="app-menu">
-      <RouterLink
-        v-for="enlace in enlaces"
-        :key="enlace.nombre"
-        :to="{ name: enlace.nombre }"
-        class="app-menu__enlace"
-        :class="{ 'app-menu__enlace--activo': route.name === enlace.nombre }"
-        @click="cerrarMenu"
-      >
-        <AuthIcon :name="enlace.icono" />
-        <span>{{ enlace.etiqueta }}</span>
-      </RouterLink>
-
-      <div class="app-menu__separador"></div>
-
-      <button type="button" class="app-menu__enlace app-menu__salir" @click="cerrarSesion">
-        <AuthIcon name="logout" />
-        <span>Cerrar sesión</span>
-      </button>
-    </nav>
-  </Transition>
+        <button type="button" class="app-menu__enlace app-menu__salir" @click="cerrarSesion">
+          <AuthIcon name="logout" />
+          <span>Cerrar sesión</span>
+        </button>
+      </nav>
+    </Transition>
+  </div>
 
   <div v-if="menuAbierto" class="app-menu__overlay" @click="cerrarMenu"></div>
+
+  <AvisoModal
+    v-if="avisoBloqueo"
+    tipo="bloqueo"
+    :titulo="avisoBloqueo.titulo"
+    :mensaje="avisoBloqueo.mensaje"
+    @cerrar="avisoBloqueo = null"
+  />
 </template>
 
 <style scoped>
-.app-header {
+.app-header-shell {
   position: fixed;
   top: max(8px, calc(env(safe-area-inset-top, 0px) + 8px));
   left: 8px;
   right: 8px;
   z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.app-header {
   /* Fila y barra de estado deben verse como una sola pieza, sin ninguna
      costura entre ellas — a prueba de fallos: en vez de depender solo del
      recorte de `overflow: hidden` (que en algunos navegadores móviles no
@@ -358,11 +413,6 @@ onUnmounted(() => {
 }
 
 .app-menu {
-  position: fixed;
-  top: calc(90px + env(safe-area-inset-top, 0px));
-  left: 8px;
-  right: 8px;
-  z-index: 30;
   background: var(--eca-green-900);
   border-radius: 0 0 24px 24px;
   box-shadow: var(--eca-shadow-card);

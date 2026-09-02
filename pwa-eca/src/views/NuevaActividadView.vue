@@ -21,6 +21,7 @@ import CapturaGps from '../components/CapturaGps.vue'
 import CapturaEvidencia from '../components/CapturaEvidencia.vue'
 import BackButton from '../components/BackButton.vue'
 import AuthIcon from '../components/auth/AuthIcon.vue'
+import AvisoModal from '../components/AvisoModal.vue'
 
 const router = useRouter()
 const jornada = useJornadaStore()
@@ -38,7 +39,7 @@ const resultado = ref('')
 const numParticipantes = ref(null)
 const requiereSeguimiento = ref(false)
 const fechaProximoSeguimiento = ref('')
-const mensaje = ref('')
+const avisoExito = ref(false)
 const gps = ref(null)
 const fotos = ref([])
 const errorFotos = ref('')
@@ -76,7 +77,6 @@ onMounted(async () => {
 async function guardar() {
   actividad.error = ''
   errorFotos.value = ''
-  mensaje.value = ''
 
   // Antes, si la jornada no estaba abierta en ESTE dispositivo (p. ej.
   // se inició desde otro), esto tronaba en silencio al leer
@@ -116,11 +116,19 @@ async function guardar() {
       await actividad.encolarEvidencias(nuevaActividad.uuid, fotos.value, gps.value)
     }
 
-    mensaje.value = 'Actividad guardada en el dispositivo. Se sincronizará cuando haya red.'
-    router.push({ name: 'inicio' })
+    // Antes se navegaba a Inicio en el mismo instante que se ponía el
+    // mensaje de éxito — el usuario casi nunca alcanzaba a verlo. Ahora
+    // un modal de confirmación bloquea la pantalla hasta que el usuario
+    // lo cierra, y solo entonces se navega (`cerrarAvisoExito`).
+    avisoExito.value = true
   } catch {
     // el mensaje ya quedó en actividad.error
   }
+}
+
+function cerrarAvisoExito() {
+  avisoExito.value = false
+  router.push({ name: 'inicio' })
 }
 </script>
 
@@ -291,13 +299,19 @@ async function guardar() {
           <AuthIcon name="check" /> Todo listo para enviar
         </p>
 
-        <p v-if="mensaje" class="eca-alerta-ok">{{ mensaje }}</p>
-
         <button type="submit" class="eca-btn eca-btn-primary" :disabled="actividad.guardando || !jornada.abierta">
           {{ actividad.guardando ? 'Guardando…' : 'Guardar actividad' }}
         </button>
       </form>
     </div>
+
+    <AvisoModal
+      v-if="avisoExito"
+      tipo="exito"
+      titulo="Actividad guardada"
+      mensaje="Tu actividad se guardó correctamente en tu dispositivo y se sincronizará con el servidor en cuanto haya conexión."
+      @cerrar="cerrarAvisoExito"
+    />
   </main>
 </template>
 
