@@ -29,6 +29,24 @@ describe('capturarGps', () => {
     expect(resultado.estado_gps).toBe('SIN_GPS')
   })
 
+  // El código 1 es `PERMISSION_DENIED` en la spec real de
+  // `GeolocationPositionError` — a diferencia de un Error genérico (test de
+  // arriba), esto sí debe marcarse para que la UI pida activar el permiso
+  // en vez de solo decir "sin señal", y no vale la pena seguir reintentando.
+  it('marca permiso_denegado y no reintenta cuando el navegador niega el permiso', async () => {
+    let llamadas = 0
+    mockGeolocation((_ok, err) => {
+      llamadas += 1
+      err({ code: 1, message: 'User denied Geolocation' })
+    })
+
+    const resultado = await capturarGps({ intentos: 4 })
+
+    expect(resultado.estado_gps).toBe('SIN_GPS')
+    expect(resultado.permiso_denegado).toBe(true)
+    expect(llamadas).toBe(1)
+  })
+
   it('SIN_GPS si hay timeout en todos los intentos', async () => {
     mockGeolocation((_ok, err) => err(new Error('timeout')))
     const resultado = await capturarGps({ intentos: 3 })

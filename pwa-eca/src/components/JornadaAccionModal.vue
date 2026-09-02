@@ -30,7 +30,7 @@ const textos = computed(() =>
 const estadoGps = computed(() => {
   if (!gps.value) return null
   const mapa = {
-    CON_GPS: { icono: 'check', clase: 'jornada-modal__ubicacion--ok', texto: 'Ubicación obtenida' },
+    CON_GPS: { icono: 'check', clase: 'jornada-modal__ubicacion--ok', texto: 'Ubicación exacta obtenida' },
     GPS_IMPRECISO: { icono: 'map-pin', clase: 'jornada-modal__ubicacion--aviso', texto: 'Ubicación aproximada' },
     SIN_GPS: { icono: 'wifi-off', clase: 'jornada-modal__ubicacion--sin', texto: 'Sin señal de ubicación' },
   }
@@ -43,8 +43,11 @@ const fechaFormateada = computed(() =>
 const horaFormateada = computed(() => ahora.value.toLocaleTimeString('es-MX'))
 
 async function buscarUbicacion() {
+  if (fase.value === FASE.BUSCANDO) return
   fase.value = FASE.BUSCANDO
-  gps.value = await capturarGps({ intentos: 2, timeoutMs: 5000 })
+  // Más intentos y más tiempo (antes 2/5s): pedido explícito de ubicación
+  // exacta, no solo aproximada.
+  gps.value = await capturarGps({ intentos: 4, timeoutMs: 8000 })
   fase.value = FASE.LISTO
 }
 
@@ -81,19 +84,31 @@ onUnmounted(() => {
         <div class="jornada-modal__radar">
           <span class="jornada-modal__onda" :class="{ 'jornada-modal__onda--activa': fase === FASE.BUSCANDO }"></span>
           <span class="jornada-modal__onda jornada-modal__onda--2" :class="{ 'jornada-modal__onda--activa': fase === FASE.BUSCANDO }"></span>
-          <span class="jornada-modal__pin" :class="{ 'jornada-modal__pin--listo': fase !== FASE.BUSCANDO }">
+          <button
+            type="button"
+            class="jornada-modal__pin"
+            :class="{ 'jornada-modal__pin--listo': fase !== FASE.BUSCANDO }"
+            :disabled="fase === FASE.BUSCANDO || fase === FASE.CONFIRMANDO"
+            :aria-label="fase === FASE.BUSCANDO ? 'Obteniendo ubicación' : 'Obtener ubicación de nuevo'"
+            @click="buscarUbicacion"
+          >
             <AuthIcon name="map-pin" />
-          </span>
+          </button>
         </div>
 
         <p v-if="fase === FASE.BUSCANDO" class="jornada-modal__estado">Obteniendo tu ubicación…</p>
-        <div v-else class="jornada-modal__ubicacion" :class="estadoGps.clase">
-          <AuthIcon :name="estadoGps.icono" />
-          <span>{{ estadoGps.texto }}</span>
-          <span v-if="gps?.precision_gps_m" class="jornada-modal__precision">
-            ±{{ Math.round(gps.precision_gps_m) }} m
-          </span>
-        </div>
+        <template v-else>
+          <div class="jornada-modal__ubicacion" :class="estadoGps.clase">
+            <AuthIcon :name="estadoGps.icono" />
+            <span>{{ estadoGps.texto }}</span>
+            <span v-if="gps?.precision_gps_m" class="jornada-modal__precision">
+              ±{{ Math.round(gps.precision_gps_m) }} m
+            </span>
+          </div>
+          <p v-if="gps?.permiso_denegado" class="jornada-modal__aviso-permiso">
+            Activa el permiso de ubicación de este sitio en tu dispositivo y toca el círculo para reintentar.
+          </p>
+        </template>
 
         <div class="jornada-modal__reloj">
           <div class="jornada-modal__hora">{{ horaFormateada }}</div>
@@ -218,6 +233,7 @@ onUnmounted(() => {
   width: 3.75rem;
   height: 3.75rem;
   border-radius: 50%;
+  border: none;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -226,6 +242,10 @@ onUnmounted(() => {
   box-shadow: 0 8px 20px rgba(21, 128, 61, 0.35);
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   z-index: 1;
+  cursor: pointer;
+}
+.jornada-modal__pin:disabled {
+  cursor: default;
 }
 .jornada-modal__pin svg {
   width: 1.9rem;
@@ -266,6 +286,12 @@ onUnmounted(() => {
 .jornada-modal__precision {
   opacity: 0.75;
   font-weight: 400;
+}
+.jornada-modal__aviso-permiso {
+  margin: -0.4rem 0 0;
+  font-size: 0.78rem;
+  color: var(--eca-ink-soft);
+  text-align: center;
 }
 
 .jornada-modal__reloj {

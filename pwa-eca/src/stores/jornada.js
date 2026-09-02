@@ -105,7 +105,7 @@ export const useJornadaStore = defineStore('jornada', {
       this.cargando = true
       this.error = ''
       try {
-        const gps = gpsPrevio ? { ...gpsPrevio } : await capturarGps({ intentos: 1 })
+        const gps = gpsPrevio ? { ...gpsPrevio } : await capturarGps()
         this.actual = await encolar(TIENDA, {
           uuid: crypto.randomUUID(),
           inicio_en: new Date().toISOString(),
@@ -127,7 +127,7 @@ export const useJornadaStore = defineStore('jornada', {
       this.cargando = true
       this.error = ''
       try {
-        const gps = gpsPrevio ? { ...gpsPrevio } : await capturarGps({ intentos: 1 })
+        const gps = gpsPrevio ? { ...gpsPrevio } : await capturarGps()
         this.actual = await actualizar(TIENDA, this.actual.uuid, {
           fin_en: new Date().toISOString(),
           gps_fin: gps,
