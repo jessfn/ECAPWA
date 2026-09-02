@@ -124,6 +124,11 @@
       <path d="M3 8.5a2 2 0 0 1 2-2h1.6l1-1.8h8.8l1 1.8H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9z" />
       <circle cx="12" cy="13" r="3.6" />
     </template>
+    <template v-else-if="name === 'image'">
+      <rect x="3" y="4" width="18" height="16" rx="2.2" />
+      <circle cx="8.3" cy="9.3" r="1.8" />
+      <path d="M4 17.5l5-5.3 3.3 3.3 2.7-3 5 5" />
+    </template>
   </svg>
 </template>
 
