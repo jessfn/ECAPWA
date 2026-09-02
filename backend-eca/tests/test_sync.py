@@ -262,6 +262,27 @@ def test_push_cierre_de_jornada_ya_sincronizada_se_aplica(db: DBFalsa, repos, ac
     assert len(repos.jornadas.filas) == 1  # no se creó una segunda fila
 
 
+# Regresión real: una jornada iniciada ANTES de que "nota" se volviera
+# obligatoria (o simplemente ya existente en el servidor) no trae `nota` en
+# el reenvío del outbox local al cerrarla — si `JornadaSyncItem.nota` fuera
+# obligatorio a nivel de schema, Pydantic rechazaría el item completo antes
+# de llegar a la lógica de "ya existe, solo aplica el cierre", y el técnico
+# nunca podría sincronizar su salida.
+def test_push_cierre_sin_nota_de_inicio_se_aplica_igual(db: DBFalsa, repos, actor: Usuario) -> None:
+    identificador = uuid_lib.uuid4()
+    inicio_item = JornadaSyncItem(uuid=identificador, inicio_en=INICIO, nota="Detalle.")
+    sync_service.push(db, dispositivo_uuid=DISPOSITIVO_UUID, jornadas=[inicio_item], actividades=[], actor=actor)
+
+    fin = datetime(2026, 3, 5, 17, 0, tzinfo=timezone.utc)
+    cierre_item = JornadaSyncItem(uuid=identificador, inicio_en=INICIO, fin_en=fin, nota_fin="Detalle de cierre.")
+    resultados = sync_service.push(
+        db, dispositivo_uuid=DISPOSITIVO_UUID, jornadas=[cierre_item], actividades=[], actor=actor
+    )
+
+    assert resultados[0].resultado == "APLICADO"
+    assert repos.jornadas.filas[0].estado == "CERRADA"
+
+
 def test_push_registra_dispositivo_sobre_la_marcha(db: DBFalsa, repos, actor: Usuario) -> None:
     item = JornadaSyncItem(uuid=uuid_lib.uuid4(), inicio_en=INICIO, nota="Detalle.")
 

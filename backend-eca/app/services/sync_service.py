@@ -82,7 +82,7 @@ def _procesar_jornada(db: Session, item: JornadaSyncItem, *, dispositivo: Dispos
     if existente is None:
         try:
             jornada = jornadas_service.iniciar(
-                db, uuid=item.uuid, inicio_en=item.inicio_en, gps=item.gps_inicio, nota=item.nota, actor=actor
+                db, uuid=item.uuid, inicio_en=item.inicio_en, gps=item.gps_inicio, nota=item.nota or '', actor=actor
             )
         except Exception as exc:  # nunca 500 por un objeto malo
             return ResultadoSync(uuid=item.uuid, resultado=RECHAZADO, error=str(exc))

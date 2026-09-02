@@ -28,11 +28,14 @@ class JornadaSyncItem(BaseModel):
     uuid: uuid_lib.UUID
     inicio_en: datetime
     gps_inicio: GpsPeticion | None = None
-    # Detalle obligatorio de inicio — validado de nuevo en
-    # `sync_service._procesar_jornada` (aquí solo se exige no-vacío en
-    # cuanto al *formato*; la regla de negocio vive en el servicio, igual
-    # que el resto de reglas de jornadas/actividades).
-    nota: str = Field(min_length=1)
+    # Opcional en el *schema* a propósito: `jornadas_service.iniciar` exige
+    # que no venga vacío (`DetalleRequeridoError`), pero solo cuando
+    # realmente crea la jornada. Un push de CIERRE sobre una jornada que ya
+    # existía en el servidor desde antes de este campo (creada previa al
+    # deploy que lo agregó) reenvía el mismo item con `nota` vacío en el
+    # outbox local — si aquí fuera obligatorio, Pydantic rechazaría todo el
+    # item antes de llegar siquiera a la lógica de "ya existe, solo cierra".
+    nota: str | None = None
     fin_en: datetime | None = None
     gps_fin: GpsPeticion | None = None
     # Solo obligatorio cuando `fin_en` viene en el mismo item (un push de
