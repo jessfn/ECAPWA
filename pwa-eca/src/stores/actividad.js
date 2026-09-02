@@ -7,6 +7,7 @@
 import { defineStore } from 'pinia'
 import { encolar } from '../services/outbox'
 import { useOutboxStore } from './outbox'
+import { sincronizarOportunista } from '../services/sync'
 
 export const useActividadStore = defineStore('actividad', {
   state: () => ({
@@ -56,6 +57,7 @@ export const useActividadStore = defineStore('actividad', {
       } finally {
         this.guardando = false
         await useOutboxStore().refrescar()
+        sincronizarOportunista()
       }
     },
 
@@ -85,6 +87,7 @@ export const useActividadStore = defineStore('actividad', {
         this.error = `${errores.length} de ${fotos.length} fotos no se pudieron guardar localmente.`
       }
       await useOutboxStore().refrescar()
+      sincronizarOportunista()
       return errores
     },
   },

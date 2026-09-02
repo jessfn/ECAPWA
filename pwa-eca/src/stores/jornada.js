@@ -8,6 +8,7 @@ import { defineStore } from 'pinia'
 import { capturarGps } from '../services/gps'
 import { encolar, actualizar, listar } from '../services/outbox'
 import { useOutboxStore } from './outbox'
+import { sincronizarOportunista } from '../services/sync'
 
 const TIENDA = 'outbox_jornadas'
 
@@ -63,6 +64,7 @@ export const useJornadaStore = defineStore('jornada', {
           gps_fin: null,
         })
         await useOutboxStore().refrescar()
+        sincronizarOportunista()
       } catch {
         this.error = 'No se pudo iniciar la jornada.'
       } finally {
@@ -85,6 +87,7 @@ export const useJornadaStore = defineStore('jornada', {
           estado_local: 'PENDIENTE',
         })
         await useOutboxStore().refrescar()
+        sincronizarOportunista()
       } catch {
         this.error = 'No se pudo terminar la jornada.'
       } finally {

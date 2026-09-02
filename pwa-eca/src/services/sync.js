@@ -8,6 +8,7 @@ import { listar, marcarEstado } from './outbox'
 import { registrarDispositivo, push } from './syncPushService'
 import { subirEvidencia } from './evidenciasService'
 import { ejecutarPull } from './bootstrap'
+import { useAuthStore } from '../stores/auth'
 
 const CLAVE_DISPOSITIVO = 'eca_tecnico_dispositivo_uuid'
 const ESTADOS_A_ENVIAR = new Set(['PENDIENTE', 'RECHAZADO'])
@@ -213,6 +214,19 @@ export function armarAutoSync(auth) {
   window.addEventListener('online', () => {
     sincronizar(auth)
   })
+}
+
+// Antes, la única forma de disparar `sincronizar()` era el evento
+// `online` del navegador o el botón manual de Sincronización — un
+// técnico que nunca pierde la señal (el caso normal) nunca veía sus
+// jornadas/actividades llegar al servidor sin entrar a esa pantalla y
+// presionar "Sincronizar ahora" (parecía que "no se guardaba").
+// `sincronizarOportunista()` se llama justo después de encolar cada
+// registro y al arrancar la app: mejor esfuerzo, nunca lanza — si no
+// hay red o sesión, el registro se queda igual de seguro en el outbox
+// para el próximo intento.
+export function sincronizarOportunista() {
+  sincronizar(useAuthStore()).catch(() => {})
 }
 
 export function _reiniciarSyncParaPruebas() {
