@@ -23,6 +23,15 @@ export async function encolar(tienda, objeto) {
   return registro
 }
 
+// Escribe un registro tal cual, sin los efectos de `encolar` (que siempre
+// marca PENDIENTE) — para hidratar el outbox con la verdad del servidor
+// (ver `stores/jornada.js: cargarHoy`), no para una edición local nueva.
+export async function reemplazar(tienda, registro) {
+  const db = await abrirBD()
+  await db.put(tienda, registro)
+  return registro
+}
+
 export async function actualizar(tienda, uuid, cambios) {
   const db = await abrirBD()
   const registro = await db.get(tienda, uuid)

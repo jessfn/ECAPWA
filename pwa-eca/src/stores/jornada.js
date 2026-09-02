@@ -6,14 +6,45 @@
 // vigente, solo sesión local offline (§2.2), porque no toca la red.
 import { defineStore } from 'pinia'
 import { capturarGps } from '../services/gps'
-import { encolar, actualizar, listar } from '../services/outbox'
+import { encolar, actualizar, listar, reemplazar } from '../services/outbox'
 import { useOutboxStore } from './outbox'
 import { sincronizarOportunista } from '../services/sync'
+import { obtenerJornadaDeHoy } from '../services/jornadasService'
 
 const TIENDA = 'outbox_jornadas'
 
 function fechaLocal(iso) {
   return iso?.slice(0, 10)
+}
+
+function gpsDeRemota(lat, lon, precision, estado) {
+  if (lat == null && lon == null && !estado) return null
+  return { latitud: lat, longitud: lon, precision_gps_m: precision, estado_gps: estado }
+}
+
+// El servidor es la verdad para "¿ya inicié/cerré mi jornada de hoy?" —
+// si este dispositivo nunca registró nada localmente (p. ej. se inició
+// desde otro dispositivo/navegador), esto lo hidrata para que el resto
+// de la app (bloqueo de Jornada/Actividades) refleje la realidad.
+function remotaALocal(remota) {
+  return {
+    uuid: remota.uuid,
+    inicio_en: remota.inicio_en,
+    gps_inicio: gpsDeRemota(
+      remota.latitud_inicio,
+      remota.longitud_inicio,
+      remota.precision_gps_inicio_m,
+      remota.estado_gps_inicio,
+    ),
+    fin_en: remota.fin_en,
+    gps_fin: remota.fin_en
+      ? gpsDeRemota(remota.latitud_fin, remota.longitud_fin, remota.precision_gps_fin_m, remota.estado_gps_fin)
+      : null,
+    estado_local: 'SINCRONIZADO',
+    intentos: 0,
+    ultimo_error: null,
+    encolado_en: remota.inicio_en,
+  }
 }
 
 export const useJornadaStore = defineStore('jornada', {
@@ -34,10 +65,29 @@ export const useJornadaStore = defineStore('jornada', {
       try {
         const todas = await listar(TIENDA)
         const hoy = fechaLocal(new Date().toISOString())
-        this.actual =
+        let local =
           todas
             .filter((j) => fechaLocal(j.inicio_en) === hoy)
             .sort((a, b) => (a.encolado_en < b.encolado_en ? 1 : -1))[0] || null
+
+        // El outbox local solo sabe lo que se registró *en este
+        // dispositivo* — si el técnico ya inició (o cerró) su jornada
+        // desde otro dispositivo/navegador, este nunca se entera por sí
+        // solo. Se contrasta con el servidor (mejor esfuerzo: sin red o
+        // sin sesión, se sigue con lo local, nunca se pierde nada).
+        if (navigator.onLine) {
+          try {
+            const remota = await obtenerJornadaDeHoy()
+            if (remota && (!local || local.uuid !== remota.uuid || (remota.fin_en && !local.fin_en))) {
+              local = await reemplazar(TIENDA, remotaALocal(remota))
+              await useOutboxStore().refrescar()
+            }
+          } catch {
+            // sin red real, sesión vencida, etc. — se sigue con lo local
+          }
+        }
+
+        this.actual = local
       } catch {
         this.error = 'No se pudo consultar la jornada de hoy.'
       } finally {

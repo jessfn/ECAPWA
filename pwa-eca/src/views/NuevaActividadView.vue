@@ -53,6 +53,18 @@ async function guardar() {
   errorFotos.value = ''
   mensaje.value = ''
 
+  // Antes, si la jornada no estaba abierta en ESTE dispositivo (p. ej.
+  // se inició desde otro), esto tronaba en silencio al leer
+  // `jornada.actual.uuid` de `null` — el catch de abajo lo atrapaba sin
+  // avisar y en pantalla quedaba el error de un intento previo, muy
+  // confuso ("no se guarda"). `jornada.cargarHoy()` ya se llama al
+  // montar la vista y trae la verdad del servidor; si aun así no hay
+  // jornada abierta, se corta aquí con un mensaje claro.
+  if (!jornada.abierta) {
+    actividad.error = 'Necesitas una jornada abierta para registrar una actividad.'
+    return
+  }
+
   const minFotos = tipoSeleccionado.value?.requiere_evidencia ? tipoSeleccionado.value.min_fotos : 0
   if (minFotos && fotos.value.length < minFotos) {
     errorFotos.value = `Este tipo de actividad requiere al menos ${minFotos} foto(s).`
@@ -187,7 +199,7 @@ async function guardar() {
 
       <p v-if="mensaje" class="eca-alerta-ok">{{ mensaje }}</p>
 
-      <button type="submit" class="eca-btn eca-btn-primary" :disabled="actividad.guardando">
+      <button type="submit" class="eca-btn eca-btn-primary" :disabled="actividad.guardando || !jornada.abierta">
         {{ actividad.guardando ? 'Guardando…' : 'Guardar actividad' }}
       </button>
     </form>

@@ -1,11 +1,16 @@
 // pwa-eca — pruebas del store `jornada` (ECA-012 + ECA-016).
 // Desde ECA-016 escribe en el outbox local, no llama a la API.
 import 'fake-indexeddb/auto'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { reactive } from 'vue'
 import { NOMBRE_BD, _reiniciarBDParaPruebas } from '../src/services/db'
 import { useJornadaStore } from '../src/stores/jornada'
+import { obtenerJornadaDeHoy } from '../src/services/jornadasService'
+
+vi.mock('../src/services/jornadasService', () => ({
+  obtenerJornadaDeHoy: vi.fn(),
+}))
 
 beforeEach(async () => {
   setActivePinia(createPinia())
@@ -19,6 +24,7 @@ beforeEach(async () => {
   global.navigator.geolocation = {
     getCurrentPosition: (_ok, err) => err(new Error('sin permiso')),
   }
+  vi.mocked(obtenerJornadaDeHoy).mockReset().mockResolvedValue(null)
 })
 
 describe('useJornadaStore', () => {
@@ -48,6 +54,64 @@ describe('useJornadaStore', () => {
     await segunda.cargarHoy()
 
     expect(segunda.actual.uuid).toBe(primera.actual.uuid)
+  })
+
+  // Regresión: un técnico que inicia jornada en el celular y luego abre
+  // la app en la laptop veía "Aún no inicias tu jornada" ahí — el outbox
+  // local de la laptop nunca supo que ya existía. `cargarHoy` ahora
+  // contrasta con `GET /jornadas/me/hoy` y, si el servidor ya tiene una
+  // jornada que este dispositivo desconoce, la adopta localmente.
+  it('cargarHoy hidrata desde el servidor una jornada iniciada en otro dispositivo', async () => {
+    vi.mocked(obtenerJornadaDeHoy).mockResolvedValue({
+      uuid: 'servidor-uuid-1',
+      inicio_en: new Date().toISOString(),
+      latitud_inicio: 19.4,
+      longitud_inicio: -99.1,
+      precision_gps_inicio_m: 10,
+      estado_gps_inicio: 'CON_GPS',
+      fin_en: null,
+      latitud_fin: null,
+      longitud_fin: null,
+      precision_gps_fin_m: null,
+      estado_gps_fin: null,
+    })
+
+    const jornada = useJornadaStore()
+    await jornada.cargarHoy()
+
+    expect(jornada.actual.uuid).toBe('servidor-uuid-1')
+    expect(jornada.abierta).toBe(true)
+    expect(jornada.actual.estado_local).toBe('SINCRONIZADO')
+  })
+
+  // Regresión complementaria: si la jornada se INICIÓ en este mismo
+  // dispositivo (ya está en el outbox) pero se CERRÓ desde otro, este
+  // dispositivo debe enterarse del cierre y no quedar "abierta" para
+  // siempre bloqueando Actividades sin razón.
+  it('cargarHoy adopta el cierre hecho en otro dispositivo', async () => {
+    const jornada = useJornadaStore()
+    await jornada.iniciar()
+    const uuid = jornada.actual.uuid
+    const inicioEn = jornada.actual.inicio_en
+
+    vi.mocked(obtenerJornadaDeHoy).mockResolvedValue({
+      uuid,
+      inicio_en: inicioEn,
+      latitud_inicio: null,
+      longitud_inicio: null,
+      precision_gps_inicio_m: null,
+      estado_gps_inicio: 'SIN_GPS',
+      fin_en: new Date().toISOString(),
+      latitud_fin: null,
+      longitud_fin: null,
+      precision_gps_fin_m: null,
+      estado_gps_fin: 'SIN_GPS',
+    })
+
+    await jornada.cargarHoy()
+
+    expect(jornada.abierta).toBe(false)
+    expect(jornada.actual.fin_en).toBeTruthy()
   })
 
   it('cerrar actualiza el registro local sin perder el inicio', async () => {
