@@ -18,7 +18,12 @@ import { openDB } from 'idb'
 import { leerSesionLocal } from './sesionLocal'
 
 export const NOMBRE_BD = 'eca-tecnico'
-export const VERSION_BD = 1
+// v2: purga forzada (ver `crearEsquema`) — bases YA contaminadas antes de
+// este fix (ver comentario largo más abajo) no se limpiaban solas con solo
+// quitar la migración; hacía falta un bump de versión para forzar el
+// `onupgradeneeded` en TODOS los dispositivos que ya tuvieran una base
+// v1, sin importar cuándo la abrieron.
+export const VERSION_BD = 2
 
 export function nombreBDPara(idUsuario) {
   return idUsuario ? `${NOMBRE_BD}-${idUsuario}` : NOMBRE_BD
@@ -28,7 +33,9 @@ function idUsuarioActivo() {
   return leerSesionLocal()?.usuario?.id ?? null
 }
 
-function crearEsquema(db) {
+// `oldVersion`/`transaction`: firma real de `upgrade` en `idb` (no solo
+// `db`) — se necesitan para la purga de la v2 de abajo.
+function crearEsquema(db, oldVersion, _newVersion, transaction) {
   if (!db.objectStoreNames.contains('outbox_jornadas')) {
     db.createObjectStore('outbox_jornadas', { keyPath: 'uuid' })
   }
@@ -47,6 +54,28 @@ function crearEsquema(db) {
   }
   if (!db.objectStoreNames.contains('meta')) {
     db.createObjectStore('meta', { keyPath: 'clave' })
+  }
+
+  // Purga dura, una sola vez por dispositivo (bug real de producción,
+  // ECA-021): antes de este fix, CUALQUIER base de usuario que se abriera
+  // por primera vez heredaba el outbox entero de quien fuera que hubiera
+  // usado el dispositivo antes (ver el comentario largo más abajo). Ya se
+  // quitó esa migración para bases nuevas, pero las bases que YA se
+  // habían abierto (y contaminado) mientras la migración todavía existía
+  // se quedan con el dato malo para siempre si nada las toca — subir de
+  // v1 a v2 fuerza este `onupgradeneeded` en TODO dispositivo con una
+  // base v1, contaminada o no, y se vacía su outbox sin excepción. El
+  // servidor es la verdad para "¿ya inicié/cerré jornada?" (`cargarHoy()`
+  // la vuelve a traer si hay red) — perder aquí un pendiente sin
+  // sincronizar es un costo único aceptable frente a dejar el bug vivo
+  // indefinidamente en cualquier dispositivo que haya pasado por la
+  // ventana en que existió la migración.
+  if (oldVersion < 2) {
+    for (const tienda of ['outbox_jornadas', 'outbox_actividades', 'outbox_evidencias']) {
+      if (db.objectStoreNames.contains(tienda)) {
+        transaction.objectStore(tienda).clear()
+      }
+    }
   }
 }
 

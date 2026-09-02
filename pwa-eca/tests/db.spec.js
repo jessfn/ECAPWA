@@ -1,5 +1,6 @@
 // pwa-eca — pruebas del esquema IndexedDB (ECA-016 + ECA-021).
 import 'fake-indexeddb/auto'
+import { openDB } from 'idb'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { abrirBD, nombreBDPara, NOMBRE_BD, VERSION_BD, _reiniciarBDParaPruebas } from '../src/services/db'
 import { guardarSesionLocal, limpiarSesionLocal } from '../src/services/sesionLocal'
@@ -20,6 +21,7 @@ beforeEach(async () => {
   await borrarBD(NOMBRE_BD)
   await borrarBD(nombreBDPara(1))
   await borrarBD(nombreBDPara(2))
+  await borrarBD(nombreBDPara(99))
 })
 
 describe('abrirBD', () => {
@@ -94,6 +96,43 @@ describe('aislamiento del outbox por cuenta', () => {
     const db = await abrirBD()
     const jornadas = await db.getAll('outbox_jornadas')
 
+    expect(jornadas).toHaveLength(0)
+  })
+
+  // Regresión CRÍTICA: dispositivos que ya se habían contaminado (base de
+  // usuario en v1, con la jornada de otra cuenta adentro) MIENTRAS la
+  // migración de la primera versión de este arreglo todavía existía en
+  // producción, se quedaban con ese dato malo para siempre — quitar la
+  // migración en el código nuevo no limpia bases que ya existían y ya
+  // fueron contaminadas antes del deploy de ese código. Reportado de
+  // nuevo por el usuario en su propio celular tras el primer fix. El
+  // bump a VERSION_BD=2 fuerza `onupgradeneeded` (y la purga ahí dentro)
+  // en CUALQUIER base v1 existente, contaminada o no, sin importar
+  // cuándo se haya creado.
+  it('una base v1 YA contaminada (de antes de este fix) se purga al abrirse en v2', async () => {
+    // Simula el estado real de un celular afectado: la base de la Cuenta
+    // B en la v1 vieja, con la jornada de la Cuenta A adentro (así quedó
+    // el primer intento de arreglo antes de quitar la migración).
+    const dbVieja = await openDB(nombreBDPara(99), 1, {
+      upgrade(db) {
+        db.createObjectStore('outbox_jornadas', { keyPath: 'uuid' })
+        db.createObjectStore('outbox_actividades', { keyPath: 'uuid' })
+        const tienda = db.createObjectStore('outbox_evidencias', { keyPath: 'uuid' })
+        tienda.createIndex('por_actividad', 'actividad_uuid')
+        db.createObjectStore('catalogos', { keyPath: 'clave' })
+        db.createObjectStore('ecas', { keyPath: 'id' })
+        db.createObjectStore('meta', { keyPath: 'clave' })
+      },
+    })
+    await dbVieja.put('outbox_jornadas', { uuid: 'jornada-de-otra-cuenta-de-antes', inicio_en: new Date().toISOString() })
+    await dbVieja.put('meta', { clave: 'migrado_legado', valor: true })
+    dbVieja.close()
+
+    guardarSesionLocal({ usuario: { id: 99 }, permisos: [] })
+    const db = await abrirBD()
+    const jornadas = await db.getAll('outbox_jornadas')
+
+    expect(db.version).toBe(2)
     expect(jornadas).toHaveLength(0)
   })
 })
