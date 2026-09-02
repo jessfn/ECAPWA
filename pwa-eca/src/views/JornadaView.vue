@@ -121,7 +121,7 @@ async function confirmarModal({ nota, gps }) {
    (`min-h-[200px]` fijo, no acoplado al viewport): un alto generoso pero
    ACOTADO en rem, para que cada tarjeta siempre entre completa y el
    resto del flujo normal de la página (scroll si hiciera falta, como
-   cualquier otra pantalla de la app) se encargue del resto. -->
+   cualquier otra pantalla de la app) se encargue del resto. */
 .jornada-encabezado {
   margin-bottom: 1rem;
 }
