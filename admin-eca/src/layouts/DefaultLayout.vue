@@ -18,11 +18,13 @@ import Sidebar from '../components/Sidebar.vue'
 <style scoped>
 .layout {
   min-height: 100vh;
+  min-height: 100dvh;
   background-color: #f5f5f5;
 }
 .layout__contenido {
   margin-left: min(220px, 18vw);
   min-height: 100vh;
+  min-height: 100dvh;
   padding: 2rem;
   box-sizing: border-box;
 }

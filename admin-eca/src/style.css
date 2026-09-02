@@ -53,8 +53,13 @@ body {
   background: #f5f5f5;
 }
 
+/* `100vh` en móvil queda más alto que el área visible real cuando la
+   barra de direcciones del navegador se ve, forzando scroll aunque el
+   contenido quepa perfecto — `100dvh` sigue el alto real visible en
+   cada momento (mismo patrón que `styles/auth.css` en este proyecto). */
 #app {
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 a {

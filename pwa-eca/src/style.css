@@ -60,8 +60,19 @@ body {
   color: var(--eca-ink);
 }
 
+/* `100vh` en móvil es el alto MÁXIMO del viewport (como si la barra de
+   direcciones/toolbar del navegador estuviera oculta) — cuando esa barra
+   sí se ve, `100vh` queda más alto que el área visible real, y eso solo
+   con eso ya fuerza scroll aunque el contenido quepa perfecto. Pedido
+   explícito: nunca debe hacer falta scroll si el contenido no lo
+   necesita. `100dvh` ("dynamic viewport height") sigue el alto real
+   visible en cada momento — mismo patrón que ya usa `styles/auth.css`
+   (`.au-shell`); el fallback en `vh` es solo para navegadores viejos sin
+   soporte de `dvh` (la regla de abajo lo sobreescribe donde sí lo hay,
+   por orden de cascada). */
 #app {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
@@ -74,6 +85,7 @@ a {
 
 .eca-shell {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
