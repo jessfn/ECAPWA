@@ -49,7 +49,13 @@ export const useActividadStore = defineStore('actividad', {
           num_participantes: numParticipantes,
           requiere_seguimiento: requiereSeguimiento,
           fecha_proximo_seguimiento: fechaProximoSeguimiento,
-          gps: gps || null,
+          // Copia a un objeto plano: igual que en `stores/jornada.js`, un
+          // `gps` que viene de un `ref()` de Vue al que se le asignó un
+          // objeto queda envuelto en un Proxy reactivo — `IDBObjectStore.put`
+          // no puede clonarlo (`DataCloneError`) y esto reventaba en
+          // silencio, atrapado por el catch de abajo como "no se pudo
+          // guardar la actividad localmente" en TODOS los intentos con GPS.
+          gps: gps ? { ...gps } : null,
         })
       } catch {
         this.error = 'No se pudo guardar la actividad localmente.'
@@ -76,7 +82,7 @@ export const useActividadStore = defineStore('actividad', {
             actividad_uuid: actividadUuid,
             orden: i + 1,
             archivo: foto.archivo, // Blob, nunca base64
-            gps: gps || null,
+            gps: gps ? { ...gps } : null,
             capturada_en: new Date().toISOString(),
           })
         } catch {

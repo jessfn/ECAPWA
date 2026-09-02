@@ -3,6 +3,7 @@
 import 'fake-indexeddb/auto'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
+import { reactive } from 'vue'
 import { NOMBRE_BD, _reiniciarBDParaPruebas } from '../src/services/db'
 import { listar } from '../src/services/outbox'
 import { useActividadStore } from '../src/stores/actividad'
@@ -50,6 +51,24 @@ describe('useActividadStore.crear', () => {
     const enOutbox = await listar('outbox_actividades')
     expect(enOutbox).toHaveLength(1)
   })
+
+  // Regresión real reportada en producción: registrar una actividad CON
+  // ubicación fallaba siempre con "No se pudo guardar la actividad
+  // localmente" — un `ref()` de Vue al que se le asigna un objeto (aquí,
+  // el GPS capturado en `NuevaActividadView.vue`) queda envuelto en un
+  // Proxy reactivo; pasarlo tal cual a `IDBObjectStore.put` revienta con
+  // `DataCloneError`, atrapado en silencio por el catch de `crear`. Mismo
+  // bug que ya se había corregido para `stores/jornada.js`, pero no para
+  // actividades.
+  it('crear acepta un gps reactivo (Proxy de Vue) sin reventar IndexedDB', async () => {
+    const actividad = useActividadStore()
+    const gpsReactivo = reactive({ estado_gps: 'CON_GPS', latitud: 19.4, longitud: -99.1, precision_gps_m: 12 })
+
+    const registro = await actividad.crear({ ...DATOS, gps: gpsReactivo })
+
+    expect(actividad.error).toBe('')
+    expect(registro.gps.estado_gps).toBe('CON_GPS')
+  })
 })
 
 describe('useActividadStore.encolarEvidencias', () => {
@@ -74,5 +93,15 @@ describe('useActividadStore.encolarEvidencias', () => {
     // Que `encolar` reciba y guarde `foto.archivo` tal cual (sin
     // convertirlo a base64 en ningún punto) se verifica por inspección del
     // código de `stores/actividad.js`.
+  })
+
+  it('acepta un gps reactivo (Proxy de Vue) sin reventar IndexedDB', async () => {
+    const actividad = useActividadStore()
+    const gpsReactivo = reactive({ estado_gps: 'CON_GPS', latitud: 19.4, longitud: -99.1, precision_gps_m: 12 })
+    const fotos = [{ id: 'a', archivo: new Blob(['x']) }]
+
+    const errores = await actividad.encolarEvidencias('act-uuid', fotos, gpsReactivo)
+
+    expect(errores).toEqual([])
   })
 })
