@@ -108,11 +108,9 @@ const accesos = [
             <AuthIcon name="shield-check" />
             <span>{{ rolEtiqueta }}</span>
           </span>
+          <p class="inicio-saludo__lema">Seguimiento y monitoreo de actividades</p>
         </div>
       </div>
-
-      <span class="inicio-saludo__linea" aria-hidden="true"></span>
-      <p class="inicio-saludo__lema">Seguimiento y monitoreo de actividades</p>
 
       <p v-if="!enLinea && !auth.sesionServidorValida" class="inicio-saludo__alerta">
         <AuthIcon name="wifi-off" />
@@ -244,8 +242,11 @@ const accesos = [
 }
 .inicio-saludo__fila {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.75rem;
+}
+.inicio-saludo__avatar {
+  margin-top: 0.1rem;
 }
 .inicio-saludo__avatar {
   position: relative;
@@ -306,11 +307,11 @@ const accesos = [
 .inicio-saludo__nombre {
   color: #6b1530;
   font-family: 'Poppins', -apple-system, 'Segoe UI', sans-serif;
-  font-weight: 700;
+  font-weight: 500;
   letter-spacing: 0;
 }
-/* Etiqueta de rol bajo el nombre — pedido explícito, verde fuerte con
-   icono, para que quede claro qué tipo de cuenta es. */
+/* Etiqueta de rol bajo el nombre — verde fuerte pero desvanecida
+   (opacidad), no un pill solido, para que no compita con el nombre. */
 .inicio-saludo__rol {
   align-self: flex-start;
   display: inline-flex;
@@ -319,7 +320,7 @@ const accesos = [
   margin-top: 0.05rem;
   padding: 0.15rem 0.55rem;
   border-radius: 999px;
-  background: var(--eca-green-600);
+  background: rgba(21, 128, 61, 0.55);
   color: #fff;
   font-size: 0.68rem;
   font-weight: 700;
@@ -330,22 +331,15 @@ const accesos = [
   height: 11px;
   flex-shrink: 0;
 }
-/* Línea desvanecida de lado a lado + lema centrado — pedido explícito
-   en reemplazo del renglón "Jornada y actividades en campo". Espaciado
-   ajustado y pegado (antes quedaba muy separado de ambos lados). */
-.inicio-saludo__linea {
-  display: block;
-  width: 100%;
-  height: 1px;
-  margin: 0;
-  background: linear-gradient(90deg, transparent 0%, var(--eca-green-300) 50%, transparent 100%);
-}
+/* Lema/resumen de la app, ahora dentro de la columna de texto a la
+   derecha del círculo — pedido explícito: todo agrupado de ese lado
+   en vez de un renglón centrado de ancho completo. */
 .inicio-saludo__lema {
-  margin: 0;
-  text-align: center;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--eca-green-700);
+  margin: 0.15rem 0 0;
+  text-align: left;
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--eca-ink-soft);
 }
 .inicio-saludo__alerta {
   margin: 0;
