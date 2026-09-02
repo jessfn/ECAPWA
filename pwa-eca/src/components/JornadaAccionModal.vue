@@ -71,9 +71,7 @@ async function buscarUbicacion() {
   // El botón ya se deshabilita mientras `fase === FASE.BUSCANDO`
   // (`:disabled` en el template), así que no hace falta un guard aquí.
   fase.value = FASE.BUSCANDO
-  // Más intentos y más tiempo (antes 2/5s): pedido explícito de ubicación
-  // exacta, no solo aproximada.
-  gps.value = await capturarGps({ intentos: 4, timeoutMs: 8000 })
+  gps.value = await capturarGps()
   fase.value = FASE.LISTO
 }
 

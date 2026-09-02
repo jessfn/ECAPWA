@@ -1,89 +1,97 @@
-// pwa-eca — captura de GPS (ECA-014).
+// pwa-eca — captura de GPS (ECA-014 + ECA-021).
 //
-// Multi-intento, **sin ubicación por defecto** (`03` §20, `02` §13): si no
-// hay permiso, no hay señal, o se agotan los intentos, se devuelve
-// `estado_gps: 'SIN_GPS'` sin coordenadas — nunca se inventa una posición.
-// El umbral de "precisión válida" viene de
-// `parametros_config.gps.precision_valida_maxima_m` (configurable sin
-// desplegar código); si no se puede leer (sin red, parámetro no sembrado),
-// se usa 30 m como valor de respaldo razonable.
+// Mismo flujo que pwasuper (`geoLocationService.js`: `watchPosition`,
+// quedarse con la mejor lectura, resolver apenas se alcanza buena
+// precisión o al agotar el tiempo de espera) — pedido explícito de
+// alinear el comportamiento del botón/permiso de ubicación con el que ya
+// funciona bien ahí. Una diferencia deliberada: aquí **nunca se inventa
+// una posición** (`03` §20, `02` §13) — pwasuper cae a una ubicación de
+// respaldo (CDMX) si todo falla; este proyecto siempre prefiere devolver
+// `SIN_GPS` antes que una coordenada falsa.
 import { obtenerParametro } from './parametrosConfigService'
 
 const UMBRAL_POR_DEFECTO_M = 30
 
-// Distingue "el usuario negó el permiso" de "no hubo señal todavía": son
-// causas muy distintas (una no se arregla reintentando, la otra sí) y la
-// UI necesita saberlo para pedir explícitamente activar el permiso en el
-// dispositivo en vez de solo decir "sin señal".
-function unIntento(timeoutMs) {
-  return new Promise((resolve) => {
-    if (!('geolocation' in navigator)) {
-      resolve({ ok: false, permisoDenegado: false })
-      return
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) =>
-        resolve({
-          ok: true,
-          lat: pos.coords.latitude,
-          lon: pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-        }),
-      // Código 1 = PERMISSION_DENIED en la spec de `GeolocationPositionError`
-      // (no se usa `err.PERMISSION_DENIED`: un error genérico sin esa
-      // propiedad estática daría `undefined === undefined` → falso positivo).
-      (err) => resolve({ ok: false, permisoDenegado: err?.code === 1 }),
-      { timeout: timeoutMs, maximumAge: 0, enableHighAccuracy: true },
-    )
-  })
-}
-
 // Salvavidas independiente del `timeout` de la propia API: verificado en
 // pruebas reales que, mientras el navegador tiene pendiente el diálogo de
 // permiso de ubicación (el usuario aún no responde "Permitir"/"Bloquear"),
-// `getCurrentPosition` puede quedarse sin llamar a ninguno de los dos
-// callbacks — ni éxito ni error — así que su propio `timeout` nunca llega a
+// `watchPosition`/`getCurrentPosition` pueden no llamar a NINGÚN callback
+// — ni éxito ni error — así que el `timeout` de la API nunca llega a
 // dispararse y la captura se cuelga indefinidamente. Un `setTimeout` de JS
-// sí corre siempre (no depende de que el navegador resuelva el diálogo),
-// así que garantiza que cada intento avance en un tiempo acotado.
-function conLimiteDeTiempo(promesa, ms) {
-  return Promise.race([promesa, new Promise((resolve) => setTimeout(() => resolve({ ok: false, permisoDenegado: false }), ms))])
-}
-
-// Más intentos (antes 3) y con más tiempo cada uno (antes 6s): pedido
-// explícito de que la ubicación sea "exacta" — el GPS de un celular tarda
-// unos segundos en afinar tras el primer intento (frío), así que solo el
-// mejor de varias lecturas (menor `accuracy`, en metros) se queda.
-export async function capturarGps({ intentos = 4, timeoutMs = 8000 } = {}) {
-  if (!('geolocation' in navigator)) {
-    return { estado_gps: 'SIN_GPS' }
-  }
-
-  let mejor = null
-  let permisoDenegado = false
-  for (let i = 0; i < intentos; i += 1) {
-    const resultado = await conLimiteDeTiempo(unIntento(timeoutMs), timeoutMs + 1000)
-    if (resultado.ok && (!mejor || resultado.accuracy < mejor.accuracy)) {
-      mejor = resultado
+// sí corre siempre (no depende de que el navegador resuelva el diálogo).
+export function capturarGps({ timeoutMs = 15000, maxEsperaMejorPrecisionMs = 6000 } = {}) {
+  return new Promise((resolve) => {
+    if (!('geolocation' in navigator)) {
+      resolve({ estado_gps: 'SIN_GPS' })
+      return
     }
-    if (!resultado.ok && resultado.permisoDenegado) {
-      permisoDenegado = true
-      break // reintentar no sirve de nada si el navegador ya lo negó
+
+    let resuelto = false
+    let mejor = null
+    let watchId = null
+    let temporizadorTope = null
+    let temporizadorEspera = null
+
+    function limpiar() {
+      if (watchId != null) navigator.geolocation.clearWatch(watchId)
+      clearTimeout(temporizadorTope)
+      clearTimeout(temporizadorEspera)
     }
-  }
 
-  if (!mejor) {
-    return { estado_gps: 'SIN_GPS', permiso_denegado: permisoDenegado }
-  }
+    async function resolverConMejor(permisoDenegado = false) {
+      if (resuelto) return
+      resuelto = true
+      limpiar()
 
-  const umbral = await obtenerParametro('gps.precision_valida_maxima_m', {
-    porDefecto: UMBRAL_POR_DEFECTO_M,
+      if (!mejor) {
+        resolve({ estado_gps: 'SIN_GPS', ...(permisoDenegado ? { permiso_denegado: true } : {}) })
+        return
+      }
+
+      const umbral = await obtenerParametro('gps.precision_valida_maxima_m', {
+        porDefecto: UMBRAL_POR_DEFECTO_M,
+      })
+      resolve({
+        latitud: mejor.coords.latitude,
+        longitud: mejor.coords.longitude,
+        precision_gps_m: mejor.coords.accuracy,
+        estado_gps: mejor.coords.accuracy <= umbral ? 'CON_GPS' : 'GPS_IMPRECISO',
+      })
+    }
+
+    // Tope absoluto: pase lo que pase (colgado, sin señal, permiso
+    // pendiente sin resolver), en `timeoutMs` se entrega lo mejor que
+    // haya (o SIN_GPS si no hubo nada).
+    temporizadorTope = setTimeout(() => resolverConMejor(), timeoutMs)
+
+    try {
+      watchId = navigator.geolocation.watchPosition(
+        (posicion) => {
+          if (resuelto) return
+          if (!mejor || posicion.coords.accuracy < mejor.coords.accuracy) {
+            mejor = posicion
+            // Cada vez que llega una lectura mejor, se espera un poco más
+            // por si aún mejora — pero sin reiniciar el tope absoluto de
+            // arriba, así nunca se alarga indefinidamente.
+            clearTimeout(temporizadorEspera)
+            temporizadorEspera = setTimeout(() => resolverConMejor(), maxEsperaMejorPrecisionMs)
+          }
+        },
+        // Código 1 = PERMISSION_DENIED en la spec de
+        // `GeolocationPositionError` (no `err.PERMISSION_DENIED`: un error
+        // genérico sin esa propiedad estática daría un falso positivo).
+        (error) => {
+          if (error?.code === 1) {
+            resolverConMejor(true)
+          }
+          // Otros errores (sin señal momentánea, timeout de un intento):
+          // se sigue esperando — `watchPosition` puede recuperarse solo,
+          // y el tope absoluto de arriba igual garantiza una respuesta.
+        },
+        { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 0 },
+      )
+    } catch {
+      resolverConMejor()
+    }
   })
-
-  return {
-    latitud: mejor.lat,
-    longitud: mejor.lon,
-    precision_gps_m: mejor.accuracy,
-    estado_gps: mejor.accuracy <= umbral ? 'CON_GPS' : 'GPS_IMPRECISO',
-  }
 }

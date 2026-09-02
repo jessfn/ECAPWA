@@ -111,10 +111,17 @@ async function confirmarModal({ nota, gps }) {
 </template>
 
 <style scoped>
-.jornada-pantalla {
-  display: flex;
-  flex-direction: column;
-}
+/* Antes: `.jornada-pantalla` era `display:flex; flex-direction:column`
+   para poder darle a `.jornada-fila` un alto = 100svh menos el resto —
+   eso rompía el botón "Volver" (se estiraba a lo ancho, un `<a>` dentro
+   de un contenedor flex hereda `align-items:stretch` por defecto) Y el
+   cálculo de alto se pasaba del viewport real en pantallas más chicas o
+   con teclado/barra del navegador, cortando la franja "BLOQUEADO" fuera
+   de la vista sin dejar hacer scroll. Ahora, igual que pwasuper
+   (`min-h-[200px]` fijo, no acoplado al viewport): un alto generoso pero
+   ACOTADO en rem, para que cada tarjeta siempre entre completa y el
+   resto del flujo normal de la página (scroll si hiciera falta, como
+   cualquier otra pantalla de la app) se encargue del resto. -->
 .jornada-encabezado {
   margin-bottom: 1rem;
 }
@@ -126,11 +133,6 @@ async function confirmarModal({ nota, gps }) {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.9rem;
-  flex: 1;
-  /* Alto acoplado a la pantalla donde se abra — pedido explícito: no un
-     tamaño fijo, sino lo que quede disponible de viewport bajo el
-     encabezado (aprox. header + BackButton + título/ayuda). */
-  min-height: calc(100svh - 15.5rem);
 }
 
 .jornada-tarjeta {
@@ -141,7 +143,7 @@ async function confirmarModal({ nota, gps }) {
   justify-content: center;
   gap: 0.9rem;
   width: 100%;
-  min-height: 20rem;
+  min-height: 15rem;
   padding: 1.5rem 1rem;
   border-radius: var(--eca-r-lg);
   border: none;
@@ -248,7 +250,7 @@ async function confirmarModal({ nota, gps }) {
     gap: 0.6rem;
   }
   .jornada-tarjeta {
-    min-height: 17rem;
+    min-height: 13rem;
     padding: 1.1rem 0.75rem;
   }
   .jornada-tarjeta__circulo {
