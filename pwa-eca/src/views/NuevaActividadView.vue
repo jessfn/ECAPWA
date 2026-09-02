@@ -53,7 +53,10 @@ const minFotos = computed(() => (tipoSeleccionado.value?.requiere_evidencia ? ti
 
 // Estado "Listo" de cada paso — mismo patrón visual que el checklist de
 // pwasuper, adaptado a los campos reales de este proyecto.
-const pasoUbicacionListo = computed(() => Boolean(gps.value))
+// `gps` siempre queda con un objeto tras el primer intento (incluso
+// SIN_GPS/permiso denegado) — "Listo" debe reflejar que en verdad se
+// obtuvo una lectura real, no solo que ya se intentó.
+const pasoUbicacionListo = computed(() => gps.value?.estado_gps === 'CON_GPS' || gps.value?.estado_gps === 'GPS_IMPRECISO')
 const pasoClasificacionListo = computed(
   () => Boolean(modalidadId.value) && Boolean(tipoActividadId.value) && (!tipoSeleccionado.value?.requiere_eca || Boolean(ecaId.value)),
 )
