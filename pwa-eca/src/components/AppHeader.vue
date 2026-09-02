@@ -8,19 +8,15 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { useJornadaStore } from '../stores/jornada'
 import { useConectividad } from '../services/conectividad'
 import AuthIcon from './auth/AuthIcon.vue'
-import AvisoModal from './AvisoModal.vue'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
-const jornada = useJornadaStore()
 const { enLinea } = useConectividad()
 
 const menuAbierto = ref(false)
-const avisoBloqueo = ref(null) // null | { titulo, mensaje }
 
 // Hora y fecha de Ciudad de México — pedido explícito: "sin editarse del
 // dispositivo", o sea que no dependa del reloj del celular (un técnico
@@ -81,10 +77,13 @@ function actualizarReloj() {
   }).format(ahora)
 }
 
+// "Jornada" y "Nueva actividad" se quitaron del menú a propósito — ya
+// se accede a ambas desde las tarjetas grandes de Inicio (con su propia
+// lógica de bloqueo/aviso), así que tenerlas también aquí era
+// redundante. El resto de accesos aquí sí son útiles porque Inicio no
+// tiene tarjeta propia para ellos.
 const enlaces = [
   { nombre: 'inicio', etiqueta: 'Inicio', icono: 'home' },
-  { nombre: 'jornada', etiqueta: 'Jornada', icono: 'calendar' },
-  { nombre: 'nueva-actividad', etiqueta: 'Nueva actividad', icono: 'plus-circle' },
   { nombre: 'sincronizacion', etiqueta: 'Sincronización', icono: 'sync' },
   { nombre: 'historial', etiqueta: 'Historial', icono: 'clock' },
   { nombre: 'perfil', etiqueta: 'Mi perfil', icono: 'user' },
@@ -98,24 +97,7 @@ function cerrarMenu() {
   menuAbierto.value = false
 }
 
-// "Nueva actividad" solo se puede usar con la jornada abierta — pedido
-// explícito: en vez de dejar navegar y que la pantalla de destino avise
-// con un texto plano (que ni siquiera todos leen), se corta aquí mismo
-// con un modal claro, con el fondo desvanecido, antes de navegar.
 function navegar(enlace) {
-  if (enlace.nombre === 'nueva-actividad' && !jornada.abierta) {
-    cerrarMenu()
-    avisoBloqueo.value = Boolean(jornada.actual)
-      ? {
-          titulo: 'Jornada ya finalizada',
-          mensaje: 'Ya completaste tu jornada de hoy. Vuelve mañana para registrar actividades.',
-        }
-      : {
-          titulo: 'Primero inicia tu jornada',
-          mensaje: 'Necesitas registrar tu inicio de jornada antes de poder registrar actividades.',
-        }
-    return
-  }
   cerrarMenu()
   router.push({ name: enlace.nombre })
 }
@@ -137,11 +119,6 @@ async function cerrarSesion() {
 }
 
 onMounted(async () => {
-  // El menú se monta una sola vez para toda la sesión — necesita saber si
-  // la jornada está abierta para decidir si "Nueva actividad" navega o
-  // muestra el aviso de bloqueo, sin depender de que la pantalla actual
-  // ya la haya cargado.
-  jornada.cargarHoy()
   await sincronizarConInternet()
   actualizarReloj()
   intervaloReloj = setInterval(actualizarReloj, 1000)
@@ -228,14 +205,6 @@ onUnmounted(() => {
   </div>
 
   <div v-if="menuAbierto" class="app-menu__overlay" @click="cerrarMenu"></div>
-
-  <AvisoModal
-    v-if="avisoBloqueo"
-    tipo="bloqueo"
-    :titulo="avisoBloqueo.titulo"
-    :mensaje="avisoBloqueo.mensaje"
-    @cerrar="avisoBloqueo = null"
-  />
 </template>
 
 <style scoped>
