@@ -242,11 +242,8 @@ const accesos = [
 }
 .inicio-saludo__fila {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.75rem;
-}
-.inicio-saludo__avatar {
-  margin-top: 0.1rem;
 }
 .inicio-saludo__avatar {
   position: relative;
@@ -293,7 +290,7 @@ const accesos = [
 }
 .inicio-saludo__titulo {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 0.98rem;
   font-weight: 700;
   line-height: 1.15;
   color: var(--eca-green-900);
