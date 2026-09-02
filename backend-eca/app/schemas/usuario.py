@@ -33,6 +33,7 @@ class UsuarioPublico(BaseModel):
     estado: str
     requiere_cambio_contrasena: bool
     ultimo_acceso_en: datetime | None
+    creado_en: datetime
     roles: list[str] = Field(default_factory=list)
 
 

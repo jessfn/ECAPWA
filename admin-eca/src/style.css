@@ -215,3 +215,303 @@ a {
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
+.eca-tabla tbody tr:hover {
+  background: var(--eca-surface);
+}
+
+/* ---- Sistema compartido de vistas de listado (Técnicos/Actividades) —
+   mismo lenguaje visual que las vistas "apple-*" de admin-pwa (header con
+   ícono, tarjetas de estadística, chips de filtro, avatar, badges,
+   paginación), con el prefijo `eca-page-*` propio de este proyecto. ---- */
+.eca-page-header {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-bottom: 1.25rem;
+}
+.eca-page-header__icono {
+  width: 3rem;
+  height: 3rem;
+  border-radius: var(--eca-r-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--eca-purple-600) 0%, var(--eca-purple-500) 100%);
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.35);
+}
+.eca-page-header__icono svg {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+.eca-page-header__texto {
+  flex: 1;
+  min-width: 0;
+}
+.eca-page-header__texto h1 {
+  margin: 0;
+  color: var(--eca-purple-700);
+}
+.eca-page-header__texto p {
+  margin: 0.2rem 0 0;
+  color: var(--eca-ink-soft);
+  font-size: 0.9rem;
+}
+.eca-page-header__accion {
+  flex-shrink: 0;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+  border: 1px solid var(--eca-surface-border);
+  background: #fff;
+  color: var(--eca-purple-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.eca-page-header__accion:hover:not(:disabled) {
+  background: var(--eca-surface);
+}
+.eca-page-header__accion svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+.eca-page-header__accion--girando svg {
+  animation: eca-girar 0.9s linear infinite;
+}
+@keyframes eca-girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.eca-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.9rem;
+  margin-bottom: 1.25rem;
+}
+.eca-stat-card {
+  background: #fff;
+  border-radius: var(--eca-r-lg);
+  box-shadow: var(--eca-shadow-card);
+  padding: 1rem 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+.eca-stat-card__icono {
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+}
+.eca-stat-card__icono svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.eca-stat-card__valor {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--eca-ink);
+  line-height: 1.1;
+}
+.eca-stat-card__etiqueta {
+  font-size: 0.78rem;
+  color: var(--eca-ink-soft);
+}
+.eca-stat-card--morado .eca-stat-card__icono {
+  background: linear-gradient(135deg, var(--eca-purple-600), var(--eca-purple-500));
+}
+.eca-stat-card--verde .eca-stat-card__icono {
+  background: linear-gradient(135deg, #34d399, var(--eca-green-600));
+}
+.eca-stat-card--ambar .eca-stat-card__icono {
+  background: linear-gradient(135deg, #fbbf24, #d97706);
+}
+.eca-stat-card--rojo .eca-stat-card__icono {
+  background: linear-gradient(135deg, #f87171, var(--eca-danger));
+}
+.eca-stat-card--azul .eca-stat-card__icono {
+  background: linear-gradient(135deg, #38bdf8, #0284c7);
+}
+
+.eca-search {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+}
+.eca-search svg {
+  position: absolute;
+  left: 0.8rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1rem;
+  height: 1rem;
+  color: var(--eca-ink-soft);
+  pointer-events: none;
+}
+.eca-search input {
+  width: 100%;
+  padding: 0.6rem 0.8rem 0.6rem 2.3rem;
+  border-radius: var(--eca-r-sm);
+  border: 1px solid var(--eca-surface-border);
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+.eca-search input:focus {
+  outline: none;
+  border-color: var(--eca-purple-600);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.18);
+}
+
+.eca-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.eca-chip {
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--eca-surface-border);
+  background: #fff;
+  color: var(--eca-ink-soft);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.eca-chip:hover {
+  background: var(--eca-surface);
+}
+.eca-chip--activo {
+  background: var(--eca-purple-600);
+  border-color: var(--eca-purple-600);
+  color: #fff;
+}
+
+.eca-avatar {
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(145deg, var(--eca-green-500) 0%, var(--eca-green-700) 100%);
+}
+.eca-tabla__usuario {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.eca-tabla__usuario-texto {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.eca-tabla__usuario-texto strong {
+  font-size: 0.88rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+.eca-tabla__usuario-texto span {
+  font-size: 0.75rem;
+  color: var(--eca-ink-soft);
+}
+
+.eca-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.eca-badge svg {
+  width: 10px;
+  height: 10px;
+}
+.eca-badge--verde {
+  background: var(--eca-ok-bg);
+  color: var(--eca-ok);
+}
+.eca-badge--rojo {
+  background: var(--eca-danger-bg);
+  color: var(--eca-danger);
+}
+.eca-badge--ambar {
+  background: #fef3c7;
+  color: #92400e;
+}
+.eca-badge--gris {
+  background: var(--eca-surface);
+  color: var(--eca-ink-soft);
+}
+.eca-badge--morado {
+  background: #ede9fe;
+  color: var(--eca-purple-700);
+}
+.eca-badge--azul {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.eca-vacio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 3rem 1rem;
+  color: var(--eca-ink-soft);
+  text-align: center;
+}
+.eca-vacio svg {
+  width: 2.2rem;
+  height: 2.2rem;
+  opacity: 0.5;
+}
+
+.eca-paginacion {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  font-size: 0.85rem;
+  color: var(--eca-ink-soft);
+}
+.eca-paginacion button {
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  border: 1px solid var(--eca-surface-border);
+  background: #fff;
+  color: var(--eca-purple-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.eca-paginacion button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.eca-paginacion button svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}

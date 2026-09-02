@@ -12,6 +12,7 @@ import CatalogosView from '../views/CatalogosView.vue'
 import ActividadesView from '../views/ActividadesView.vue'
 import ActividadDetalleView from '../views/ActividadDetalleView.vue'
 import SolicitudesAccesoView from '../views/SolicitudesAccesoView.vue'
+import TecnicosView from '../views/TecnicosView.vue'
 
 // admin-eca — rutas (ECA-005 + ECA-006 + ECA-007 + ECA-008 + ECA-009).
 // Guard por token válido + expiración (no por sola presencia en
@@ -45,6 +46,12 @@ const routes = [
         meta: { requierePermiso: 'asignaciones.gestionar' },
       },
       { path: 'catalogos', name: 'catalogos', component: CatalogosView },
+      {
+        path: 'tecnicos',
+        name: 'tecnicos',
+        component: TecnicosView,
+        meta: { requierePermiso: 'usuarios.gestionar' },
+      },
       {
         path: 'actividades',
         name: 'actividades',

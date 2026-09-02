@@ -30,6 +30,13 @@ const enlaces = [
   },
   { nombre: 'catalogos', etiqueta: 'Catálogos', ruta: { name: 'catalogos' }, permiso: null, icono: 'book' },
   {
+    nombre: 'tecnicos',
+    etiqueta: 'Técnicos',
+    ruta: { name: 'tecnicos' },
+    permiso: 'usuarios.gestionar',
+    icono: 'user',
+  },
+  {
     nombre: 'actividades',
     etiqueta: 'Actividades',
     ruta: { name: 'actividades' },

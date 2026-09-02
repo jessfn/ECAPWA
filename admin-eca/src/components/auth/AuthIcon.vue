@@ -108,6 +108,26 @@
       <path d="M3 12h4.5l1.2 3h6.6l1.2-3H21" />
       <path d="M5.5 5h13l2.5 7v7a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-7z" />
     </template>
+    <template v-else-if="name === 'search'">
+      <circle cx="10.5" cy="10.5" r="7" />
+      <path d="M20.5 20.5 15.5 15.5" />
+    </template>
+    <template v-else-if="name === 'sync'">
+      <path d="M4 12a8 8 0 0 1 13.66-5.66L20 8.5" />
+      <path d="M20 4.5V8.5H16" />
+      <path d="M20 12a8 8 0 0 1-13.66 5.66L4 15.5" />
+      <path d="M4 19.5V15.5H8" />
+    </template>
+    <template v-else-if="name === 'camera'">
+      <path d="M3 8.5a2 2 0 0 1 2-2h1.6l1-1.8h8.8l1 1.8H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9z" />
+      <circle cx="12" cy="13" r="3.6" />
+    </template>
+    <template v-else-if="name === 'chevron-left'">
+      <path d="M15 5.5 8 12l7 6.5" />
+    </template>
+    <template v-else-if="name === 'chevron-right'">
+      <path d="M9 5.5 16 12l-7 6.5" />
+    </template>
   </svg>
 </template>
 

@@ -207,6 +207,7 @@ def test_a_publico_con_roles_asignados_no_revienta(repos, actor: Usuario) -> Non
     leer `usuario.roles` directo del ORM antes de que `a_publico` pudiera
     sustituirlo por la lista de claves correcta."""
     import uuid as uuid_lib
+    from datetime import datetime, timezone
 
     repo_u, repo_r = repos
     usuario = Usuario(
@@ -217,6 +218,12 @@ def test_a_publico_con_roles_asignados_no_revienta(repos, actor: Usuario) -> Non
         uuid=uuid_lib.uuid4(),
         estado="ACTIVO",
         requiere_cambio_contrasena=False,
+        # `creado_en` es `nullable=False` en el modelo real (columna con
+        # `server_default=now()`, siempre presente en la BD) — este
+        # `Usuario` se construye a mano en memoria sin pasar por ahí, así
+        # que hay que ponerlo explícito o `UsuarioPublico` (que ahora
+        # expone `creado_en`) rechaza el `None`.
+        creado_en=datetime.now(timezone.utc),
     )
     repo_u.crear_usuario(None, usuario)
     rol = repo_r.roles["ADMIN"]

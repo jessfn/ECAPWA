@@ -8,6 +8,11 @@ export async function listarEcas({ estadoId, municipioId, q, activo, page = 1, p
   return data
 }
 
+export async function obtenerEca(ecaId) {
+  const { data } = await api.get(`/ecas/${ecaId}`)
+  return data
+}
+
 export async function crearEca(payload) {
   const { data } = await api.post('/ecas', payload)
   return data
