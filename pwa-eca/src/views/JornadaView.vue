@@ -225,7 +225,9 @@ async function confirmarModal({ nota, gps }) {
 .jornada-tarjeta--hecha {
   background: #fff;
   border: 1.5px solid var(--eca-surface-border);
-  padding-bottom: 0;
+  /* Espacio reservado abajo para que el texto nunca quede tapado por la
+     franja "BLOQUEADO"/"REGISTRADO" (position:absolute, bottom:0). */
+  padding-bottom: 3rem;
 }
 .jornada-tarjeta__franja {
   position: absolute;
@@ -237,6 +239,7 @@ async function confirmarModal({ nota, gps }) {
   font-weight: 800;
   letter-spacing: 0.06em;
   color: #fff;
+  text-align: center;
 }
 .jornada-tarjeta__franja--bloqueada {
   background: #4b5563;
