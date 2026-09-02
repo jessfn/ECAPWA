@@ -38,6 +38,18 @@ function unIntento(timeoutMs) {
   })
 }
 
+// Salvavidas independiente del `timeout` de la propia API: verificado en
+// pruebas reales que, mientras el navegador tiene pendiente el diálogo de
+// permiso de ubicación (el usuario aún no responde "Permitir"/"Bloquear"),
+// `getCurrentPosition` puede quedarse sin llamar a ninguno de los dos
+// callbacks — ni éxito ni error — así que su propio `timeout` nunca llega a
+// dispararse y la captura se cuelga indefinidamente. Un `setTimeout` de JS
+// sí corre siempre (no depende de que el navegador resuelva el diálogo),
+// así que garantiza que cada intento avance en un tiempo acotado.
+function conLimiteDeTiempo(promesa, ms) {
+  return Promise.race([promesa, new Promise((resolve) => setTimeout(() => resolve({ ok: false, permisoDenegado: false }), ms))])
+}
+
 // Más intentos (antes 3) y con más tiempo cada uno (antes 6s): pedido
 // explícito de que la ubicación sea "exacta" — el GPS de un celular tarda
 // unos segundos en afinar tras el primer intento (frío), así que solo el
@@ -50,7 +62,7 @@ export async function capturarGps({ intentos = 4, timeoutMs = 8000 } = {}) {
   let mejor = null
   let permisoDenegado = false
   for (let i = 0; i < intentos; i += 1) {
-    const resultado = await unIntento(timeoutMs)
+    const resultado = await conLimiteDeTiempo(unIntento(timeoutMs), timeoutMs + 1000)
     if (resultado.ok && (!mejor || resultado.accuracy < mejor.accuracy)) {
       mejor = resultado
     }

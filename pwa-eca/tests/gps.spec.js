@@ -53,6 +53,26 @@ describe('capturarGps', () => {
     expect(resultado.estado_gps).toBe('SIN_GPS')
   })
 
+  // Regresión real observada: mientras el navegador tiene pendiente el
+  // diálogo nativo de permiso de ubicación, `getCurrentPosition` puede no
+  // llamar a NINGÚN callback (ni éxito ni error) — su propio `timeout` de
+  // la API nunca llega a dispararse en ese caso y la captura se cuelga sin
+  // límite. El salvavidas por `setTimeout` debe resolver igual, acotado.
+  it('no se cuelga si el navegador nunca llama a ningún callback (permiso pendiente)', async () => {
+    vi.useFakeTimers()
+    mockGeolocation(() => {
+      /* nunca llama a onSuccess ni a onError */
+    })
+
+    const promesa = capturarGps({ intentos: 2, timeoutMs: 8000 })
+    // Avanza más que el límite total (2 intentos x 9s de salvavidas)
+    await vi.advanceTimersByTimeAsync(20000)
+    const resultado = await promesa
+
+    expect(resultado.estado_gps).toBe('SIN_GPS')
+    vi.useRealTimers()
+  })
+
   it('CON_GPS cuando la precisión está dentro del umbral', async () => {
     obtenerParametro.mockResolvedValueOnce(30)
     mockGeolocation((ok) => ok({ coords: { latitude: 19.4, longitude: -99.1, accuracy: 8 } }))
