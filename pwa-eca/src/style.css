@@ -258,6 +258,11 @@ a {
   cursor: pointer;
   transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.15s ease;
   min-height: 44px;
+  /* `.eca-btn` también se usa en `<RouterLink>`/`<a>` (p. ej. los CTA de
+     los estados vacíos de Historial) — sin esto se ve como texto
+     subrayado en vez de botón, porque el navegador subraya los enlaces
+     por defecto y esta clase nunca lo desactivaba. */
+  text-decoration: none;
 }
 
 .eca-btn:active {
