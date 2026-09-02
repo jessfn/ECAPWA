@@ -50,19 +50,23 @@ async function confirmarModal({ nota, gps }) {
         :disabled="jornada.cargando"
         @click="modalAbierto = 'inicio'"
       >
-        <span class="jornada-tarjeta__circulo">
-          <AuthIcon name="login" />
+        <span class="jornada-tarjeta__cuerpo">
+          <span class="jornada-tarjeta__circulo">
+            <AuthIcon name="login" />
+          </span>
+          <span class="jornada-tarjeta__titulo">Registro de Inicio</span>
+          <span class="jornada-tarjeta__subtitulo">Inicia tu jornada</span>
         </span>
-        <span class="jornada-tarjeta__titulo">Registro de Inicio</span>
-        <span class="jornada-tarjeta__subtitulo">Inicia tu jornada</span>
       </button>
       <div v-else class="jornada-tarjeta jornada-tarjeta--hecha">
-        <span class="jornada-tarjeta__circulo jornada-tarjeta__circulo--hecho">
-          <AuthIcon name="check" />
-        </span>
-        <span class="jornada-tarjeta__titulo jornada-tarjeta__titulo--oscuro">Registro de Inicio</span>
-        <span class="jornada-tarjeta__subtitulo jornada-tarjeta__subtitulo--oscuro">
-          {{ new Date(jornada.actual.inicio_en).toLocaleTimeString('es-MX') }}
+        <span class="jornada-tarjeta__cuerpo">
+          <span class="jornada-tarjeta__circulo jornada-tarjeta__circulo--hecho">
+            <AuthIcon name="check" />
+          </span>
+          <span class="jornada-tarjeta__titulo jornada-tarjeta__titulo--oscuro">Registro de Inicio</span>
+          <span class="jornada-tarjeta__subtitulo jornada-tarjeta__subtitulo--oscuro">
+            {{ new Date(jornada.actual.inicio_en).toLocaleTimeString('es-MX') }}
+          </span>
         </span>
         <span class="jornada-tarjeta__franja jornada-tarjeta__franja--hecha">REGISTRADO</span>
       </div>
@@ -75,28 +79,34 @@ async function confirmarModal({ nota, gps }) {
         :disabled="jornada.cargando"
         @click="modalAbierto = 'fin'"
       >
-        <span class="jornada-tarjeta__circulo">
-          <AuthIcon name="logout" />
+        <span class="jornada-tarjeta__cuerpo">
+          <span class="jornada-tarjeta__circulo">
+            <AuthIcon name="logout" />
+          </span>
+          <span class="jornada-tarjeta__titulo">Registro de Término</span>
+          <span class="jornada-tarjeta__subtitulo">Marca tu salida</span>
         </span>
-        <span class="jornada-tarjeta__titulo">Registro de Término</span>
-        <span class="jornada-tarjeta__subtitulo">Marca tu salida</span>
       </button>
       <div v-else-if="jornada.actual" class="jornada-tarjeta jornada-tarjeta--hecha">
-        <span class="jornada-tarjeta__circulo jornada-tarjeta__circulo--hecho">
-          <AuthIcon name="check" />
-        </span>
-        <span class="jornada-tarjeta__titulo jornada-tarjeta__titulo--oscuro">Registro de Término</span>
-        <span class="jornada-tarjeta__subtitulo jornada-tarjeta__subtitulo--oscuro">
-          {{ new Date(jornada.actual.fin_en).toLocaleTimeString('es-MX') }}
+        <span class="jornada-tarjeta__cuerpo">
+          <span class="jornada-tarjeta__circulo jornada-tarjeta__circulo--hecho">
+            <AuthIcon name="check" />
+          </span>
+          <span class="jornada-tarjeta__titulo jornada-tarjeta__titulo--oscuro">Registro de Término</span>
+          <span class="jornada-tarjeta__subtitulo jornada-tarjeta__subtitulo--oscuro">
+            {{ new Date(jornada.actual.fin_en).toLocaleTimeString('es-MX') }}
+          </span>
         </span>
         <span class="jornada-tarjeta__franja jornada-tarjeta__franja--hecha">REGISTRADO</span>
       </div>
       <div v-else class="jornada-tarjeta jornada-tarjeta--bloqueada">
-        <span class="jornada-tarjeta__circulo jornada-tarjeta__circulo--bloqueado">
-          <AuthIcon name="lock" />
+        <span class="jornada-tarjeta__cuerpo">
+          <span class="jornada-tarjeta__circulo jornada-tarjeta__circulo--bloqueado">
+            <AuthIcon name="lock" />
+          </span>
+          <span class="jornada-tarjeta__titulo jornada-tarjeta__titulo--oscuro">Registro de Término</span>
+          <span class="jornada-tarjeta__subtitulo">Primero registra tu inicio</span>
         </span>
-        <span class="jornada-tarjeta__titulo jornada-tarjeta__titulo--oscuro">Registro de Término</span>
-        <span class="jornada-tarjeta__subtitulo">Primero registra tu inicio</span>
         <span class="jornada-tarjeta__franja jornada-tarjeta__franja--bloqueada">BLOQUEADO</span>
       </div>
     </div>
@@ -132,19 +142,25 @@ async function confirmarModal({ nota, gps }) {
 .jornada-fila {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  align-items: stretch;
   gap: 0.9rem;
 }
 
+/* Tarjetas grandes y altas — pedido explícito. `.jornada-tarjeta` ya NO
+   centra su contenido directamente: es un `display:flex; column` cuyo
+   único trabajo es sostener `__cuerpo` (que crece con `flex:1` y sí
+   centra icono/título/subtítulo) seguido, solo en las tarjetas
+   bloqueada/hecha, de `__franja` como último elemento normal del flujo
+   (ya NO `position:absolute`). Así la franja nunca puede taparse con el
+   texto: al no superponerse nunca, no hay que calcular a mano cuánto
+   padding-bottom hace falta para "dejarle espacio". */
 .jornada-tarjeta {
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.9rem;
   width: 100%;
-  min-height: 15rem;
-  padding: 1.5rem 1rem;
+  min-height: 20rem;
+  padding: 1.75rem 1rem 0;
   border-radius: var(--eca-r-lg);
   border: none;
   cursor: default;
@@ -152,6 +168,15 @@ async function confirmarModal({ nota, gps }) {
   overflow: hidden;
   box-shadow: var(--eca-shadow-card);
   font: inherit;
+}
+.jornada-tarjeta__cuerpo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding-bottom: 1.75rem;
 }
 
 /* Tarjeta activa (clicable): degradado a color, como pwasuper. Azul para
@@ -225,15 +250,16 @@ async function confirmarModal({ nota, gps }) {
 .jornada-tarjeta--hecha {
   background: #fff;
   border: 1.5px solid var(--eca-surface-border);
-  /* Espacio reservado abajo para que el texto nunca quede tapado por la
-     franja "BLOQUEADO"/"REGISTRADO" (position:absolute, bottom:0). */
-  padding-bottom: 3rem;
 }
+/* Elemento normal del flujo (no `position:absolute`): al ir siempre
+   DESPUÉS de `__cuerpo` en el documento, nunca puede quedar detrás ni
+   tapar su texto — el propio `overflow:hidden` de la tarjeta le recorta
+   las esquinas para que combinen con el `border-radius` de la tarjeta. */
 .jornada-tarjeta__franja {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  /* Márgenes negativos = ancho completo pese al padding horizontal de
+     la tarjeta (1rem); `overflow:hidden` de la tarjeta recorta el
+     sobrante para que no se salga del borde redondeado. */
+  margin: 0 -1rem;
   padding: 0.85rem 0.5rem;
   font-size: 0.85rem;
   font-weight: 800;
@@ -253,8 +279,14 @@ async function confirmarModal({ nota, gps }) {
     gap: 0.6rem;
   }
   .jornada-tarjeta {
-    min-height: 13rem;
-    padding: 1.1rem 0.75rem;
+    min-height: 18rem;
+    padding: 1.25rem 0.75rem 0;
+  }
+  .jornada-tarjeta__cuerpo {
+    padding-bottom: 1.25rem;
+  }
+  .jornada-tarjeta__franja {
+    margin: 0 -0.75rem;
   }
   .jornada-tarjeta__circulo {
     width: 4.5rem;
