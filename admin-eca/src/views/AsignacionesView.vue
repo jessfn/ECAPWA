@@ -10,6 +10,7 @@ import {
   eliminarAsignacion,
   importarAsignaciones,
 } from '../services/asignacionesService'
+import AuthIcon from '../components/auth/AuthIcon.vue'
 
 const tecnicos = ref([])
 const tecnicoId = ref(null)
@@ -102,8 +103,15 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="eca-card asignaciones">
-    <h1 class="eca-titulo">Asignaciones técnico–ECA</h1>
+  <section>
+    <div class="eca-page-header">
+      <span class="eca-page-header__icono"><AuthIcon name="check-circle" /></span>
+      <div class="eca-page-header__texto">
+        <h1>Asignaciones técnico–ECA</h1>
+        <p>ECA asignadas directamente a cada técnico.</p>
+      </div>
+    </div>
+    <div class="eca-card asignaciones">
     <p class="eca-ayuda asignaciones__ayuda">
       Cuando un técnico tiene al menos una asignación directa, esas ECA tienen prioridad sobre su
       ámbito geográfico (ver <code>GET /usuarios/me/ecas</code>).
@@ -153,6 +161,7 @@ onMounted(async () => {
     <p v-if="resultadoImportacion" class="eca-alerta-ok">
       Asignadas: {{ resultadoImportacion.asignadas }} · Con error: {{ resultadoImportacion.con_error }}
     </p>
+    </div>
   </section>
 </template>
 

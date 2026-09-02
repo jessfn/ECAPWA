@@ -5,6 +5,7 @@ import { RouterLink } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { listarEstados, listarMunicipios } from '../services/geoService'
 import { listarEcas, crearEca } from '../services/ecasService'
+import AuthIcon from '../components/auth/AuthIcon.vue'
 
 const auth = useAuthStore()
 const puedeGestionar = auth.tienePermiso('ecas.gestionar')
@@ -83,14 +84,18 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="eca-card ecas">
-    <div class="ecas__encabezado">
-      <h1 class="eca-titulo">ECA</h1>
-      <RouterLink v-if="auth.tienePermiso('ecas.importar')" :to="{ name: 'ecas-importar' }" class="eca-btn eca-btn-secundario">
+  <section>
+    <div class="eca-page-header">
+      <span class="eca-page-header__icono"><AuthIcon name="school" /></span>
+      <div class="eca-page-header__texto">
+        <h1>ECA</h1>
+        <p>Escuelas de Campo registradas, con filtros y alta rápida.</p>
+      </div>
+      <RouterLink v-if="auth.tienePermiso('ecas.importar')" :to="{ name: 'ecas-importar' }" class="eca-btn eca-btn-secundario ecas__importar">
         Importar CSV/XLSX
       </RouterLink>
     </div>
-
+    <div class="eca-card ecas">
     <p v-if="error" class="eca-alerta-error" role="alert">{{ error }}</p>
 
     <div class="ecas__filtros">
@@ -139,14 +144,14 @@ onMounted(async () => {
       </tbody>
     </table>
     <p class="eca-ayuda ecas__total">{{ total }} resultado(s).</p>
+    </div>
   </section>
 </template>
 
 <style scoped>
-.ecas__encabezado {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.ecas__importar {
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.9);
 }
 .ecas__filtros,
 .ecas__alta {

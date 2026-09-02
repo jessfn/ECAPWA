@@ -6,6 +6,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { listarCatalogo, editarItemCatalogo, crearSubtema } from '../services/catalogosService'
+import AuthIcon from '../components/auth/AuthIcon.vue'
 
 const auth = useAuthStore()
 const puedeGestionar = computed(() => auth.tienePermiso('catalogos.gestionar'))
@@ -100,8 +101,15 @@ onMounted(cargar)
 </script>
 
 <template>
-  <section class="eca-card catalogos">
-    <h1 class="eca-titulo">Catálogos de actividad</h1>
+  <section>
+    <div class="eca-page-header">
+      <span class="eca-page-header__icono"><AuthIcon name="book" /></span>
+      <div class="eca-page-header__texto">
+        <h1>Catálogos de actividad</h1>
+        <p>Modalidades, tipos, temas, subtemas y sistemas productivos de la PWA de técnico.</p>
+      </div>
+    </div>
+    <div class="eca-card catalogos">
     <p class="eca-ayuda catalogos__ayuda">
       Modalidades, tipos de actividad, temas, subtemas y sistemas productivos que usa la PWA de
       técnico. Los cambios aplican de inmediato, sin desplegar código.
@@ -196,6 +204,7 @@ onMounted(cargar)
         </button>
       </div>
     </template>
+    </div>
   </section>
 </template>
 

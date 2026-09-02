@@ -11,6 +11,7 @@ import {
   actualizarEstadoActivo,
   actualizarMunicipioActivo,
 } from '../services/geoService'
+import AuthIcon from '../components/auth/AuthIcon.vue'
 
 const auth = useAuthStore()
 const puedeEditar = computed(() => auth.tienePermiso('geo.gestionar'))
@@ -88,8 +89,15 @@ onMounted(cargarEstados)
 </script>
 
 <template>
-  <section class="eca-card geografia">
-    <h1 class="eca-titulo">Geografía</h1>
+  <section>
+    <div class="eca-page-header">
+      <span class="eca-page-header__icono"><AuthIcon name="map" /></span>
+      <div class="eca-page-header__texto">
+        <h1>Geografía</h1>
+        <p>Estados y municipios habilitados para el registro de ECAs.</p>
+      </div>
+    </div>
+    <div class="eca-card geografia">
     <p v-if="error" class="eca-alerta-error" role="alert">{{ error }}</p>
 
     <div class="geografia__layout">
@@ -143,6 +151,7 @@ onMounted(cargarEstados)
           </li>
         </ul>
       </div>
+    </div>
     </div>
   </section>
 </template>

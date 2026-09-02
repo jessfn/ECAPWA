@@ -6,7 +6,9 @@
      (DP-2, ver docs-eca/06 ticket ECA-007). -->
 <script setup>
 import { ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import { iniciarImportacion, confirmarImportacion } from '../services/ecasService'
+import AuthIcon from '../components/auth/AuthIcon.vue'
 
 const archivo = ref(null)
 const columnaIdentificador = ref('')
@@ -71,8 +73,19 @@ function cancelar() {
 </script>
 
 <template>
-  <section class="eca-card importar">
-    <h1 class="eca-titulo">Importar ECA</h1>
+  <section>
+    <RouterLink :to="{ name: 'ecas' }" class="detalle__volver">
+      <AuthIcon name="arrow-left" /> Volver a ECA
+    </RouterLink>
+
+    <div class="eca-page-header">
+      <span class="eca-page-header__icono"><AuthIcon name="school" /></span>
+      <div class="eca-page-header__texto">
+        <h1>Importar ECA</h1>
+        <p>Carga masiva por CSV/XLSX, con validación previa antes de confirmar.</p>
+      </div>
+    </div>
+    <div class="eca-card importar">
     <p class="eca-ayuda importar__ayuda">
       El archivo (CSV o XLSX) debe traer, además de la columna identificador estable
       (<code>clave_fuente</code>, <code>id_eca</code>, <code>folio</code> o <code>clave</code> —
@@ -133,10 +146,25 @@ function cancelar() {
       <h2 class="eca-titulo">Importación confirmada</h2>
       <p class="eca-alerta-ok">Altas: {{ resultadoConfirmacion.creadas }} · Actualizaciones: {{ resultadoConfirmacion.actualizadas }}</p>
     </div>
+    </div>
   </section>
 </template>
 
 <style scoped>
+.detalle__volver {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--eca-purple-700);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+.detalle__volver svg {
+  width: 14px;
+  height: 14px;
+}
 .importar__ayuda {
   max-width: 60ch;
 }

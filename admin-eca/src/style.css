@@ -219,31 +219,43 @@ a {
   background: var(--eca-surface);
 }
 
-/* ---- Sistema compartido de vistas de listado (Técnicos/Actividades) —
-   mismo lenguaje visual que las vistas "apple-*" de admin-pwa (header con
-   ícono, tarjetas de estadística, chips de filtro, avatar, badges,
-   paginación), con el prefijo `eca-page-*` propio de este proyecto. ---- */
+/* ---- Sistema compartido de vistas de listado — mismo lenguaje visual
+   que las vistas "apple-*" de admin-pwa: pedido explícito de calcar la
+   "barra superior verde" que admin-pwa repite dentro de CADA vista
+   (`.apple-page-header`: degradado verde, esquinas superiores
+   redondeadas, ícono + divisor + título en mayúsculas + subtítulo +
+   botón de refrescar) — no una topbar global aparte del sidebar (esa no
+   existe ni en admin-pwa: se confirmó que es este mismo bloque,
+   repetido vista por vista). Tarjetas de estadística, chips de filtro,
+   avatar, badges, paginación con el prefijo `eca-page-*`/`eca-stat-*`
+   propio de este proyecto. ---- */
 .eca-page-header {
   display: flex;
   align-items: center;
   gap: 0.9rem;
+  padding: 1rem 1.25rem;
   margin-bottom: 1.25rem;
+  border-radius: 24px 24px 0 0;
+  border: 2px solid #8bc34a;
+  border-bottom: none;
+  background: linear-gradient(135deg, #4caf50 0%, #45a049 50%, #2e7d32 100%);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(46, 125, 50, 0.25);
 }
 .eca-page-header__icono {
-  width: 3rem;
-  height: 3rem;
-  border-radius: var(--eca-r-md);
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: var(--eca-r-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--eca-purple-600) 0%, var(--eca-purple-500) 100%);
+  background: rgba(255, 255, 255, 0.2);
   color: #fff;
   flex-shrink: 0;
-  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.35);
 }
 .eca-page-header__icono svg {
-  width: 1.4rem;
-  height: 1.4rem;
+  width: 1.2rem;
+  height: 1.2rem;
 }
 .eca-page-header__texto {
   flex: 1;
@@ -251,21 +263,25 @@ a {
 }
 .eca-page-header__texto h1 {
   margin: 0;
-  color: var(--eca-purple-700);
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 .eca-page-header__texto p {
   margin: 0.2rem 0 0;
-  color: var(--eca-ink-soft);
-  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.85rem;
 }
 .eca-page-header__accion {
   flex-shrink: 0;
   width: 2.4rem;
   height: 2.4rem;
   border-radius: 50%;
-  border: 1px solid var(--eca-surface-border);
-  background: #fff;
-  color: var(--eca-purple-600);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -273,7 +289,7 @@ a {
   transition: background 0.15s ease, transform 0.15s ease;
 }
 .eca-page-header__accion:hover:not(:disabled) {
-  background: var(--eca-surface);
+  background: rgba(255, 255, 255, 0.28);
 }
 .eca-page-header__accion svg {
   width: 1.05rem;

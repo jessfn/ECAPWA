@@ -5,6 +5,7 @@ import { ref, onMounted, watch } from 'vue'
 import { api } from '../services/api'
 import { listarEstados, listarMunicipios } from '../services/geoService'
 import { obtenerAmbito, reemplazarAmbito, importarAmbitos } from '../services/ambitosService'
+import AuthIcon from '../components/auth/AuthIcon.vue'
 
 const tecnicos = ref([])
 const tecnicoId = ref(null)
@@ -94,8 +95,15 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="eca-card ambitos">
-    <h1 class="eca-titulo">Ámbitos geográficos</h1>
+  <section>
+    <div class="eca-page-header">
+      <span class="eca-page-header__icono"><AuthIcon name="shield" /></span>
+      <div class="eca-page-header__texto">
+        <h1>Ámbitos geográficos</h1>
+        <p>Municipios de trabajo por técnico.</p>
+      </div>
+    </div>
+    <div class="eca-card ambitos">
     <p class="eca-ayuda ambitos__ayuda">
       Municipios de trabajo de un técnico. Determina qué ECA ve en campo cuando no tiene
       asignaciones directas.
@@ -156,6 +164,7 @@ onMounted(async () => {
     <p v-if="resultadoImportacion" class="eca-alerta-ok">
       Asignadas: {{ resultadoImportacion.asignadas }} · Con error: {{ resultadoImportacion.con_error }}
     </p>
+    </div>
   </section>
 </template>
 

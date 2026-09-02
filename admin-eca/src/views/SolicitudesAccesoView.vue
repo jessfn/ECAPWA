@@ -8,6 +8,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { api } from '../services/api'
+import AuthIcon from '../components/auth/AuthIcon.vue'
 
 const solicitudes = ref([])
 const cargando = ref(false)
@@ -79,8 +80,15 @@ onMounted(cargar)
 </script>
 
 <template>
-  <section class="eca-card">
-    <h1 class="eca-titulo">Solicitudes de acceso</h1>
+  <section>
+    <div class="eca-page-header">
+      <span class="eca-page-header__icono"><AuthIcon name="user-plus" /></span>
+      <div class="eca-page-header__texto">
+        <h1>Solicitudes de acceso</h1>
+        <p>Personas que pidieron acceso desde la app de técnicos.</p>
+      </div>
+    </div>
+    <div class="eca-card">
     <p class="eca-ayuda">
       Personas que pidieron acceso desde la app de técnicos. Aprobar abre el alta de usuario con sus
       datos precargados; rechazar solo cierra la solicitud, sin crear nada.
@@ -166,6 +174,7 @@ onMounted(cargar)
           <button type="button" class="eca-btn eca-btn-primary" @click="cerrarAlta">Listo</button>
         </template>
       </div>
+    </div>
     </div>
   </section>
 </template>
