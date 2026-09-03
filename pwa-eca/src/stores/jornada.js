@@ -8,7 +8,7 @@ import { defineStore } from 'pinia'
 import { capturarGps } from '../services/gps'
 import { encolar, actualizar, listar, reemplazar } from '../services/outbox'
 import { useOutboxStore } from './outbox'
-import { sincronizarOportunista } from '../services/sync'
+import { sincronizar } from '../services/sync'
 import { obtenerJornadaDeHoy } from '../services/jornadasService'
 import { asegurarSesionDeServidor } from '../services/sesionServidor'
 import { useAuthStore } from './auth'
@@ -56,6 +56,10 @@ export const useJornadaStore = defineStore('jornada', {
     actual: null,
     cargando: false,
     error: '',
+    // Resultado (`{ ok, motivo, aplicados }`) del intento de sincronización
+    // disparado justo después de iniciar/cerrar jornada — la pantalla lo usa
+    // para saber si debe avisar "sin señal" o "ya se sincronizó" (ECA-012).
+    ultimoSync: null,
   }),
 
   getters: {
@@ -133,7 +137,7 @@ export const useJornadaStore = defineStore('jornada', {
           nota_fin: null,
         })
         await useOutboxStore().refrescar()
-        sincronizarOportunista()
+        this.ultimoSync = await sincronizar(useAuthStore()).catch(() => ({ ok: false, motivo: 'error_red' }))
       } catch {
         this.error = 'No se pudo iniciar la jornada.'
       } finally {
@@ -161,7 +165,7 @@ export const useJornadaStore = defineStore('jornada', {
           estado_local: 'PENDIENTE',
         })
         await useOutboxStore().refrescar()
-        sincronizarOportunista()
+        this.ultimoSync = await sincronizar(useAuthStore()).catch(() => ({ ok: false, motivo: 'error_red' }))
       } catch {
         this.error = 'No se pudo terminar la jornada.'
       } finally {

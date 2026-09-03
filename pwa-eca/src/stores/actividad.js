@@ -7,12 +7,17 @@
 import { defineStore } from 'pinia'
 import { encolar } from '../services/outbox'
 import { useOutboxStore } from './outbox'
-import { sincronizarOportunista } from '../services/sync'
+import { sincronizar } from '../services/sync'
+import { useAuthStore } from './auth'
 
 export const useActividadStore = defineStore('actividad', {
   state: () => ({
     guardando: false,
     error: '',
+    // Resultado del intento de sincronización disparado tras encolar — la
+    // pantalla lo usa para saber si debe avisar "sin señal" o "ya se
+    // sincronizó" en vez de asumir siempre que no hay conexión (ECA-013).
+    ultimoSync: null,
   }),
 
   actions: {
@@ -63,7 +68,7 @@ export const useActividadStore = defineStore('actividad', {
       } finally {
         this.guardando = false
         await useOutboxStore().refrescar()
-        sincronizarOportunista()
+        this.ultimoSync = await sincronizar(useAuthStore()).catch(() => ({ ok: false, motivo: 'error_red' }))
       }
     },
 
@@ -93,7 +98,7 @@ export const useActividadStore = defineStore('actividad', {
         this.error = `${errores.length} de ${fotos.length} fotos no se pudieron guardar localmente.`
       }
       await useOutboxStore().refrescar()
-      sincronizarOportunista()
+      this.ultimoSync = await sincronizar(useAuthStore()).catch(() => ({ ok: false, motivo: 'error_red' }))
       return errores
     },
   },

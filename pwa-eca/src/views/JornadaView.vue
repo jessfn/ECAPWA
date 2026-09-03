@@ -24,6 +24,23 @@ onMounted(() => {
   jornada.cargarHoy()
 })
 
+// El registro siempre se guarda primero en el dispositivo (write-through,
+// ver stores/jornada.js) y luego se intenta sincronizar de inmediato. El
+// mensaje de confirmación debe reflejar lo que realmente pasó, no siempre
+// "se subirá cuando haya conexión" — eso solo aplica si de verdad no hay
+// señal (pedido explícito: antes salía igual aunque el dispositivo sí
+// tuviera internet).
+function mensajeConfirmacion(accion) {
+  const sync = jornada.ultimoSync
+  if (sync?.motivo === 'sin_red') {
+    return `Tu registro de ${accion} se guardó en tu dispositivo. En cuanto tengas señal, se subirá automáticamente al servidor.`
+  }
+  if (sync?.ok && (sync.aplicados > 0 || sync.duplicados > 0)) {
+    return `Tu registro de ${accion} se guardó y ya se sincronizó con el servidor.`
+  }
+  return `Tu registro de ${accion} se guardó en tu dispositivo. Lo reintentaremos en breve.`
+}
+
 async function confirmarModal({ nota, gps }) {
   const tipo = modalAbierto.value
   if (tipo === 'inicio') {
@@ -38,14 +55,8 @@ async function confirmarModal({ nota, gps }) {
   if (!jornada.error) {
     avisoExito.value =
       tipo === 'inicio'
-        ? {
-            titulo: 'Inicio registrado',
-            mensaje: 'Tu registro de inicio de jornada se guardó correctamente en tu dispositivo y se sincronizará con el servidor en cuanto haya conexión.',
-          }
-        : {
-            titulo: 'Salida registrada',
-            mensaje: 'Tu registro de salida de jornada se guardó correctamente en tu dispositivo y se sincronizará con el servidor en cuanto haya conexión.',
-          }
+        ? { titulo: 'Inicio registrado', mensaje: mensajeConfirmacion('inicio de jornada') }
+        : { titulo: 'Salida registrada', mensaje: mensajeConfirmacion('salida de jornada') }
   }
 }
 </script>

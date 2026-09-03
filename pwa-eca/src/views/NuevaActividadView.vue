@@ -67,6 +67,19 @@ const todoListo = computed(
   () => pasoUbicacionListo.value && pasoClasificacionListo.value && pasoDescripcionListo.value && pasoFotosListo.value,
 )
 
+// Mismo criterio que en JornadaView: el mensaje solo debe hablar de "sin
+// señal" cuando de verdad no la hay — antes salía igual con internet.
+const mensajeConfirmacion = computed(() => {
+  const sync = actividad.ultimoSync
+  if (sync?.motivo === 'sin_red') {
+    return 'Tu actividad se guardó en tu dispositivo. En cuanto tengas señal, se subirá automáticamente al servidor.'
+  }
+  if (sync?.ok && (sync.aplicados > 0 || sync.duplicados > 0)) {
+    return 'Tu actividad se guardó y ya se sincronizó con el servidor.'
+  }
+  return 'Tu actividad se guardó en tu dispositivo. La reintentaremos en breve.'
+})
+
 onMounted(async () => {
   catalogos.value = await obtenerCatalogos()
   if (!jornada.actual) {
@@ -309,7 +322,7 @@ function cerrarAvisoExito() {
       v-if="avisoExito"
       tipo="exito"
       titulo="Actividad guardada"
-      mensaje="Tu actividad se guardó correctamente en tu dispositivo y se sincronizará con el servidor en cuanto haya conexión."
+      :mensaje="mensajeConfirmacion"
       @cerrar="cerrarAvisoExito"
     />
   </main>
