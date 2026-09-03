@@ -214,7 +214,7 @@ async function confirmLogout() {
 }
 
 .sidebar-header {
-  padding: 4px 12px 8px;
+  padding: 14px 12px 8px;
   position: relative;
 }
 .logo-container {
@@ -224,8 +224,9 @@ async function confirmLogout() {
   gap: 8px;
 }
 .brand-logo {
-  width: 64px;
-  height: 64px;
+  width: 46px;
+  height: 46px;
+  margin-top: 10px;
   border-radius: 50%;
   background: transparent;
   display: flex;
@@ -233,11 +234,39 @@ async function confirmLogout() {
   justify-content: center;
   overflow: hidden;
   flex-shrink: 0;
+  position: relative;
+  animation: brandLogoFloat 3.5s ease-in-out infinite;
 }
 .brand-logo img {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25));
+}
+.brand-logo::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.55) 12%,
+    transparent 24%,
+    transparent 100%
+  );
+  animation: brandLogoSpin 3s linear infinite;
+  z-index: 0;
+}
+@keyframes brandLogoFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+@keyframes brandLogoSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 .brand-name {
   font-family: 'Montserrat', sans-serif;
