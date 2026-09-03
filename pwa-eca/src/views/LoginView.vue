@@ -113,9 +113,10 @@ async function enviar() {
         </button>
       </form>
 
-      <div class="au-links">
-        <p>¿Aún no tienes cuenta? <router-link to="/registro">Solicitar acceso</router-link></p>
-      </div>
+      <!-- "Solicitar acceso" oculto a pedido explícito mientras se da de alta
+           manualmente a los técnicos desde el padrón oficial (2026-09-03) —
+           evita altas duplicadas por autorregistro durante ese proceso. La
+           ruta /registro sigue viva, solo se quita el enlace visible. -->
 
       <p class="au-copy card-copy">© 2026 ECA · Escuelas de Campo</p>
     </AuthLayout>
