@@ -65,6 +65,7 @@ def crear_usuario(
     apellido_materno: str | None,
     correo: str,
     telefono: str | None,
+    cargo: str | None = None,
     curp: str | None,
     claves_rol: list[str],
     actor: Usuario | None,
@@ -83,6 +84,7 @@ def crear_usuario(
         apellido_materno=apellido_materno,
         correo=correo,
         telefono=telefono,
+        cargo=cargo,
         curp=curp,
         contrasena_hash=hash_contrasena(contrasena_temporal),
         requiere_cambio_contrasena=True,
@@ -120,6 +122,7 @@ def editar_usuario(
     apellido_paterno: str | None,
     apellido_materno: str | None,
     telefono: str | None,
+    cargo: str | None = None,
     curp: str | None,
     actor: Usuario,
 ) -> Usuario:
@@ -128,6 +131,7 @@ def editar_usuario(
         "apellido_paterno": usuario.apellido_paterno,
         "apellido_materno": usuario.apellido_materno,
         "telefono": usuario.telefono,
+        "cargo": usuario.cargo,
     }
     if nombre is not None:
         usuario.nombre = nombre
@@ -137,6 +141,8 @@ def editar_usuario(
         usuario.apellido_materno = apellido_materno
     if telefono is not None:
         usuario.telefono = telefono
+    if cargo is not None:
+        usuario.cargo = cargo
     if curp is not None:
         usuario.curp = curp
 
@@ -155,6 +161,7 @@ def editar_usuario(
             "apellido_paterno": usuario.apellido_paterno,
             "apellido_materno": usuario.apellido_materno,
             "telefono": usuario.telefono,
+            "cargo": usuario.cargo,
         },
     )
     db.commit()

@@ -14,9 +14,9 @@ nunca se sobrescribe ni se duplica) — se puede volver a correr sin riesgo
 si el archivo de entrada cambia o el script se interrumpió a medias.
 
 Entrada: un JSON (lista de objetos) con `correo`, `contrasena`, `nombre`,
-`apellido_paterno`, `apellido_materno` (opcional) — nunca se commitea a
-git (son contraseñas reales en texto plano); vive solo en el servidor
-mientras se corre esto, y debe borrarse después.
+`apellido_paterno`, `apellido_materno` (opcional), `cargo` (opcional) —
+nunca se commitea a git (son contraseñas reales en texto plano); vive
+solo en el servidor mientras se corre esto, y debe borrarse después.
 
 Uso (en el servidor, con el entorno del backend activado):
     python -m scripts.cargar_tecnicos_credenciales --json tecnicos.json --admin-correo admin@ejemplo.org
@@ -73,6 +73,7 @@ def main() -> None:
                 apellido_paterno=fila["apellido_paterno"].strip(),
                 apellido_materno=(fila.get("apellido_materno") or "").strip() or None,
                 correo=correo,
+                cargo=(fila.get("cargo") or "").strip() or None,
                 contrasena_hash=hash_contrasena(fila["contrasena"]),
                 requiere_cambio_contrasena=True,
                 estado="ACTIVO",

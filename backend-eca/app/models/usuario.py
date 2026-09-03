@@ -12,7 +12,7 @@ import uuid as uuid_lib
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, Text, text
 from sqlalchemy.dialects.postgresql import CITEXT, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -46,6 +46,9 @@ class Usuario(Base):
     correo: Mapped[str] = mapped_column(CITEXT, unique=True, nullable=False)
     telefono: Mapped[str | None] = mapped_column(String, nullable=True)
     curp: Mapped[str | None] = mapped_column(String(18), unique=True, nullable=True)
+    # Puesto/cargo del padrón oficial (Responsable de CEDA, Coordinadora
+    # Estatal, etc.) — texto libre, solo informativo, sin catálogo propio.
+    cargo: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     contrasena_hash: Mapped[str] = mapped_column(String, nullable=False)
     algoritmo_hash: Mapped[str] = mapped_column(String, nullable=False, server_default="argon2id")

@@ -142,8 +142,11 @@ function iniciales(u) {
   return '??'
 }
 function ecaNombre(actividad) {
-  if (!actividad.eca_id) return '—'
-  return ecasPorId.value.get(actividad.eca_id) || `ECA #${actividad.eca_id}`
+  if (actividad.eca_id) return ecasPorId.value.get(actividad.eca_id) || `ECA #${actividad.eca_id}`
+  // Escrita a mano por el técnico cuando no tenía ninguna ECA de catálogo
+  // para elegir (ver 0021) — se marca para distinguirla de una ECA real.
+  if (actividad.eca_nombre) return `${actividad.eca_nombre} (escrita)`
+  return '—'
 }
 
 onMounted(async () => {

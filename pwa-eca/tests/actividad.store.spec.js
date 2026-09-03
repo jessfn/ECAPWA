@@ -21,7 +21,7 @@ beforeEach(async () => {
 
 const DATOS = {
   jornadaUuid: 'j1',
-  ecaId: 5,
+  ecaNombre: 'ECA de prueba',
   modalidadId: 1,
   tipoActividadId: 2,
   temaId: null,
@@ -42,7 +42,8 @@ describe('useActividadStore.crear', () => {
     const registro = await actividad.crear(DATOS)
 
     expect(registro.jornada_uuid).toBe('j1')
-    expect(registro.eca_id).toBe(5)
+    expect(registro.eca_id).toBe(null)
+    expect(registro.eca_nombre).toBe('ECA de prueba')
     expect(registro.descripcion).toBe('Se hizo una visita.')
     expect(registro.uuid).toBeTruthy()
     expect(registro.estado_local).toBe('PENDIENTE')

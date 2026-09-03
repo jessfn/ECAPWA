@@ -70,6 +70,7 @@ function aPayloadActividad(registro) {
     uuid: registro.uuid,
     jornada_uuid: registro.jornada_uuid,
     eca_id: registro.eca_id ?? null,
+    eca_nombre: registro.eca_nombre || null,
     modalidad_id: registro.modalidad_id,
     tipo_actividad_id: registro.tipo_actividad_id,
     tema_id: registro.tema_id ?? null,

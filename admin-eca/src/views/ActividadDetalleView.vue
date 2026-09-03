@@ -101,7 +101,17 @@ onBeforeUnmount(() => {
           <dt>Fecha</dt>
           <dd>{{ new Date(actividad.fecha_hora).toLocaleString('es-MX') }}</dd>
           <dt>ECA</dt>
-          <dd>{{ eca ? eca.nombre : (actividad.eca_id ? `ECA #${actividad.eca_id}` : '—') }}</dd>
+          <dd>
+            {{
+              eca
+                ? eca.nombre
+                : actividad.eca_id
+                  ? `ECA #${actividad.eca_id}`
+                  : actividad.eca_nombre
+                    ? `${actividad.eca_nombre} (escrita a mano)`
+                    : '—'
+            }}
+          </dd>
           <dt>Descripción</dt>
           <dd>{{ actividad.descripcion }}</dd>
           <dt>Resultado</dt>

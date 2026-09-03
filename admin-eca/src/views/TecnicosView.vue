@@ -173,6 +173,7 @@ async function cambiarEstado(usuario, estadoNuevo) {
           <thead>
             <tr>
               <th>Técnico</th>
+              <th>Cargo</th>
               <th>Teléfono</th>
               <th>Rol</th>
               <th>Estado</th>
@@ -192,6 +193,7 @@ async function cambiarEstado(usuario, estadoNuevo) {
                   </span>
                 </div>
               </td>
+              <td>{{ u.cargo || '—' }}</td>
               <td>{{ u.telefono || '—' }}</td>
               <td>
                 <span class="eca-badge eca-badge--morado">{{ ETIQUETAS_ROL[u.roles?.[0]] || u.roles?.[0] || '—' }}</span>

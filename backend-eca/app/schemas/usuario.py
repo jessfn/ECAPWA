@@ -30,6 +30,7 @@ class UsuarioPublico(BaseModel):
     apellido_materno: str | None
     correo: str
     telefono: str | None
+    cargo: str | None
     estado: str
     requiere_cambio_contrasena: bool
     ultimo_acceso_en: datetime | None
@@ -43,6 +44,7 @@ class UsuarioCrearPeticion(BaseModel):
     apellido_materno: str | None = None
     correo: str = Field(min_length=3)
     telefono: str | None = None
+    cargo: str | None = None
     curp: str | None = None
     roles: list[str] = Field(default_factory=list, description="Claves de rol, p. ej. ['TECNICO']")
 
@@ -59,6 +61,7 @@ class UsuarioEditarPeticion(BaseModel):
     apellido_paterno: str | None = None
     apellido_materno: str | None = None
     telefono: str | None = None
+    cargo: str | None = None
     curp: str | None = None
 
     @field_validator("curp")

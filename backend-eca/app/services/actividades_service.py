@@ -57,6 +57,7 @@ def crear(
     uuid: uuid_lib.UUID,
     jornada_uuid: uuid_lib.UUID,
     eca_id: int | None,
+    eca_nombre: str | None = None,
     modalidad_id: int,
     tipo_actividad_id: int,
     tema_id: int | None,
@@ -85,7 +86,11 @@ def crear(
     tipo = db.get(TipoActividad, tipo_actividad_id)
     if tipo is None:
         raise TipoActividadDesconocidoError(f"Tipo de actividad desconocido: {tipo_actividad_id}")
-    if tipo.requiere_eca and eca_id is None:
+    # `eca_id` (catálogo) o `eca_nombre` (escrita a mano) — lo segundo
+    # existe porque muchos técnicos no tienen ninguna ECA para elegir en
+    # su ámbito/asignación todavía (ver 0021); de cualquier forma sigue
+    # siendo obligatorio dar una ECA cuando el tipo la requiere.
+    if tipo.requiere_eca and eca_id is None and not (eca_nombre or "").strip():
         raise EcaRequeridaError(f"El tipo de actividad «{tipo.nombre}» requiere una ECA.")
     if num_participantes is not None and not tipo.permite_participantes:
         raise ParticipantesNoPermitidosError(
@@ -104,6 +109,7 @@ def crear(
         usuario_id=actor.id,
         jornada_id=jornada.id,
         eca_id=eca_id,
+        eca_nombre=(eca_nombre or "").strip() or None,
         modalidad_id=modalidad_id,
         tipo_actividad_id=tipo_actividad_id,
         tema_id=tema_id,

@@ -132,6 +132,7 @@ def _procesar_actividad(
             uuid=item.uuid,
             jornada_uuid=item.jornada_uuid,
             eca_id=item.eca_id,
+            eca_nombre=item.eca_nombre,
             modalidad_id=item.modalidad_id,
             tipo_actividad_id=item.tipo_actividad_id,
             tema_id=item.tema_id,

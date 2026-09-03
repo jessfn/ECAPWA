@@ -61,6 +61,7 @@ def crear_usuario(
             apellido_materno=peticion.apellido_materno,
             correo=peticion.correo,
             telefono=peticion.telefono,
+            cargo=peticion.cargo,
             curp=peticion.curp,
             claves_rol=peticion.roles,
             actor=actor,
@@ -99,6 +100,7 @@ def editar_usuario(
         apellido_paterno=peticion.apellido_paterno,
         apellido_materno=peticion.apellido_materno,
         telefono=peticion.telefono,
+        cargo=peticion.cargo,
         curp=peticion.curp,
         actor=actor,
     )

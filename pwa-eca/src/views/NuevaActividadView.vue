@@ -16,7 +16,6 @@ import { RouterLink, useRouter } from 'vue-router'
 import { useJornadaStore } from '../stores/jornada'
 import { useActividadStore } from '../stores/actividad'
 import { obtenerCatalogos, subtemasDelTema } from '../services/catalogosCache'
-import SelectorEca from '../components/SelectorEca.vue'
 import CapturaGps from '../components/CapturaGps.vue'
 import CapturaEvidencia from '../components/CapturaEvidencia.vue'
 import BackButton from '../components/BackButton.vue'
@@ -33,7 +32,11 @@ const tipoActividadId = ref(null)
 const temaId = ref(null)
 const subtemaId = ref(null)
 const sistemaProductivoId = ref(null)
-const ecaId = ref(null)
+// Pedido explícito (2026-09-03): la ECA se escribe a mano en vez de
+// elegirse de un selector — muchos técnicos no tienen ninguna ECA en su
+// catálogo/ámbito todavía y el selector los dejaba sin poder guardar
+// ninguna actividad que la requiriera. Sigue siendo obligatoria.
+const ecaNombre = ref('')
 const descripcion = ref('')
 const resultado = ref('')
 const numParticipantes = ref(null)
@@ -59,7 +62,10 @@ const minFotos = computed(() => (tipoSeleccionado.value?.requiere_evidencia ? ti
 // obtuvo una lectura real, no solo que ya se intentó.
 const pasoUbicacionListo = computed(() => gps.value?.estado_gps === 'CON_GPS' || gps.value?.estado_gps === 'GPS_IMPRECISO')
 const pasoClasificacionListo = computed(
-  () => Boolean(modalidadId.value) && Boolean(tipoActividadId.value) && (!tipoSeleccionado.value?.requiere_eca || Boolean(ecaId.value)),
+  () =>
+    Boolean(modalidadId.value) &&
+    Boolean(tipoActividadId.value) &&
+    (!tipoSeleccionado.value?.requiere_eca || Boolean(ecaNombre.value.trim())),
 )
 const pasoDescripcionListo = computed(() => Boolean(descripcion.value.trim()))
 const pasoFotosListo = computed(() => !minFotos.value || fotos.value.length >= minFotos.value)
@@ -111,7 +117,7 @@ async function guardar() {
   try {
     const nuevaActividad = await actividad.crear({
       jornadaUuid: jornada.actual.uuid,
-      ecaId: ecaId.value,
+      ecaNombre: tipoSeleccionado.value?.requiere_eca ? ecaNombre.value.trim() : null,
       modalidadId: modalidadId.value,
       tipoActividadId: tipoActividadId.value,
       temaId: temaId.value,
@@ -223,10 +229,16 @@ function cerrarAvisoExito() {
             </select>
           </label>
 
-          <fieldset v-if="tipoSeleccionado?.requiere_eca">
-            <legend>ECA (requerida)</legend>
-            <SelectorEca v-model="ecaId" />
-          </fieldset>
+          <label v-if="tipoSeleccionado?.requiere_eca">
+            ECA (requerida)
+            <input
+              v-model="ecaNombre"
+              type="text"
+              class="nueva-actividad__select"
+              placeholder="Escribe el nombre de la ECA…"
+              required
+            />
+          </label>
         </section>
 
         <!-- Paso 3: Descripción -->
@@ -351,18 +363,6 @@ function cerrarAvisoExito() {
   align-items: center;
   gap: 0.5rem;
 }
-fieldset {
-  border: none;
-  padding: 0;
-  margin: 0 0 0.7rem;
-}
-fieldset legend {
-  font-weight: 600;
-  font-size: 0.85rem;
-  color: var(--eca-ink-soft);
-  padding: 0 0 0.3rem;
-}
-
 /* Tarjeta de "paso" — mismo lenguaje visual que `apple-step-card-purple`
    de pwasuper: acento morado sutil, número circular, badge "Listo". */
 .nueva-actividad__paso {

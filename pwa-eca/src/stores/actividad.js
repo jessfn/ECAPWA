@@ -23,7 +23,7 @@ export const useActividadStore = defineStore('actividad', {
   actions: {
     async crear({
       jornadaUuid,
-      ecaId,
+      ecaNombre,
       modalidadId,
       tipoActividadId,
       temaId,
@@ -42,7 +42,8 @@ export const useActividadStore = defineStore('actividad', {
         return await encolar('outbox_actividades', {
           uuid: crypto.randomUUID(),
           jornada_uuid: jornadaUuid,
-          eca_id: ecaId,
+          eca_id: null,
+          eca_nombre: ecaNombre || null,
           modalidad_id: modalidadId,
           tipo_actividad_id: tipoActividadId,
           tema_id: temaId,

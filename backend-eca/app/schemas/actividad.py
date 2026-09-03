@@ -14,6 +14,7 @@ class ActividadCrearPeticion(BaseModel):
     uuid: uuid_lib.UUID
     jornada_uuid: uuid_lib.UUID
     eca_id: int | None = None
+    eca_nombre: str | None = None
     modalidad_id: int
     tipo_actividad_id: int
     tema_id: int | None = None
@@ -35,6 +36,7 @@ class ActividadPublica(BaseModel):
     usuario_id: int
     jornada_id: int
     eca_id: int | None
+    eca_nombre: str | None
     modalidad_id: int
     tipo_actividad_id: int
     tema_id: int | None

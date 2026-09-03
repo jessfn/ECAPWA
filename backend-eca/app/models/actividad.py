@@ -46,6 +46,10 @@ class Actividad(Base):
     usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), nullable=False)
     jornada_id: Mapped[int] = mapped_column(ForeignKey("jornadas.id"), nullable=False)
     eca_id: Mapped[int | None] = mapped_column(ForeignKey("ecas.id"), nullable=True)
+    # Nombre de ECA escrito a mano por el técnico — cuando el tipo de
+    # actividad requiere ECA pero no hay ninguna en su catálogo/ámbito
+    # para seleccionar (`eca_id` se queda NULL en ese caso). Ver 0021.
+    eca_nombre: Mapped[str | None] = mapped_column(Text, nullable=True)
     modalidad_id: Mapped[int] = mapped_column(ForeignKey("modalidades.id"), nullable=False)
     tipo_actividad_id: Mapped[int] = mapped_column(ForeignKey("tipos_actividad.id"), nullable=False)
     tema_id: Mapped[int | None] = mapped_column(ForeignKey("temas.id"), nullable=True)
