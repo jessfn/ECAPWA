@@ -88,7 +88,7 @@ onBeforeUnmount(() => {
         </span>
       </div>
 
-      <div class="eca-card detalle__card">
+      <div class="eca-card eca-panel-fusionado detalle__card">
         <div class="detalle__usuario">
           <span class="eca-avatar detalle__avatar">{{ iniciales(tecnico) }}</span>
           <div>

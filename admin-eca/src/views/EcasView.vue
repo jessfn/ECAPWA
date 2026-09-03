@@ -95,7 +95,7 @@ onMounted(async () => {
         Importar CSV/XLSX
       </RouterLink>
     </div>
-    <div class="eca-card ecas">
+    <div class="eca-card eca-panel-fusionado ecas">
     <p v-if="error" class="eca-alerta-error" role="alert">{{ error }}</p>
 
     <div class="ecas__filtros">

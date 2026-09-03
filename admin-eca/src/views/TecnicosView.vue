@@ -113,28 +113,28 @@ async function cambiarEstado(usuario, estadoNuevo) {
       </button>
     </div>
 
-    <p v-if="error" class="eca-alerta-error" role="alert">{{ error }}</p>
+    <div class="eca-panel-fusionado">
+      <p v-if="error" class="eca-alerta-error" role="alert">{{ error }}</p>
 
-    <div class="eca-stats-grid">
-      <div class="eca-stat-card eca-stat-card--morado">
-        <span class="eca-stat-card__icono"><AuthIcon name="user" /></span>
-        <div><div class="eca-stat-card__valor">{{ stats.total }}</div><div class="eca-stat-card__etiqueta">Total</div></div>
+      <div class="eca-stats-grid">
+        <div class="eca-stat-card eca-stat-card--morado">
+          <span class="eca-stat-card__icono"><AuthIcon name="user" /></span>
+          <div><div class="eca-stat-card__valor">{{ stats.total }}</div><div class="eca-stat-card__etiqueta">Total</div></div>
+        </div>
+        <div class="eca-stat-card eca-stat-card--verde">
+          <span class="eca-stat-card__icono"><AuthIcon name="check-circle" /></span>
+          <div><div class="eca-stat-card__valor">{{ stats.activos }}</div><div class="eca-stat-card__etiqueta">Activos</div></div>
+        </div>
+        <div class="eca-stat-card eca-stat-card--ambar">
+          <span class="eca-stat-card__icono"><AuthIcon name="alert" /></span>
+          <div><div class="eca-stat-card__valor">{{ stats.suspendidos }}</div><div class="eca-stat-card__etiqueta">Suspendidos</div></div>
+        </div>
+        <div class="eca-stat-card eca-stat-card--rojo">
+          <span class="eca-stat-card__icono"><AuthIcon name="close" /></span>
+          <div><div class="eca-stat-card__valor">{{ stats.baja }}</div><div class="eca-stat-card__etiqueta">Baja</div></div>
+        </div>
       </div>
-      <div class="eca-stat-card eca-stat-card--verde">
-        <span class="eca-stat-card__icono"><AuthIcon name="check-circle" /></span>
-        <div><div class="eca-stat-card__valor">{{ stats.activos }}</div><div class="eca-stat-card__etiqueta">Activos</div></div>
-      </div>
-      <div class="eca-stat-card eca-stat-card--ambar">
-        <span class="eca-stat-card__icono"><AuthIcon name="alert" /></span>
-        <div><div class="eca-stat-card__valor">{{ stats.suspendidos }}</div><div class="eca-stat-card__etiqueta">Suspendidos</div></div>
-      </div>
-      <div class="eca-stat-card eca-stat-card--rojo">
-        <span class="eca-stat-card__icono"><AuthIcon name="close" /></span>
-        <div><div class="eca-stat-card__valor">{{ stats.baja }}</div><div class="eca-stat-card__etiqueta">Baja</div></div>
-      </div>
-    </div>
 
-    <div class="eca-card">
       <div class="tecnicos__controles">
         <label class="eca-search">
           <AuthIcon name="search" />
@@ -158,7 +158,9 @@ async function cambiarEstado(usuario, estadoNuevo) {
           </button>
         </div>
       </div>
+    </div>
 
+    <div class="eca-card">
       <p v-if="cargando" class="eca-ayuda">Cargando…</p>
 
       <div v-else-if="!usuariosFiltrados.length" class="eca-vacio">

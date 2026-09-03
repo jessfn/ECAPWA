@@ -85,7 +85,7 @@ function cancelar() {
         <p>Carga masiva por CSV/XLSX, con validación previa antes de confirmar.</p>
       </div>
     </div>
-    <div class="eca-card importar">
+    <div class="eca-card eca-panel-fusionado importar">
     <p class="eca-ayuda importar__ayuda">
       El archivo (CSV o XLSX) debe traer, además de la columna identificador estable
       (<code>clave_fuente</code>, <code>id_eca</code>, <code>folio</code> o <code>clave</code> —

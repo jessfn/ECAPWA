@@ -103,7 +103,7 @@ onMounted(async () => {
         <p>Municipios de trabajo por técnico.</p>
       </div>
     </div>
-    <div class="eca-card ambitos">
+    <div class="eca-card eca-panel-fusionado ambitos">
     <p class="eca-ayuda ambitos__ayuda">
       Municipios de trabajo de un técnico. Determina qué ECA ve en campo cuando no tiene
       asignaciones directas.

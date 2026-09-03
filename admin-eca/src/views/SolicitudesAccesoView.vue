@@ -88,7 +88,7 @@ onMounted(cargar)
         <p>Personas que pidieron acceso desde la app de técnicos.</p>
       </div>
     </div>
-    <div class="eca-card">
+    <div class="eca-card eca-panel-fusionado">
     <p class="eca-ayuda">
       Personas que pidieron acceso desde la app de técnicos. Aprobar abre el alta de usuario con sus
       datos precargados; rechazar solo cierra la solicitud, sin crear nada.

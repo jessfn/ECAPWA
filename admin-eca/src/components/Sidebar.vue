@@ -745,4 +745,58 @@ async function confirmLogout() {
 .modal-leave-active { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 .modal-enter-from { opacity: 0; transform: scale(0.8) translateY(20px); }
 .modal-leave-to { opacity: 0; transform: scale(0.95) translateY(-10px); }
+
+/* Responsivo: pedido explícito ("hazlo... completamente funcional y
+   responsivo"). En pantallas angostas los 200px mínimos del sidebar
+   completo no dejan espacio útil al contenido — se colapsa a un riel de
+   solo iconos (igual que el estado ".collapsed" de admin-pwa, pero fijo
+   en vez de con botón de toggle: este panel es de uso ocasional en
+   móvil, no vale la pena la complejidad de un overlay con JS). */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 60px;
+    min-width: 60px;
+    max-width: 60px;
+  }
+  .brand-tagline,
+  .text-underline,
+  .user-main-info,
+  .user-role-badge,
+  .nav-text,
+  .logout-button span {
+    display: none;
+  }
+  .brand-name {
+    font-size: 9px;
+    letter-spacing: 0.2px;
+  }
+  .sidebar-header {
+    padding: 10px 6px 6px;
+  }
+  .brand-logo {
+    width: 34px;
+    height: 34px;
+    margin-top: 4px;
+  }
+  .user-card {
+    padding: 8px 4px;
+    width: calc(100% - 8px);
+  }
+  .user-card-row {
+    justify-content: center;
+  }
+  .sidebar-nav {
+    padding: 8px 6px;
+  }
+  .nav-link {
+    justify-content: center;
+    padding: 8px 4px;
+  }
+  .nav-icon-container {
+    margin-right: 0;
+  }
+  .logout-button {
+    padding: 8px 4px;
+  }
+}
 </style>

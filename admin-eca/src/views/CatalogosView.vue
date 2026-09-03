@@ -109,7 +109,7 @@ onMounted(cargar)
         <p>Modalidades, tipos, temas, subtemas y sistemas productivos de la PWA de técnico.</p>
       </div>
     </div>
-    <div class="eca-card catalogos">
+    <div class="eca-card eca-panel-fusionado catalogos">
     <p class="eca-ayuda catalogos__ayuda">
       Modalidades, tipos de actividad, temas, subtemas y sistemas productivos que usa la PWA de
       técnico. Los cambios aplican de inmediato, sin desplegar código.

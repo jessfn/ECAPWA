@@ -15,7 +15,7 @@ const auth = useAuthStore()
         <p>Panel de administración de ECA.</p>
       </div>
     </div>
-    <div class="eca-card">
+    <div class="eca-card eca-panel-fusionado">
       <p v-if="auth.usuario" class="eca-ayuda">
         Sesión iniciada como {{ auth.usuario.nombre }} {{ auth.usuario.apellido_paterno }}.
       </p>

@@ -25,13 +25,20 @@ import Sidebar from '../components/Sidebar.vue'
   margin-left: min(220px, 18vw);
   min-height: 100vh;
   min-height: 100dvh;
-  padding: 2rem;
+  /* Mismo espaciado que `.apple-main-content` de admin-pwa: poco margen
+     arriba/lados y nada abajo — la vista es la que decide su propio
+     padding interno (dentro de `.eca-page-header`/`.eca-panel-fusionado`).
+     Antes eran 2rem parejos en los cuatro lados, muy separado del borde
+     de la ventana comparado con el original. */
+  padding: 0.6rem 1rem 1rem;
   box-sizing: border-box;
 }
-@media (max-width: 900px) {
+@media (max-width: 768px) {
   .layout__contenido {
-    margin-left: 200px;
-    padding: 1.25rem;
+    /* El sidebar se colapsa a un riel de 60px de solo iconos en este
+       breakpoint (ver Sidebar.vue) — el margen debe coincidir. */
+    margin-left: 60px;
+    padding: 0.5rem 0.6rem 1rem;
   }
 }
 </style>

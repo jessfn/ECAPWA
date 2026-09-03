@@ -111,7 +111,7 @@ onMounted(async () => {
         <p>ECA asignadas directamente a cada técnico.</p>
       </div>
     </div>
-    <div class="eca-card asignaciones">
+    <div class="eca-card eca-panel-fusionado asignaciones">
     <p class="eca-ayuda asignaciones__ayuda">
       Cuando un técnico tiene al menos una asignación directa, esas ECA tienen prioridad sobre su
       ámbito geográfico (ver <code>GET /usuarios/me/ecas</code>).

@@ -234,13 +234,41 @@ a {
   align-items: center;
   gap: 0.9rem;
   padding: 1rem 1.25rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 0;
   border-radius: 24px 24px 0 0;
   border: 2px solid #8bc34a;
   border-bottom: none;
   background: linear-gradient(135deg, #4caf50 0%, #45a049 50%, #2e7d32 100%);
   color: #fff;
   box-shadow: 0 8px 20px rgba(46, 125, 50, 0.25);
+}
+
+/* Panel blanco "fusionado" directamente bajo `.eca-page-header` — mismo
+   truco que `.apple-stats-section` de admin-pwa: mismo borde verde,
+   esquinas inferiores redondeadas, `margin-top:-1px` para que no se vea
+   la costura entre los dos. Se le agrega esta clase a lo que sea que siga
+   al header (el `.eca-card` de las vistas simples, o un contenedor propio
+   con stats/buscador en las vistas con listado) para que TODA vista
+   quede como una sola tarjeta continua, igual que "Usuarios" en
+   admin-pwa — antes cada vista dejaba un hueco entre el header verde y
+   la tarjeta blanca, con sombras y bordes redondeados por separado. */
+.eca-panel-fusionado {
+  background: #fff;
+  border: 2px solid #8bc34a;
+  border-top: none;
+  border-radius: 0 0 24px 24px;
+  margin: -1px 0 1.25rem;
+  padding: 1.1rem 1.25rem 1.25rem;
+  box-shadow: 0 10px 24px rgba(46, 125, 50, 0.1);
+}
+.eca-panel-fusionado.eca-card {
+  box-shadow: 0 10px 24px rgba(46, 125, 50, 0.1);
+}
+.eca-panel-fusionado .eca-stats-grid {
+  margin-bottom: 1rem;
+}
+.eca-panel-fusionado .eca-stats-grid:last-child {
+  margin-bottom: 0;
 }
 .eca-page-header__icono {
   width: 2.4rem;
@@ -530,4 +558,33 @@ a {
 .eca-paginacion button svg {
   width: 0.9rem;
   height: 0.9rem;
+}
+
+/* ---- Responsivo: header/panel fusionado y tarjetas de estadística en
+   pantallas angostas (pedido explícito, ver también el riel de icono del
+   sidebar en Sidebar.vue) ---- */
+@media (max-width: 480px) {
+  .eca-page-header {
+    padding: 0.85rem 1rem;
+    gap: 0.6rem;
+  }
+  .eca-page-header__texto h1 {
+    font-size: 0.92rem;
+  }
+  .eca-page-header__texto p {
+    font-size: 0.78rem;
+  }
+  .eca-panel-fusionado {
+    padding: 0.9rem 0.9rem 1rem;
+  }
+  .eca-card {
+    padding: 1rem;
+  }
+  .eca-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.6rem;
+  }
+  .eca-stat-card {
+    padding: 0.8rem;
+  }
 }

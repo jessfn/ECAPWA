@@ -97,7 +97,7 @@ onMounted(cargarEstados)
         <p>Estados y municipios habilitados para el registro de ECAs.</p>
       </div>
     </div>
-    <div class="eca-card geografia">
+    <div class="eca-card eca-panel-fusionado geografia">
     <p v-if="error" class="eca-alerta-error" role="alert">{{ error }}</p>
 
     <div class="geografia__layout">

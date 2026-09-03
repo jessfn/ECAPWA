@@ -177,28 +177,28 @@ onMounted(async () => {
       </button>
     </div>
 
-    <p v-if="error" class="eca-alerta-error" role="alert">{{ error }}</p>
+    <div class="eca-panel-fusionado">
+      <p v-if="error" class="eca-alerta-error" role="alert">{{ error }}</p>
 
-    <div class="eca-stats-grid">
-      <div class="eca-stat-card eca-stat-card--morado">
-        <span class="eca-stat-card__icono"><AuthIcon name="clock" /></span>
-        <div><div class="eca-stat-card__valor">{{ total }}</div><div class="eca-stat-card__etiqueta">Total (filtro actual)</div></div>
+      <div class="eca-stats-grid">
+        <div class="eca-stat-card eca-stat-card--morado">
+          <span class="eca-stat-card__icono"><AuthIcon name="clock" /></span>
+          <div><div class="eca-stat-card__valor">{{ total }}</div><div class="eca-stat-card__etiqueta">Total (filtro actual)</div></div>
+        </div>
+        <div class="eca-stat-card eca-stat-card--verde">
+          <span class="eca-stat-card__icono"><AuthIcon name="map-pin" /></span>
+          <div><div class="eca-stat-card__valor">{{ statsPagina.conGps }}</div><div class="eca-stat-card__etiqueta">Con GPS (en esta página)</div></div>
+        </div>
+        <div class="eca-stat-card eca-stat-card--ambar">
+          <span class="eca-stat-card__icono"><AuthIcon name="alert" /></span>
+          <div><div class="eca-stat-card__valor">{{ statsPagina.impreciso }}</div><div class="eca-stat-card__etiqueta">GPS impreciso (en esta página)</div></div>
+        </div>
+        <div class="eca-stat-card eca-stat-card--rojo">
+          <span class="eca-stat-card__icono"><AuthIcon name="wifi-off" /></span>
+          <div><div class="eca-stat-card__valor">{{ statsPagina.sinGps }}</div><div class="eca-stat-card__etiqueta">Sin GPS (en esta página)</div></div>
+        </div>
       </div>
-      <div class="eca-stat-card eca-stat-card--verde">
-        <span class="eca-stat-card__icono"><AuthIcon name="map-pin" /></span>
-        <div><div class="eca-stat-card__valor">{{ statsPagina.conGps }}</div><div class="eca-stat-card__etiqueta">Con GPS (en esta página)</div></div>
-      </div>
-      <div class="eca-stat-card eca-stat-card--ambar">
-        <span class="eca-stat-card__icono"><AuthIcon name="alert" /></span>
-        <div><div class="eca-stat-card__valor">{{ statsPagina.impreciso }}</div><div class="eca-stat-card__etiqueta">GPS impreciso (en esta página)</div></div>
-      </div>
-      <div class="eca-stat-card eca-stat-card--rojo">
-        <span class="eca-stat-card__icono"><AuthIcon name="wifi-off" /></span>
-        <div><div class="eca-stat-card__valor">{{ statsPagina.sinGps }}</div><div class="eca-stat-card__etiqueta">Sin GPS (en esta página)</div></div>
-      </div>
-    </div>
 
-    <div class="eca-card">
       <div class="actividades__filtros">
         <select v-model="tecnicoId" @change="aplicarFiltros">
           <option :value="null">Todos los técnicos</option>
@@ -234,7 +234,9 @@ onMounted(async () => {
           {{ exportando ? 'Exportando…' : 'Exportar CSV' }}
         </button>
       </div>
+    </div>
 
+    <div class="eca-card">
       <p v-if="cargando" class="eca-ayuda">Cargando…</p>
 
       <div v-else-if="!actividades.length" class="eca-vacio">
