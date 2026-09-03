@@ -86,6 +86,9 @@ async function confirmLogout() {
   <aside class="sidebar">
     <div class="sidebar-header">
       <div class="logo-container">
+        <div class="brand-logo">
+          <img src="/logo.png" alt="" />
+        </div>
         <h1 class="brand-name">ECA</h1>
         <p class="brand-tagline">Escuelas de Campo</p>
 
@@ -219,6 +222,22 @@ async function confirmLogout() {
   flex-direction: column;
   align-items: center;
   gap: 8px;
+}
+.brand-logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.brand-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 .brand-name {
   font-family: 'Montserrat', sans-serif;
