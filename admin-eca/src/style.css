@@ -237,12 +237,10 @@ a {
   align-items: center;
   gap: 0.9rem;
   padding: 1rem 1.5rem;
-  /* Pegada al borde superior (sin hueco arriba) pero separada de los lados
-     con `--eca-gutter`: el bloque (header + filtros) toca el tope y deja
-     aire a izquierda y derecha. Esquinas superiores rectas para que quede
-     realmente pegada arriba; las inferiores las redondea
-     `.eca-panel-fusionado`, fusionado justo debajo. */
-  margin: 0 var(--eca-gutter, 1rem);
+  /* SOLO la barra va de lado a lado (pegada arriba y a las dos orillas, sin
+     margen): pedido explícito de que el header ocupe todo el ancho. El
+     panel de filtros de abajo SÍ conserva su espaciado lateral. */
+  margin: 0;
   border: none;
   border-radius: 0;
   background: linear-gradient(135deg, #1f5b34 0%, #164227 58%, #0e3a20 100%);
@@ -265,9 +263,10 @@ a {
 .eca-panel-fusionado {
   background: #eef6f0;
   border: 1.5px solid #1f5b34;
-  border-top: none;
-  border-radius: 0 0 var(--eca-r-lg) var(--eca-r-lg);
-  margin: 0 var(--eca-gutter, 1rem) 1rem;
+  border-radius: var(--eca-r-lg);
+  /* Tarjeta propia bajo la barra full-width: pequeña separación arriba y
+     espaciado a los lados con `--eca-gutter`. */
+  margin: var(--eca-gutter, 1rem) var(--eca-gutter, 1rem) 1rem;
   padding: 1rem 1.25rem 1.1rem;
   box-shadow: 0 14px 30px rgba(15, 60, 35, 0.14);
 }
