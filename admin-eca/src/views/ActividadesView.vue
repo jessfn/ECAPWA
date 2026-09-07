@@ -305,7 +305,7 @@ onMounted(async () => {
     <div class="eca-panel-fusionado">
       <p v-if="error" class="eca-alerta-error" role="alert">{{ error }}</p>
 
-      <div class="eca-stats-grid">
+      <div class="actividades__stats">
         <div class="eca-stat-card eca-stat-card--morado">
           <span class="eca-stat-card__icono"><AuthIcon name="clock" /></span>
           <div><div class="eca-stat-card__valor">{{ total }}</div><div class="eca-stat-card__etiqueta">Total (filtro actual)</div></div>
@@ -369,32 +369,32 @@ onMounted(async () => {
         </div>
 
         <div class="actividades__selects">
-          <select v-model="estadoId" @change="onCambioEstado">
+          <select v-model="estadoId" class="actividades__control" @change="onCambioEstado">
             <option :value="null">Todos los estados</option>
             <option v-for="e in estados" :key="e.id" :value="e.id">{{ e.nombre }}</option>
           </select>
-          <select v-model="municipioId" :disabled="!estadoId" @change="aplicarFiltros">
+          <select v-model="municipioId" class="actividades__control" :disabled="!estadoId" @change="aplicarFiltros">
             <option :value="null">Todos los municipios</option>
             <option v-for="m in municipios" :key="m.id" :value="m.id">{{ m.nombre }}</option>
           </select>
-          <select v-model="tipoActividadId" @change="aplicarFiltros">
+          <select v-model="tipoActividadId" class="actividades__control" @change="aplicarFiltros">
             <option :value="null">Todos los tipos</option>
             <option v-for="t in tiposActividad" :key="t.id" :value="t.id">{{ t.nombre }}</option>
           </select>
-          <select v-model="estadoGps" @change="aplicarFiltros">
+          <select v-model="estadoGps" class="actividades__control" @change="aplicarFiltros">
             <option value="">Cualquier GPS</option>
             <option value="CON_GPS">Con GPS</option>
             <option value="GPS_IMPRECISO">GPS impreciso</option>
             <option value="SIN_GPS">Sin GPS</option>
           </select>
-          <label class="actividades__fecha">
-            <span>Desde</span>
+          <div class="actividades__fecha actividades__control">
+            <span class="actividades__fecha-etiqueta">Desde</span>
             <input v-model="desde" type="date" @change="aplicarFiltros" />
-          </label>
-          <label class="actividades__fecha">
-            <span>Hasta</span>
+          </div>
+          <div class="actividades__fecha actividades__control">
+            <span class="actividades__fecha-etiqueta">Hasta</span>
             <input v-model="hasta" type="date" @change="aplicarFiltros" />
-          </label>
+          </div>
         </div>
       </div>
     </div>
@@ -596,6 +596,30 @@ onMounted(async () => {
    fila que se centra y reparte el espacio de lado a lado, envolviendo en
    pantallas chicas. Controles más compactos que antes (pedido explícito:
    "más pequeños"). ---- */
+/* Contadores: 4 columnas iguales que llenan TODO el ancho del panel de
+   lado a lado (pedido explícito) — a diferencia del `.eca-stats-grid`
+   global, que las capa a 210px y deja hueco a la derecha. Bajan a 2 y a 1
+   columna en pantallas chicas. */
+.actividades__stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.7rem;
+  margin-bottom: 0.9rem;
+}
+.actividades__stats .eca-stat-card {
+  min-width: 0;
+}
+@media (max-width: 820px) {
+  .actividades__stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 460px) {
+  .actividades__stats {
+    grid-template-columns: 1fr;
+  }
+}
+
 .actividades__filtros {
   display: flex;
   flex-direction: column;
@@ -739,47 +763,94 @@ onMounted(async () => {
   letter-spacing: 0.02em;
 }
 
+/* Fila de filtros: cada control (`.actividades__control`) ocupa una
+   fracción igual del ancho y todos comparten la MISMA altura fija. Clave:
+   el `flex` va sobre `.actividades__control` (hijo directo de la fila),
+   nunca sobre el `<input>` de fecha — ese input vive dentro de un
+   contenedor `column`, y ponerle `flex-basis` ahí lo estiraba en vertical
+   (el bug de las cajas de fecha gigantes). */
 .actividades__selects {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
-  align-items: flex-end;
+  align-items: stretch;
   gap: 0.5rem;
 }
-.actividades__selects select,
-.actividades__selects input {
-  flex: 1 1 9rem;
-  min-width: 8rem;
-  padding: 0.35rem 0.6rem;
+.actividades__control {
+  flex: 1 1 0;
+  min-width: 8.5rem;
+  height: 2.4rem;
+  box-sizing: border-box;
+}
+select.actividades__control {
+  padding: 0 0.7rem;
   border-radius: var(--eca-r-sm);
   border: 1px solid var(--eca-surface-border);
   background: var(--eca-surface);
   font-family: inherit;
-  font-size: 0.8rem;
-  height: 1.95rem;
-  box-sizing: border-box;
-  transition: border-color 0.2s ease, background 0.2s ease;
+  font-size: 0.82rem;
+  color: var(--eca-ink);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
-.actividades__selects select:focus,
-.actividades__selects input:focus {
+select.actividades__control:focus {
   outline: none;
   border-color: var(--eca-green-500);
   background: #fff;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12);
 }
+select.actividades__control:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+/* Campo de fecha: label pequeño arriba-izquierda dentro de la misma caja,
+   como un input "material" — así ocupa la misma altura que los selects sin
+   una etiqueta externa que descuadre la fila. */
 .actividades__fecha {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: var(--eca-ink-soft);
-  gap: 0.15rem;
-  flex: 1 1 7rem;
-  min-width: 7rem;
+  align-items: flex-end;
+  border-radius: var(--eca-r-sm);
+  border: 1px solid var(--eca-surface-border);
+  background: var(--eca-surface);
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
-@media (max-width: 640px) {
-  .actividades__selects select,
-  .actividades__selects input,
-  .actividades__fecha {
+.actividades__fecha:focus-within {
+  border-color: var(--eca-green-500);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12);
+}
+.actividades__fecha-etiqueta {
+  position: absolute;
+  top: 0.28rem;
+  left: 0.7rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--eca-ink-soft);
+  pointer-events: none;
+}
+.actividades__fecha input {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: none;
+  padding: 0.75rem 0.7rem 0.25rem;
+  font-family: inherit;
+  font-size: 0.8rem;
+  color: var(--eca-ink);
+  box-sizing: border-box;
+}
+.actividades__fecha input:focus {
+  outline: none;
+}
+@media (max-width: 720px) {
+  .actividades__control {
+    flex: 1 1 calc(50% - 0.25rem);
+  }
+}
+@media (max-width: 460px) {
+  .actividades__control {
     flex: 1 1 100%;
   }
 }
