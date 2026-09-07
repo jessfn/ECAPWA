@@ -61,6 +61,7 @@ class UsuarioBasico(BaseModel):
     nombre: str
     apellido_paterno: str
     apellido_materno: str | None
+    curp: str | None
 
 
 class UsuarioCrearPeticion(BaseModel):

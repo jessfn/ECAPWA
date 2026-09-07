@@ -16,7 +16,6 @@ import { listarEstados, listarMunicipios } from '../services/geoService'
 import { listarCatalogo } from '../services/catalogosService'
 import {
   listarActividades,
-  exportarCsv,
   urlVistaPreviaEvidencia,
   obtenerActividad,
   descargarEvidencia,
@@ -46,7 +45,42 @@ const page = ref(1)
 const pageSize = 20
 const cargando = ref(false)
 const error = ref('')
-const exportando = ref(false)
+
+// Buscador de técnico en tiempo real (nombre o CURP) — sustituye el select
+// "Todos los técnicos" por un campo con sugerencias. Filtra en el cliente
+// sobre la lista ya cargada de técnicos (normalmente unas decenas, nunca
+// miles), así que no hace falta pegarle al backend por cada tecleo.
+const busquedaTecnico = ref('')
+const mostrarSugerencias = ref(false)
+function normalizar(texto) {
+  return (texto || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+}
+const sugerenciasTecnico = computed(() => {
+  const q = normalizar(busquedaTecnico.value.trim())
+  if (!q) return []
+  return tecnicos.value
+    .filter((t) => {
+      const nombre = normalizar(`${t.nombre} ${t.apellido_paterno} ${t.apellido_materno || ''}`)
+      const curp = normalizar(t.curp || '')
+      return nombre.includes(q) || curp.includes(q)
+    })
+    .slice(0, 8)
+})
+function seleccionarTecnico(t) {
+  tecnicoId.value = t.id
+  busquedaTecnico.value = `${t.nombre} ${t.apellido_paterno}`
+  mostrarSugerencias.value = false
+  aplicarFiltros()
+}
+function limpiarBusquedaTecnico() {
+  tecnicoId.value = null
+  busquedaTecnico.value = ''
+  mostrarSugerencias.value = false
+  aplicarFiltros()
+}
 
 const ETIQUETAS_GPS = { CON_GPS: 'Con GPS', GPS_IMPRECISO: 'GPS impreciso', SIN_GPS: 'Sin GPS' }
 const BADGE_GPS = { CON_GPS: 'eca-badge--verde', GPS_IMPRECISO: 'eca-badge--ambar', SIN_GPS: 'eca-badge--gris' }
@@ -148,18 +182,6 @@ function irAPagina(nueva) {
   if (nueva < 1 || nueva > totalPaginas.value) return
   page.value = nueva
   cargar()
-}
-
-async function onExportar() {
-  exportando.value = true
-  error.value = ''
-  try {
-    await exportarCsv(filtrosActuales())
-  } catch {
-    error.value = 'No se pudo exportar el CSV.'
-  } finally {
-    exportando.value = false
-  }
 }
 
 function tecnicoDe(actividad) {
@@ -303,39 +325,77 @@ onMounted(async () => {
       </div>
 
       <div class="actividades__filtros">
-        <select v-model="tecnicoId" @change="aplicarFiltros">
-          <option :value="null">Todos los técnicos</option>
-          <option v-for="t in tecnicos" :key="t.uuid" :value="t.id">{{ t.nombre }} {{ t.apellido_paterno }}</option>
-        </select>
-        <select v-model="estadoId" @change="onCambioEstado">
-          <option :value="null">Todos los estados</option>
-          <option v-for="e in estados" :key="e.id" :value="e.id">{{ e.nombre }}</option>
-        </select>
-        <select v-model="municipioId" :disabled="!estadoId" @change="aplicarFiltros">
-          <option :value="null">Todos los municipios</option>
-          <option v-for="m in municipios" :key="m.id" :value="m.id">{{ m.nombre }}</option>
-        </select>
-        <select v-model="tipoActividadId" @change="aplicarFiltros">
-          <option :value="null">Todos los tipos</option>
-          <option v-for="t in tiposActividad" :key="t.id" :value="t.id">{{ t.nombre }}</option>
-        </select>
-        <select v-model="estadoGps" @change="aplicarFiltros">
-          <option value="">Cualquier GPS</option>
-          <option value="CON_GPS">Con GPS</option>
-          <option value="GPS_IMPRECISO">GPS impreciso</option>
-          <option value="SIN_GPS">Sin GPS</option>
-        </select>
-        <label class="actividades__fecha">
-          Desde
-          <input v-model="desde" type="date" @change="aplicarFiltros" />
-        </label>
-        <label class="actividades__fecha">
-          Hasta
-          <input v-model="hasta" type="date" @change="aplicarFiltros" />
-        </label>
-        <button type="button" class="eca-btn eca-btn-secundario" :disabled="exportando" @click="onExportar">
-          {{ exportando ? 'Exportando…' : 'Exportar CSV' }}
-        </button>
+        <div class="actividades__buscador">
+          <span class="actividades__buscador-icono"><AuthIcon name="search" /></span>
+          <input
+            v-model="busquedaTecnico"
+            type="text"
+            placeholder="Buscar técnico por nombre o CURP…"
+            @focus="mostrarSugerencias = true"
+            @blur="() => setTimeout(() => (mostrarSugerencias = false), 150)"
+          />
+          <button
+            v-if="busquedaTecnico"
+            type="button"
+            class="actividades__buscador-limpiar"
+            aria-label="Limpiar búsqueda de técnico"
+            @mousedown.prevent="limpiarBusquedaTecnico"
+          >
+            <AuthIcon name="close" />
+          </button>
+
+          <Transition name="actividades-sugerencias">
+            <div v-if="mostrarSugerencias && busquedaTecnico && sugerenciasTecnico.length" class="actividades__sugerencias">
+              <button
+                v-for="t in sugerenciasTecnico"
+                :key="t.id"
+                type="button"
+                class="actividades__sugerencia"
+                @mousedown.prevent="seleccionarTecnico(t)"
+              >
+                <span class="actividades__sugerencia-avatar">{{ iniciales(t) }}</span>
+                <span class="actividades__sugerencia-texto">
+                  <strong>{{ t.nombre }} {{ t.apellido_paterno }} {{ t.apellido_materno || '' }}</strong>
+                  <small v-if="t.curp">{{ t.curp }}</small>
+                </span>
+              </button>
+            </div>
+          </Transition>
+          <Transition name="actividades-sugerencias">
+            <div v-if="mostrarSugerencias && busquedaTecnico && !sugerenciasTecnico.length" class="actividades__sugerencias actividades__sugerencias--vacio">
+              Sin coincidencias para "{{ busquedaTecnico }}"
+            </div>
+          </Transition>
+        </div>
+
+        <div class="actividades__selects">
+          <select v-model="estadoId" @change="onCambioEstado">
+            <option :value="null">Todos los estados</option>
+            <option v-for="e in estados" :key="e.id" :value="e.id">{{ e.nombre }}</option>
+          </select>
+          <select v-model="municipioId" :disabled="!estadoId" @change="aplicarFiltros">
+            <option :value="null">Todos los municipios</option>
+            <option v-for="m in municipios" :key="m.id" :value="m.id">{{ m.nombre }}</option>
+          </select>
+          <select v-model="tipoActividadId" @change="aplicarFiltros">
+            <option :value="null">Todos los tipos</option>
+            <option v-for="t in tiposActividad" :key="t.id" :value="t.id">{{ t.nombre }}</option>
+          </select>
+          <select v-model="estadoGps" @change="aplicarFiltros">
+            <option value="">Cualquier GPS</option>
+            <option value="CON_GPS">Con GPS</option>
+            <option value="GPS_IMPRECISO">GPS impreciso</option>
+            <option value="SIN_GPS">Sin GPS</option>
+          </select>
+          <label class="actividades__fecha">
+            <span>Desde</span>
+            <input v-model="desde" type="date" @change="aplicarFiltros" />
+          </label>
+          <label class="actividades__fecha">
+            <span>Hasta</span>
+            <input v-model="hasta" type="date" @change="aplicarFiltros" />
+          </label>
+        </div>
       </div>
     </div>
 
@@ -531,37 +591,197 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* ---- Barra de filtros: buscador de técnico (en tiempo real, nombre o
+   CURP) arriba, ancho completo; el resto de los filtros abajo, en una
+   fila que se centra y reparte el espacio de lado a lado, envolviendo en
+   pantallas chicas. Controles más compactos que antes (pedido explícito:
+   "más pequeños"). ---- */
 .actividades__filtros {
   display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  /* `center` desalineaba los selects (sin etiqueta) contra los campos de
-     fecha (con "Desde"/"Hasta" arriba, más altos) — con `flex-end` todos
-     los controles quedan a la misma altura de base, se ve "justificado"
-     en vez de disparejo. */
-  align-items: flex-end;
+  flex-direction: column;
+  gap: 0.65rem;
   margin-bottom: 0.6rem;
 }
-.actividades__filtros select,
-.actividades__filtros input {
-  padding: 0.4rem 0.65rem;
+.actividades__buscador {
+  position: relative;
+  width: 100%;
+}
+.actividades__buscador-icono {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--eca-ink-soft);
+  display: flex;
+  pointer-events: none;
+}
+.actividades__buscador-icono svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+.actividades__buscador input {
+  width: 100%;
+  padding: 0.55rem 2.4rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--eca-surface-border);
+  background: var(--eca-surface);
+  font-family: inherit;
+  font-size: 0.88rem;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+.actividades__buscador input:focus {
+  outline: none;
+  border-color: var(--eca-green-500);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.14);
+}
+.actividades__buscador-limpiar {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  border: none;
+  background: var(--eca-surface-border);
+  color: var(--eca-ink-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.actividades__buscador-limpiar:hover {
+  background: #e2e2e2;
+  transform: translateY(-50%) scale(1.08);
+}
+.actividades__buscador-limpiar svg {
+  width: 0.7rem;
+  height: 0.7rem;
+}
+.actividades__sugerencias {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid var(--eca-surface-border);
+  border-radius: var(--eca-r-md);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14);
+  overflow: hidden;
+  max-height: 18rem;
+  overflow-y: auto;
+}
+.actividades__sugerencias--vacio {
+  padding: 0.9rem 1rem;
+  font-size: 0.82rem;
+  color: var(--eca-ink-soft);
+  text-align: center;
+}
+.actividades-sugerencias-enter-active,
+.actividades-sugerencias-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.actividades-sugerencias-enter-from,
+.actividades-sugerencias-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+.actividades__sugerencia {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.85rem;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.actividades__sugerencia:hover {
+  background: var(--eca-surface);
+}
+.actividades__sugerencia + .actividades__sugerencia {
+  border-top: 1px solid var(--eca-surface-border);
+}
+.actividades__sugerencia-avatar {
+  flex-shrink: 0;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--eca-green-500), var(--eca-green-700));
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.actividades__sugerencia-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.actividades__sugerencia-texto strong {
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.actividades__sugerencia-texto small {
+  font-size: 0.72rem;
+  color: var(--eca-ink-soft);
+  letter-spacing: 0.02em;
+}
+
+.actividades__selects {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+.actividades__selects select,
+.actividades__selects input {
+  flex: 1 1 9rem;
+  min-width: 8rem;
+  padding: 0.35rem 0.6rem;
   border-radius: var(--eca-r-sm);
   border: 1px solid var(--eca-surface-border);
+  background: var(--eca-surface);
   font-family: inherit;
-  font-size: 0.85rem;
-  height: 2.15rem;
+  font-size: 0.8rem;
+  height: 1.95rem;
   box-sizing: border-box;
+  transition: border-color 0.2s ease, background 0.2s ease;
 }
-.actividades__filtros .eca-btn {
-  height: 2.15rem;
-  padding: 0 1rem;
+.actividades__selects select:focus,
+.actividades__selects input:focus {
+  outline: none;
+  border-color: var(--eca-green-500);
+  background: #fff;
 }
 .actividades__fecha {
   display: flex;
   flex-direction: column;
-  font-size: 0.75rem;
+  font-size: 0.68rem;
+  font-weight: 700;
   color: var(--eca-ink-soft);
   gap: 0.15rem;
+  flex: 1 1 7rem;
+  min-width: 7rem;
+}
+@media (max-width: 640px) {
+  .actividades__selects select,
+  .actividades__selects input,
+  .actividades__fecha {
+    flex: 1 1 100%;
+  }
 }
 /* ---- Tabla con scroll INTERNO (pedido explícito, mismo patrón que
    `.apple-table-container`/`.apple-table-wrapper` de admin-pwa): el
