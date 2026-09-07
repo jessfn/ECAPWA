@@ -46,6 +46,23 @@ class UsuarioPublico(BaseModel):
     permisos_directos: list[str] = Field(default_factory=list)
 
 
+class UsuarioBasico(BaseModel):
+    """Solo lo necesario para pintar un nombre + iniciales en una tabla
+    (Actividades/Asignaciones/Ámbitos) — a diferencia de `UsuarioPublico`,
+    nunca incluye correo, teléfono, roles ni permisos. Sirve para el
+    endpoint `/usuarios/tecnicos-basico`, que cualquier cuenta del panel
+    autenticada puede leer (no exige `usuarios.gestionar`): antes esas
+    vistas dependían de `GET /usuarios`, así que un USUARIO sin ese permiso
+    veía "Técnico #63" en vez del nombre real."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    nombre: str
+    apellido_paterno: str
+    apellido_materno: str | None
+
+
 class UsuarioCrearPeticion(BaseModel):
     nombre: str = Field(min_length=1)
     apellido_paterno: str = Field(min_length=1)

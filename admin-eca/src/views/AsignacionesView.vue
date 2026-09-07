@@ -28,8 +28,16 @@ const importando = ref(false)
 const resultadoImportacion = ref(null)
 
 async function cargarTecnicos() {
-  const { data } = await api.get('/usuarios', { params: { rol: 'TECNICO' } })
-  tecnicos.value = data
+  try {
+    // Endpoint ligero (id/nombre/apellidos) accesible a cualquier cuenta
+    // autenticada del panel — `GET /usuarios` exige `usuarios.gestionar`,
+    // que un USUARIO con solo `vista.asignaciones` no tiene; antes esto
+    // tronaba toda la vista (sin try/catch) en vez de solo quedarse vacía.
+    const { data } = await api.get('/usuarios/tecnicos-basico')
+    tecnicos.value = data
+  } catch {
+    tecnicos.value = []
+  }
 }
 
 async function cargarAsignaciones() {
@@ -122,8 +130,8 @@ onMounted(async () => {
 
     <select v-model="tecnicoId" class="asignaciones__select">
       <option :value="null" disabled>Selecciona un técnico</option>
-      <option v-for="t in tecnicos" :key="t.uuid" :value="t.id">
-        {{ t.nombre }} {{ t.apellido_paterno }} — {{ t.correo }}
+      <option v-for="t in tecnicos" :key="t.id" :value="t.id">
+        {{ t.nombre }} {{ t.apellido_paterno }}
       </option>
     </select>
 

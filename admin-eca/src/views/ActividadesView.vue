@@ -86,14 +86,14 @@ const statsPagina = computed(() => ({
 
 async function cargarTecnicos() {
   try {
-    const { data } = await api.get('/usuarios', { params: { rol: 'TECNICO' } })
+    // Endpoint ligero (solo id/nombre/apellidos, sin correo/roles) que
+    // cualquier cuenta del panel autenticada puede leer — antes se usaba
+    // `GET /usuarios`, que exige `usuarios.gestionar`; un USUARIO con solo
+    // `vista.actividades` se quedaba sin ese permiso y la tabla mostraba
+    // "Técnico #63" en vez del nombre real.
+    const { data } = await api.get('/usuarios/tecnicos-basico')
     tecnicos.value = data
   } catch {
-    // Mejor esfuerzo: si el admin actual no tiene permiso de usuarios
-    // (distinto de `actividades.ver_todas`), la tabla sigue funcionando,
-    // solo sin nombre/avatar — muestra "Técnico #id" en vez de tronar
-    // toda la pantalla (bug real: antes esto no tenía catch y un 403
-    // aquí rompía la vista completa en el `Promise.all` de `onMounted`).
     tecnicos.value = []
   }
 }

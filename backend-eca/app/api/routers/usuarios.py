@@ -9,12 +9,14 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.core.db import get_db
 from app.core.permissions import require_permission
 from app.models.usuario import Usuario
 from app.repositories import usuarios as repo_usuarios
 from app.schemas.usuario import (
     ImportacionUsuariosRespuesta,
+    UsuarioBasico,
     UsuarioCambioEstadoPeticion,
     UsuarioCrearPeticion,
     UsuarioCreadoRespuesta,
@@ -46,6 +48,19 @@ def listar_usuarios(
 ) -> list[UsuarioPublico]:
     usuarios = repo_usuarios.listar(db, estado=estado, rol=rol, texto=texto)
     return [usuarios_service.a_publico(db, u) for u in usuarios]
+
+
+@router.get("/tecnicos-basico", response_model=list[UsuarioBasico])
+def listar_tecnicos_basico(
+    db: Session = Depends(get_db),
+    _actor: Usuario = Depends(get_current_user),
+) -> list[Usuario]:
+    """Deliberadamente sin `require_permission`: cualquier cuenta del panel
+    ya autenticada puede leer esto — es solo nombre + apellidos para pintar
+    en tablas (Actividades, Asignaciones, Ámbitos), nunca correo/teléfono/
+    roles. Debe ir antes de `/{usuario_id}` en el router o FastAPI intenta
+    resolver "tecnicos-basico" como un id."""
+    return repo_usuarios.listar(db, rol="TECNICO")
 
 
 @router.post("", response_model=UsuarioCreadoRespuesta, status_code=status.HTTP_201_CREATED)
