@@ -128,6 +128,18 @@
     <template v-else-if="name === 'chevron-right'">
       <path d="M9 5.5 16 12l-7 6.5" />
     </template>
+    <template v-else-if="name === 'trending-up'">
+      <path d="M3 17l6-6 4 4 8-8" />
+      <path d="M15 6.5h6V12.5" />
+    </template>
+    <template v-else-if="name === 'activity'">
+      <path d="M2.5 12h4l2.2-6.5 4.6 13 2.2-6.5h4.5" />
+    </template>
+    <template v-else-if="name === 'sparkles'">
+      <path d="M12 3v4M12 17v4M3 12h4M17 12h4" />
+      <path d="M6.5 6.5l2 2M15.5 15.5l2 2M17.5 6.5l-2 2M8.5 15.5l-2 2" />
+      <circle cx="12" cy="12" r="2.3" />
+    </template>
   </svg>
 </template>
 
