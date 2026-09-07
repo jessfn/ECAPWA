@@ -27,3 +27,16 @@ app.mount('#app')
 // bloquean ni arriesgan datos (el outbox ya los tiene a salvo).
 sincronizarOportunista()
 setInterval(sincronizarOportunista, 2 * 60 * 1000)
+
+// Bug real de fondo (2026-09-07): un técnico que deja la pestaña/PWA
+// abierta pero la pantalla apagada o la app en segundo plano no dispara
+// NADA de lo anterior — ni el `setInterval` (los navegadores móviles
+// pausan/limitan temporizadores de pestañas ocultas) ni el evento
+// `online` (la conexión nunca se "recuperó", solo estuvo inactiva la
+// pestaña) — así que una jornada/actividad/evidencia que quedó
+// pendiente justo antes de bloquear la pantalla podía tardar mucho más
+// de lo esperado en subirse. Al volver a primer plano si vuelve a haber
+// visibilidad, se reintenta de inmediato.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') sincronizarOportunista()
+})

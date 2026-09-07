@@ -82,12 +82,25 @@ const todoListo = computed(
 
 // Mismo criterio que en JornadaView: el mensaje solo debe hablar de "sin
 // señal" cuando de verdad no la hay — antes salía igual con internet.
+//
+// Bug real encontrado en producción: cuando la actividad lleva foto, esta
+// pantalla dispara DOS sincronizaciones seguidas — una al crear la
+// actividad (`actividad.crear`) y otra al encolar la evidencia
+// (`actividad.encolarEvidencias`) — y `actividad.ultimoSync` solo guarda
+// el resultado de la SEGUNDA. Esa segunda sincronización solo mueve
+// evidencias (no jornadas/actividades), así que `aplicados`/`duplicados`
+// siempre quedan en 0 aunque la foto SÍ se haya subido con éxito — el
+// mensaje decía "la reintentaremos en breve" incluso cuando todo ya
+// estaba en el servidor. Confirmado subiendo una actividad de prueba
+// real: la evidencia llegó al servidor pese al mensaje. Con `sync?.ok`
+// alcanza: cualquier sincronización exitosa (con o sin conteo de
+// aplicados/duplicados) significa que ya no queda nada pendiente.
 const mensajeConfirmacion = computed(() => {
   const sync = actividad.ultimoSync
   if (sync?.motivo === 'sin_red') {
     return 'Tu actividad se guardó en tu dispositivo. En cuanto tengas señal, se subirá automáticamente al servidor.'
   }
-  if (sync?.ok && (sync.aplicados > 0 || sync.duplicados > 0)) {
+  if (sync?.ok) {
     return 'Tu actividad se guardó y ya se sincronizó con el servidor.'
   }
   return 'Tu actividad se guardó en tu dispositivo. La reintentaremos en breve.'

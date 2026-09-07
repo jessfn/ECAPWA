@@ -35,7 +35,11 @@ function mensajeConfirmacion(accion) {
   if (sync?.motivo === 'sin_red') {
     return `Tu registro de ${accion} se guardó en tu dispositivo. En cuanto tengas señal, se subirá automáticamente al servidor.`
   }
-  if (sync?.ok && (sync.aplicados > 0 || sync.duplicados > 0)) {
+  // Igual que en NuevaActividadView: exigir aplicados/duplicados > 0
+  // ocultaba un "sí se sincronizó" real cuando la sincronización de ese
+  // momento no aplicó/duplicó nada nuevo (p. ej. ya estaba al día) —
+  // `sync?.ok` solo ya significa "no queda nada pendiente".
+  if (sync?.ok) {
     return `Tu registro de ${accion} se guardó y ya se sincronizó con el servidor.`
   }
   return `Tu registro de ${accion} se guardó en tu dispositivo. Lo reintentaremos en breve.`
