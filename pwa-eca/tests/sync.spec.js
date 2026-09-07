@@ -142,4 +142,34 @@ describe('sincronizar', () => {
     expect(subirEvidencia).toHaveBeenCalledWith('a1', expect.objectContaining({ uuid: 'e1' }))
     expect(marcarEstado).toHaveBeenCalledWith('outbox_evidencias', 'e1', 'SINCRONIZADO')
   })
+
+  // Regresión real reportada en producción (2026-09-07): 27 actividades
+  // con fotos tomadas en el dispositivo llegaron al servidor sin NINGUNA
+  // evidencia. Causa: `crear()` ya sincroniza la actividad antes de que
+  // `encolarEvidencias()` alcance a meter las fotos al outbox — para
+  // cuando esta función corre de nuevo, ni la jornada ni la actividad
+  // siguen "pendientes", así que antes se cortaba en `nada_pendiente` sin
+  // llegar nunca a mirar `outbox_evidencias`. Las fotos quedaban
+  // huérfanas para siempre, sin reintento posible.
+  it('sube evidencias huérfanas de una actividad que YA estaba sincronizada, sin jornadas/actividades pendientes', async () => {
+    listar.mockImplementation(async (tienda) => {
+      if (tienda === 'outbox_actividades') {
+        return [{ uuid: 'a1', estado_local: 'SINCRONIZADO', jornada_uuid: 'j1' }]
+      }
+      if (tienda === 'outbox_evidencias') {
+        return [{ uuid: 'e1', actividad_uuid: 'a1', estado_local: 'PENDIENTE', orden: 1, archivo: new Blob() }]
+      }
+      return []
+    })
+    subirEvidencia.mockResolvedValue({ uuid: 'e1' })
+
+    const resultado = await sincronizar(authFalso())
+
+    expect(push).not.toHaveBeenCalled()
+    expect(subirEvidencia).toHaveBeenCalledTimes(1)
+    expect(subirEvidencia).toHaveBeenCalledWith('a1', expect.objectContaining({ uuid: 'e1' }))
+    expect(marcarEstado).toHaveBeenCalledWith('outbox_evidencias', 'e1', 'SINCRONIZADO')
+    expect(resultado.ok).toBe(true)
+    expect(resultado.motivo).not.toBe('nada_pendiente')
+  })
 })

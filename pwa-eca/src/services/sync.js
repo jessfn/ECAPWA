@@ -137,54 +137,80 @@ export async function sincronizar(auth) {
     const actividadesPendientes = (await listar('outbox_actividades')).filter((a) =>
       ESTADOS_A_ENVIAR.has(a.estado_local),
     )
+    // Bug real reportado en producción: 27 actividades con fotos tomadas
+    // en el dispositivo y CERO evidencias en el servidor. Causa: `crear()`
+    // en `stores/actividad.js` ya sincroniza la actividad (queda
+    // SINCRONIZADA) ANTES de que `encolarEvidencias()` alcance a meter
+    // las fotos al outbox — para cuando esa segunda sincronización corre,
+    // la actividad ya no está "pendiente" y antes esta función cortaba
+    // aquí mismo con `nada_pendiente` sin llegar nunca a mirar
+    // `outbox_evidencias`. Las fotos quedaban huérfanas para siempre.
+    const evidenciasPendientesTodas = (await listar('outbox_evidencias')).filter((e) =>
+      ESTADOS_A_ENVIAR.has(e.estado_local),
+    )
 
-    if (!jornadasPendientes.length && !actividadesPendientes.length) {
+    if (!jornadasPendientes.length && !actividadesPendientes.length && !evidenciasPendientesTodas.length) {
       return { ok: true, motivo: 'nada_pendiente', aplicados: 0, duplicados: 0, rechazados: 0 }
-    }
-
-    for (const j of jornadasPendientes) await marcarEstado('outbox_jornadas', j.uuid, 'SINCRONIZANDO')
-    for (const a of actividadesPendientes) await marcarEstado('outbox_actividades', a.uuid, 'SINCRONIZANDO')
-
-    let respuesta
-    try {
-      respuesta = await conReintentos(() =>
-        push({
-          dispositivoUuid,
-          jornadas: jornadasPendientes.map(aPayloadJornada),
-          actividades: actividadesPendientes.map(aPayloadActividad),
-        }),
-      )
-    } catch {
-      // Error de red persistente: se deja todo en SINCRONIZANDO→PENDIENTE
-      // (nunca se pierde), para reintentar en el próximo disparo.
-      for (const j of jornadasPendientes) await marcarEstado('outbox_jornadas', j.uuid, 'PENDIENTE')
-      for (const a of actividadesPendientes) await marcarEstado('outbox_actividades', a.uuid, 'PENDIENTE')
-      return { ok: false, motivo: 'error_red', aplicados: 0, duplicados: 0, rechazados: 0 }
     }
 
     let aplicados = 0
     let duplicados = 0
     let rechazados = 0
-    const actividadesUuidPorResultado = new Map()
+    const uuidsConEvidenciaAEnviar = new Set()
 
-    for (const resultado of respuesta.resultados) {
-      const esJornada = jornadasPendientes.some((j) => j.uuid === resultado.uuid)
-      const tienda = esJornada ? 'outbox_jornadas' : 'outbox_actividades'
+    if (jornadasPendientes.length || actividadesPendientes.length) {
+      for (const j of jornadasPendientes) await marcarEstado('outbox_jornadas', j.uuid, 'SINCRONIZANDO')
+      for (const a of actividadesPendientes) await marcarEstado('outbox_actividades', a.uuid, 'SINCRONIZANDO')
 
-      if (resultado.resultado === 'RECHAZADO') {
-        rechazados += 1
-        await marcarEstado(tienda, resultado.uuid, 'RECHAZADO', { ultimoError: resultado.error })
-      } else {
-        if (resultado.resultado === 'APLICADO') aplicados += 1
-        else duplicados += 1
-        await marcarEstado(tienda, resultado.uuid, 'SINCRONIZADO')
-        if (!esJornada) actividadesUuidPorResultado.set(resultado.uuid, true)
+      let respuesta
+      try {
+        respuesta = await conReintentos(() =>
+          push({
+            dispositivoUuid,
+            jornadas: jornadasPendientes.map(aPayloadJornada),
+            actividades: actividadesPendientes.map(aPayloadActividad),
+          }),
+        )
+      } catch {
+        // Error de red persistente: se deja todo en SINCRONIZANDO→PENDIENTE
+        // (nunca se pierde), para reintentar en el próximo disparo.
+        for (const j of jornadasPendientes) await marcarEstado('outbox_jornadas', j.uuid, 'PENDIENTE')
+        for (const a of actividadesPendientes) await marcarEstado('outbox_actividades', a.uuid, 'PENDIENTE')
+        return { ok: false, motivo: 'error_red', aplicados: 0, duplicados: 0, rechazados: 0 }
+      }
+
+      for (const resultado of respuesta.resultados) {
+        const esJornada = jornadasPendientes.some((j) => j.uuid === resultado.uuid)
+        const tienda = esJornada ? 'outbox_jornadas' : 'outbox_actividades'
+
+        if (resultado.resultado === 'RECHAZADO') {
+          rechazados += 1
+          await marcarEstado(tienda, resultado.uuid, 'RECHAZADO', { ultimoError: resultado.error })
+        } else {
+          if (resultado.resultado === 'APLICADO') aplicados += 1
+          else duplicados += 1
+          await marcarEstado(tienda, resultado.uuid, 'SINCRONIZADO')
+          // Evidencias: solo de actividades que el servidor ya confirmó
+          // (APLICADO o DUPLICADO) — nunca de una actividad RECHAZADO.
+          if (!esJornada) uuidsConEvidenciaAEnviar.add(resultado.uuid)
+        }
       }
     }
 
-    // Evidencias: solo de actividades que el servidor ya confirmó
-    // (APLICADO o DUPLICADO) — nunca de una actividad RECHAZADO.
-    for (const actividadUuid of actividadesUuidPorResultado.keys()) {
+    // Evidencias huérfanas: de una actividad que YA está SINCRONIZADA
+    // (de este mismo push o de uno anterior) pero cuyas fotos todavía no
+    // se habían subido — el caso que antes se perdía por completo.
+    if (evidenciasPendientesTodas.length) {
+      const actividadesLocales = await listar('outbox_actividades')
+      const sincronizadasUuids = new Set(
+        actividadesLocales.filter((a) => a.estado_local === 'SINCRONIZADO').map((a) => a.uuid),
+      )
+      for (const evidencia of evidenciasPendientesTodas) {
+        if (sincronizadasUuids.has(evidencia.actividad_uuid)) uuidsConEvidenciaAEnviar.add(evidencia.actividad_uuid)
+      }
+    }
+
+    for (const actividadUuid of uuidsConEvidenciaAEnviar) {
       await sincronizarEvidenciasDe(actividadUuid)
     }
 
