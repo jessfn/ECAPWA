@@ -53,7 +53,14 @@ const tipoSeleccionado = computed(
 const subtemasDisponibles = computed(() =>
   catalogos.value && temaId.value ? subtemasDelTema(catalogos.value, temaId.value) : [],
 )
-const minFotos = computed(() => (tipoSeleccionado.value?.requiere_evidencia ? tipoSeleccionado.value.min_fotos : 0))
+// Pedido explícito (2026-09-03): al menos 1 foto es obligatoria SIEMPRE,
+// sin importar lo que diga el catálogo — antes un tipo con
+// `requiere_evidencia=false` (p. ej. "Organización de productores",
+// "Gestión", "Otro") dejaba mandar la actividad sin ninguna evidencia.
+// Si el catálogo pide más de 1, se respeta ese mínimo mayor.
+const minFotos = computed(() =>
+  Math.max(1, tipoSeleccionado.value?.requiere_evidencia ? tipoSeleccionado.value.min_fotos : 0),
+)
 
 // Estado "Listo" de cada paso — mismo patrón visual que el checklist de
 // pwasuper, adaptado a los campos reales de este proyecto.
@@ -283,9 +290,7 @@ function cerrarAvisoExito() {
             <span class="nueva-actividad__paso-numero">4</span>
             <h2 class="nueva-actividad__paso-titulo">
               Evidencia fotográfica
-              <span class="nueva-actividad__paso-subtitulo">
-                {{ tipoSeleccionado.requiere_evidencia ? `mínimo ${tipoSeleccionado.min_fotos}` : 'opcional' }}
-              </span>
+              <span class="nueva-actividad__paso-subtitulo">mínimo {{ minFotos }} (obligatoria)</span>
             </h2>
             <span v-if="pasoFotosListo" class="nueva-actividad__completado">
               <AuthIcon name="check" /> Listo
