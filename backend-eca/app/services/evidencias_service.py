@@ -24,8 +24,20 @@ from app.models.evidencia import ActividadEvidencia
 from app.models.usuario import Usuario
 from app.repositories import evidencias as repo_evidencias
 
-MIME_PERMITIDOS = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
-TAMANO_MAXIMO_BYTES = 8 * 1024 * 1024  # respaldo del servidor; el cliente comprime a ~500 KB
+MIME_PERMITIDOS = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/heic": "heic",
+    "image/heif": "heif",
+}
+# Pedido explícito (2026-09-07): "se deben subir las imágenes como sea, sin
+# importar el tamaño" — el cliente comprime a ~100 KB, pero desde que
+# `CapturaEvidencia.vue` sube el archivo ORIGINAL sin comprimir cuando la
+# compresión falla (celular con poca memoria, formato que el navegador no
+# decodifica, etc.), este límite debe ser generoso de verdad: una foto sin
+# comprimir de una cámara de 48 MP puede pesar 15-20 MB.
+TAMANO_MAXIMO_BYTES = 25 * 1024 * 1024
 
 
 class ActividadAjenaError(Exception):

@@ -25,6 +25,16 @@ const error = ref('')
 
 const puedeAgregarMas = computed(() => fotos.value.length < props.maxFotos)
 
+// Pedido explícito (2026-09-07): "se deben subir las imágenes como sea,
+// sin importar el tamaño" — una foto NUNCA debe perderse por no poderse
+// comprimir. Bug real: antes el `try/catch` envolvía el `for` completo,
+// así que UNA sola foto que fallara al comprimirse (celular con poca
+// memoria y una foto de muchos megapixeles, formato que el navegador no
+// decodifica, etc.) abortaba el resto del lote entero y esa foto se
+// perdía sin más — ni se subía comprimida ni original, solo un error
+// genérico. Ahora cada foto se procesa de forma independiente y, si la
+// compresión falla, se encola el archivo ORIGINAL tal cual en vez de
+// descartarlo — sigue pesando más de lo ideal, pero no se pierde.
 async function onSeleccionArchivos(evento) {
   error.value = ''
   const seleccionados = Array.from(evento.target.files || [])
@@ -39,15 +49,20 @@ async function onSeleccionArchivos(evento) {
   comprimiendo.value = true
   try {
     for (const original of aProcesar) {
-      const comprimido = blobAArchivo(await comprimirImagen(original), original.name.replace(/\.\w+$/, '.jpg'))
+      let archivoFinal
+      try {
+        archivoFinal = blobAArchivo(await comprimirImagen(original), original.name.replace(/\.\w+$/, '.jpg'))
+      } catch {
+        // No se pudo comprimir — se sube el original tal cual antes que
+        // perder la evidencia. Pesará más, pero llega al servidor.
+        archivoFinal = original
+      }
       fotos.value.push({
         id: crypto.randomUUID(),
-        archivo: comprimido,
-        previsualizacion: URL.createObjectURL(comprimido),
+        archivo: archivoFinal,
+        previsualizacion: URL.createObjectURL(archivoFinal),
       })
     }
-  } catch {
-    error.value = 'No se pudo procesar una de las fotos.'
   } finally {
     comprimiendo.value = false
     emit('update:fotos', fotos.value)
