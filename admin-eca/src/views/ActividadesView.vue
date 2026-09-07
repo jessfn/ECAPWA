@@ -535,22 +535,33 @@ onMounted(async () => {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
-  align-items: center;
-  margin-bottom: 1rem;
+  /* `center` desalineaba los selects (sin etiqueta) contra los campos de
+     fecha (con "Desde"/"Hasta" arriba, más altos) — con `flex-end` todos
+     los controles quedan a la misma altura de base, se ve "justificado"
+     en vez de disparejo. */
+  align-items: flex-end;
+  margin-bottom: 0.6rem;
 }
 .actividades__filtros select,
 .actividades__filtros input {
-  padding: 0.5rem 0.7rem;
+  padding: 0.4rem 0.65rem;
   border-radius: var(--eca-r-sm);
   border: 1px solid var(--eca-surface-border);
   font-family: inherit;
+  font-size: 0.85rem;
+  height: 2.15rem;
+  box-sizing: border-box;
+}
+.actividades__filtros .eca-btn {
+  height: 2.15rem;
+  padding: 0 1rem;
 }
 .actividades__fecha {
   display: flex;
   flex-direction: column;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--eca-ink-soft);
-  gap: 0.2rem;
+  gap: 0.15rem;
 }
 /* ---- Tabla con scroll INTERNO (pedido explícito, mismo patrón que
    `.apple-table-container`/`.apple-table-wrapper` de admin-pwa): el
