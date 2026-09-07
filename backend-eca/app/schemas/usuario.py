@@ -54,6 +54,7 @@ class UsuarioCrearPeticion(BaseModel):
     telefono: str | None = None
     cargo: str | None = None
     curp: str | None = None
+    contrasena: str | None = None
     roles: list[str] = Field(default_factory=list, description="Claves de rol, p. ej. ['TECNICO']")
 
     @field_validator("curp")

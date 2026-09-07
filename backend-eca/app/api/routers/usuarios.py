@@ -66,6 +66,7 @@ def crear_usuario(
             curp=peticion.curp,
             claves_rol=peticion.roles,
             actor=actor,
+            contrasena=peticion.contrasena or None,
         )
     except usuarios_service.CorreoDuplicadoError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc

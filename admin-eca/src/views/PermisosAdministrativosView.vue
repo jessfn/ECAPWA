@@ -118,32 +118,74 @@ onMounted(cargar)
 
 // ---- Crear usuario ----
 const modalCrearAbierto = ref(false)
-const nuevo = ref({ nombre: '', apellidoPaterno: '', apellidoMaterno: '', correo: '', telefono: '', rol: 'USUARIO' })
+const nuevo = ref({ nombre: '', apellidoPaterno: '', apellidoMaterno: '', correo: '', telefono: '', rol: 'USUARIO', contrasena: '', confirmarContrasena: '' })
+const nuevoPermisosSeleccionados = ref(new Set())
+const mostrarContrasena = ref(false)
+const mostrarConfirmar = ref(false)
 const creando = ref(false)
 const errorCrear = ref('')
 const resultadoCreado = ref(null)
-const copiado = ref(false)
+
+// Fuerza de contraseña: 0-4
+const fuerzaContrasena = computed(() => {
+  const p = nuevo.value.contrasena
+  if (!p) return 0
+  let score = 0
+  if (p.length >= 10) score++
+  if (p.length >= 14) score++
+  if (/[a-z]/.test(p) && /[A-Z]/.test(p)) score++
+  if (/\d/.test(p)) score++
+  if (/[^a-zA-Z0-9]/.test(p)) score++
+  return Math.min(score, 4)
+})
+const fuerzaEtiqueta = computed(() => ['', 'Débil', 'Regular', 'Buena', 'Excelente'][fuerzaContrasena.value])
+const fuerzaColor = computed(() => ['', '#ef4444', '#f97316', '#3b82f6', '#22c55e'][fuerzaContrasena.value])
+const contrasenasCoinciden = computed(() =>
+  nuevo.value.confirmarContrasena.length > 0 && nuevo.value.contrasena === nuevo.value.confirmarContrasena
+)
+const contrasenasNoCoinciden = computed(() =>
+  nuevo.value.confirmarContrasena.length > 0 && nuevo.value.contrasena !== nuevo.value.confirmarContrasena
+)
+const formularioValido = computed(() =>
+  nuevo.value.nombre.trim() &&
+  nuevo.value.apellidoPaterno.trim() &&
+  nuevo.value.correo.trim() &&
+  nuevo.value.contrasena.length >= 10 &&
+  /[a-zA-Z]/.test(nuevo.value.contrasena) &&
+  /\d/.test(nuevo.value.contrasena) &&
+  contrasenasCoinciden.value
+)
 
 function abrirModalCrear() {
-  nuevo.value = { nombre: '', apellidoPaterno: '', apellidoMaterno: '', correo: '', telefono: '', rol: 'USUARIO' }
+  nuevo.value = { nombre: '', apellidoPaterno: '', apellidoMaterno: '', correo: '', telefono: '', rol: 'USUARIO', contrasena: '', confirmarContrasena: '' }
+  nuevoPermisosSeleccionados.value = new Set()
+  mostrarContrasena.value = false
+  mostrarConfirmar.value = false
   errorCrear.value = ''
   resultadoCreado.value = null
-  copiado.value = false
   modalCrearAbierto.value = true
 }
 function cerrarModalCrear() {
   modalCrearAbierto.value = false
 }
-async function copiarContrasena() {
-  try {
-    await navigator.clipboard.writeText(resultadoCreado.value.contrasena_temporal)
-    copiado.value = true
-  } catch {
-    // Portapapeles bloqueado (permiso denegado, contexto no seguro) — el
-    // botón "Listo" sigue exigiendo la confirmación, así que aquí no pasa
-    // nada silenciosamente: el admin ve que "Copiar" no cambió a "¡Copiada!"
-    // y puede seleccionar el texto a mano.
+function nuevoVistaEncendida(vista) {
+  return nuevoPermisosSeleccionados.value.has(vista.clave)
+}
+function alternarNuevaVista(vista) {
+  const s = new Set(nuevoPermisosSeleccionados.value)
+  if (s.has(vista.clave)) {
+    s.delete(vista.clave)
+    for (const p of vista.subPermisos) s.delete(p.clave)
+  } else {
+    s.add(vista.clave)
   }
+  nuevoPermisosSeleccionados.value = s
+}
+function alternarNuevoPermiso(clave) {
+  const s = new Set(nuevoPermisosSeleccionados.value)
+  if (s.has(clave)) s.delete(clave)
+  else s.add(clave)
+  nuevoPermisosSeleccionados.value = s
 }
 async function crearUsuario() {
   creando.value = true
@@ -156,9 +198,15 @@ async function crearUsuario() {
       correo: nuevo.value.correo.trim(),
       telefono: nuevo.value.telefono.trim() || null,
       roles: [nuevo.value.rol],
+      contrasena: nuevo.value.contrasena,
     })
     resultadoCreado.value = data
     actualizarEnLista(data.usuario)
+    // Si es USUARIO y hay permisos seleccionados, asignarlos de inmediato
+    if (nuevo.value.rol === 'USUARIO' && nuevoPermisosSeleccionados.value.size > 0) {
+      const usuarioActualizado = await asignarPermisos(data.usuario.id, [...nuevoPermisosSeleccionados.value])
+      if (usuarioActualizado) actualizarEnLista(usuarioActualizado)
+    }
   } catch (err) {
     errorCrear.value = err.response?.data?.error?.message || 'No se pudo crear el usuario.'
   } finally {
@@ -422,7 +470,7 @@ async function cambiarEstado(usuario, estadoNuevo) {
       <Transition name="permisos-fondo">
         <div v-if="modalCrearAbierto" class="permisos__modal-fondo" @click.self="cerrarModalCrear">
           <Transition name="permisos-modal" appear>
-            <div class="permisos__modal permisos__modal--chico" role="dialog" aria-modal="true">
+            <div class="permisos__modal" :class="nuevo.rol === 'USUARIO' ? '' : 'permisos__modal--chico'" role="dialog" aria-modal="true">
               <button type="button" class="permisos__modal-cerrar" aria-label="Cerrar" @click="cerrarModalCrear">
                 <AuthIcon name="close" />
               </button>
@@ -435,83 +483,176 @@ async function cambiarEstado(usuario, estadoNuevo) {
                     <p>Entra a admin-eca con el rol que elijas.</p>
                   </div>
                 </div>
-                <form class="permisos__form" @submit.prevent="crearUsuario">
+
+                <div class="permisos__modal-cuerpo">
                   <p v-if="errorCrear" class="eca-alerta-error" role="alert">{{ errorCrear }}</p>
-                  <div class="permisos__form-fila">
-                    <label>
-                      Nombre
-                      <input v-model="nuevo.nombre" type="text" required />
+
+                  <!-- Datos básicos -->
+                  <div class="permisos__seccion">
+                    <h3 class="permisos__seccion-titulo"><AuthIcon name="user" /> Datos</h3>
+                    <div class="permisos__campos-fila">
+                      <label class="permisos__campo">
+                        <span>Nombre *</span>
+                        <input v-model="nuevo.nombre" type="text" required />
+                      </label>
+                      <label class="permisos__campo">
+                        <span>Apellido paterno *</span>
+                        <input v-model="nuevo.apellidoPaterno" type="text" required />
+                      </label>
+                    </div>
+                    <div class="permisos__campos-fila">
+                      <label class="permisos__campo">
+                        <span>Apellido materno</span>
+                        <input v-model="nuevo.apellidoMaterno" type="text" placeholder="Opcional" />
+                      </label>
+                      <label class="permisos__campo">
+                        <span>Teléfono</span>
+                        <input v-model="nuevo.telefono" type="text" placeholder="Opcional" />
+                      </label>
+                    </div>
+                    <label class="permisos__campo">
+                      <span>Correo *</span>
+                      <input v-model="nuevo.correo" type="email" required />
                     </label>
-                    <label>
-                      Apellido paterno
-                      <input v-model="nuevo.apellidoPaterno" type="text" required />
+                    <label class="permisos__campo">
+                      <span>Rol</span>
+                      <select v-model="nuevo.rol" class="permisos__select-crear-rol">
+                        <option value="USUARIO">Usuario — permisos personalizados</option>
+                        <option value="ADMIN">Administrador — acceso a todo</option>
+                      </select>
                     </label>
                   </div>
-                  <div class="permisos__form-fila">
-                    <label>
-                      Apellido materno (opcional)
-                      <input v-model="nuevo.apellidoMaterno" type="text" />
+
+                  <!-- Contraseña -->
+                  <div class="permisos__seccion">
+                    <h3 class="permisos__seccion-titulo"><AuthIcon name="shield" /> Contraseña</h3>
+                    <label class="permisos__campo">
+                      <span>Contraseña *</span>
+                      <div class="permisos__campo-ojo">
+                        <input
+                          v-model="nuevo.contrasena"
+                          :type="mostrarContrasena ? 'text' : 'password'"
+                          placeholder="Mínimo 10 caracteres, letras y números"
+                          autocomplete="new-password"
+                        />
+                        <button type="button" class="permisos__ojo" @click="mostrarContrasena = !mostrarContrasena">
+                          <AuthIcon :name="mostrarContrasena ? 'eye-off' : 'eye'" />
+                        </button>
+                      </div>
+                      <!-- Barra de fuerza -->
+                      <div v-if="nuevo.contrasena" class="permisos__fuerza">
+                        <div class="permisos__fuerza-barras">
+                          <span
+                            v-for="i in 4"
+                            :key="i"
+                            class="permisos__fuerza-barra"
+                            :style="{ background: i <= fuerzaContrasena ? fuerzaColor : undefined }"
+                          />
+                        </div>
+                        <Transition name="permisos-copiar-icono" mode="out-in">
+                          <span :key="fuerzaEtiqueta" class="permisos__fuerza-etiqueta" :style="{ color: fuerzaColor }">{{ fuerzaEtiqueta }}</span>
+                        </Transition>
+                      </div>
                     </label>
-                    <label>
-                      Teléfono (opcional)
-                      <input v-model="nuevo.telefono" type="text" />
+                    <label class="permisos__campo">
+                      <span>Confirmar contraseña *</span>
+                      <div class="permisos__campo-ojo permisos__campo-ojo--con-match">
+                        <input
+                          v-model="nuevo.confirmarContrasena"
+                          :type="mostrarConfirmar ? 'text' : 'password'"
+                          :class="{ 'permisos__input--ok': contrasenasCoinciden, 'permisos__input--error': contrasenasNoCoinciden }"
+                          placeholder="Repite la contraseña"
+                          autocomplete="new-password"
+                        />
+                        <button type="button" class="permisos__ojo" @click="mostrarConfirmar = !mostrarConfirmar">
+                          <AuthIcon :name="mostrarConfirmar ? 'eye-off' : 'eye'" />
+                        </button>
+                        <Transition name="permisos-copiar-icono" mode="out-in">
+                          <span v-if="contrasenasCoinciden" key="ok" class="permisos__match-icono permisos__match-icono--ok">
+                            <AuthIcon name="check" />
+                          </span>
+                          <span v-else-if="contrasenasNoCoinciden" key="no" class="permisos__match-icono permisos__match-icono--no">
+                            <AuthIcon name="close" />
+                          </span>
+                        </Transition>
+                      </div>
+                      <Transition name="permisos-subpermisos">
+                        <p v-if="contrasenasNoCoinciden" class="permisos__campo-hint permisos__campo-hint--error">Las contraseñas no coinciden</p>
+                      </Transition>
                     </label>
                   </div>
-                  <label>
-                    Correo
-                    <input v-model="nuevo.correo" type="email" required />
-                  </label>
-                  <label>
-                    Rol
-                    <select v-model="nuevo.rol">
-                      <option value="USUARIO">Usuario — permisos personalizados</option>
-                      <option value="ADMIN">Administrador — acceso a todo</option>
-                    </select>
-                  </label>
-                  <button type="submit" class="eca-btn eca-btn-primary permisos__form-enviar" :disabled="creando">
+
+                  <!-- Permisos (solo USUARIO) -->
+                  <div v-if="nuevo.rol === 'USUARIO'" class="permisos__seccion">
+                    <h3 class="permisos__seccion-titulo"><AuthIcon name="shield-check" /> Acceso al panel</h3>
+                    <p class="eca-ayuda permisos__ayuda-vistas">Activa las vistas a las que podrá entrar este usuario.</p>
+                    <div v-for="vista in vistasConPermisos" :key="vista.clave" class="permisos__vista" :class="{ 'permisos__vista--activa': nuevoVistaEncendida(vista) }">
+                      <div class="permisos__vista-fila">
+                        <span class="permisos__vista-icono"><AuthIcon :name="vista.icono" /></span>
+                        <span class="permisos__vista-etiqueta">{{ vista.etiqueta }}</span>
+                        <label class="permisos__switch">
+                          <input type="checkbox" :checked="nuevoVistaEncendida(vista)" @change="alternarNuevaVista(vista)" />
+                          <span class="permisos__switch-riel"></span>
+                        </label>
+                      </div>
+                      <Transition name="permisos-subpermisos">
+                        <div v-if="vista.subPermisos.length && nuevoVistaEncendida(vista)" class="permisos__subpermisos">
+                          <label v-for="p in vista.subPermisos" :key="p.clave" class="permisos__item">
+                            <input type="checkbox" :checked="nuevoPermisosSeleccionados.has(p.clave)" @change="alternarNuevoPermiso(p.clave)" />
+                            <span>{{ p.nombre }}</span>
+                          </label>
+                        </div>
+                      </Transition>
+                    </div>
+                  </div>
+
+                  <!-- ADMIN card -->
+                  <div v-else class="permisos__seccion">
+                    <div class="permisos__admin-total">
+                      <span class="permisos__admin-total-icono"><AuthIcon name="shield" /></span>
+                      <div>
+                        <strong>Acceso completo</strong>
+                        <p>Este administrador verá y gestionará todas las vistas del panel.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="permisos__modal-pie">
+                  <button type="button" class="eca-btn eca-btn-secundario" @click="cerrarModalCrear">Cancelar</button>
+                  <button
+                    type="button"
+                    class="eca-btn eca-btn-primary"
+                    :disabled="creando || !formularioValido"
+                    :title="!formularioValido ? 'Completa todos los campos y verifica la contraseña' : ''"
+                    @click="crearUsuario"
+                  >
                     {{ creando ? 'Creando…' : 'Crear usuario' }}
                   </button>
-                </form>
+                </div>
               </template>
 
               <template v-else>
                 <div class="permisos__modal-cabecera permisos__modal-cabecera--exito">
                   <span class="permisos__modal-icono permisos__icono-exito"><AuthIcon name="check" /></span>
                   <div class="permisos__modal-titulo">
-                    <h2>Usuario creado</h2>
+                    <h2>¡Usuario creado!</h2>
                     <p>{{ resultadoCreado.usuario.correo }}</p>
                   </div>
                 </div>
                 <div class="permisos__exito-cuerpo">
-                  <p class="eca-ayuda">
-                    Contraseña temporal (compártela por un canal seguro; se le pedirá cambiarla al entrar):
-                  </p>
-                  <div class="permisos__password-fila">
-                    <p class="permisos__password">{{ resultadoCreado.contrasena_temporal }}</p>
-                    <button
-                      type="button"
-                      class="permisos__copiar"
-                      :class="{ 'permisos__copiar--hecho': copiado }"
-                      @click="copiarContrasena"
-                    >
-                      <Transition name="permisos-copiar-icono" mode="out-in">
-                        <AuthIcon v-if="copiado" key="hecho" name="check" />
-                        <AuthIcon v-else key="copiar" name="clipboard" />
-                      </Transition>
-                      {{ copiado ? '¡Copiada!' : 'Copiar' }}
-                    </button>
+                  <div class="permisos__exito-info">
+                    <div class="permisos__exito-fila">
+                      <span class="permisos__exito-icono"><AuthIcon name="user" /></span>
+                      <div>
+                        <strong>{{ [resultadoCreado.usuario.nombre, resultadoCreado.usuario.apellido_paterno].join(' ') }}</strong>
+                        <span>{{ ETIQUETA_ROL[resultadoCreado.usuario.roles[0]] || resultadoCreado.usuario.roles[0] }}</span>
+                      </div>
+                    </div>
                   </div>
-                  <p v-if="resultadoCreado.usuario.roles.includes('USUARIO')" class="eca-ayuda">
-                    Recuerda asignarle permisos desde la tabla — por ahora no puede ver nada del panel.
-                  </p>
-                  <button
-                    type="button"
-                    class="eca-btn eca-btn-primary permisos__form-enviar"
-                    :disabled="!copiado"
-                    :title="!copiado ? 'Copia la contraseña antes de cerrar' : ''"
-                    @click="cerrarModalCrear"
-                  >
-                    {{ copiado ? 'Listo' : 'Copia la contraseña para continuar' }}
+                  <p class="eca-ayuda" style="text-align:center">Ya puede iniciar sesión con la contraseña que estableciste.</p>
+                  <button type="button" class="eca-btn eca-btn-primary permisos__form-enviar" @click="cerrarModalCrear">
+                    Listo
                   </button>
                 </div>
               </template>
@@ -1205,6 +1346,131 @@ async function cambiarEstado(usuario, estadoNuevo) {
   color: var(--eca-ink-soft);
   font-size: 0.75rem;
 }
+
+/* Campo con botón ojo (contraseña) */
+.permisos__campo-ojo {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.permisos__campo-ojo input {
+  flex: 1;
+  padding-right: 2.6rem;
+}
+.permisos__campo-ojo--con-match input {
+  padding-right: 4rem;
+}
+.permisos__ojo {
+  position: absolute;
+  right: 0.6rem;
+  background: none;
+  border: none;
+  color: var(--eca-ink-soft);
+  cursor: pointer;
+  padding: 0.2rem;
+  display: flex;
+  align-items: center;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+.permisos__ojo:hover { opacity: 1; }
+.permisos__ojo svg { width: 1rem; height: 1rem; }
+
+/* Barra de fuerza */
+.permisos__fuerza {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+}
+.permisos__fuerza-barras {
+  display: flex;
+  gap: 0.25rem;
+  flex: 1;
+}
+.permisos__fuerza-barra {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--eca-surface-border);
+  transition: background 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.permisos__fuerza-etiqueta {
+  font-size: 0.75rem;
+  font-weight: 700;
+  min-width: 4.5rem;
+  text-align: right;
+  transition: color 0.3s ease;
+}
+
+/* Input con estado ok/error */
+.permisos__input--ok {
+  border-color: #22c55e !important;
+  background: #f0fdf4 !important;
+}
+.permisos__input--error {
+  border-color: #ef4444 !important;
+  background: #fef2f2 !important;
+}
+
+/* Icono match dentro del campo — va a la derecha del botón ojo */
+.permisos__campo-ojo--con-match .permisos__ojo { right: 2rem; }
+.permisos__match-icono {
+  position: absolute;
+  right: 0.5rem;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+.permisos__match-icono svg { width: 1rem; height: 1rem; }
+.permisos__match-icono--ok { color: #22c55e; }
+.permisos__match-icono--no { color: #ef4444; }
+
+/* Hint de error bajo el campo */
+.permisos__campo-hint {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin: 0.25rem 0 0;
+}
+.permisos__campo-hint--error { color: #ef4444; }
+
+/* Select rol en formulario crear */
+.permisos__select-crear-rol {
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--eca-r-sm);
+  border: 1.5px solid var(--eca-surface-border);
+  font: inherit;
+  font-size: 0.9rem;
+  background: var(--eca-surface);
+  color: var(--eca-ink);
+}
+
+/* Éxito: tarjeta con info del usuario */
+.permisos__exito-info {
+  background: var(--eca-surface);
+  border: 1px solid var(--eca-surface-border);
+  border-radius: var(--eca-r-md);
+  padding: 1rem 1.1rem;
+}
+.permisos__exito-fila {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+.permisos__exito-icono {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--eca-green-500), var(--eca-green-700));
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.permisos__exito-icono svg { width: 1rem; height: 1rem; }
+.permisos__exito-fila strong { display: block; font-size: 0.9rem; }
+.permisos__exito-fila span { font-size: 0.8rem; color: var(--eca-ink-soft); }
 
 .permisos__modal-pie {
   display: flex;

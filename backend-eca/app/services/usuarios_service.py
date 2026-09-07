@@ -77,6 +77,7 @@ def crear_usuario(
     curp: str | None,
     claves_rol: list[str],
     actor: Usuario | None,
+    contrasena: str | None = None,
 ) -> tuple[Usuario, str]:
     if repo_usuarios.obtener_por_correo(db, correo) is not None:
         raise CorreoDuplicadoError(f"Ya existe un usuario con el correo {correo}.")
@@ -85,7 +86,12 @@ def crear_usuario(
         if repo_rbac.obtener_rol_por_clave(db, clave) is None:
             raise RolDesconocidoError(f"Rol desconocido o inactivo: {clave}")
 
-    contrasena_temporal = generar_contrasena_temporal()
+    if contrasena:
+        clave_final = contrasena
+        requiere_cambio = False
+    else:
+        clave_final = generar_contrasena_temporal()
+        requiere_cambio = True
     usuario = Usuario(
         nombre=nombre,
         apellido_paterno=apellido_paterno,
@@ -94,8 +100,8 @@ def crear_usuario(
         telefono=telefono,
         cargo=cargo,
         curp=curp,
-        contrasena_hash=hash_contrasena(contrasena_temporal),
-        requiere_cambio_contrasena=True,
+        contrasena_hash=hash_contrasena(clave_final),
+        requiere_cambio_contrasena=requiere_cambio,
         estado="ACTIVO",
     )
     repo_usuarios.crear_usuario(db, usuario)
@@ -119,7 +125,7 @@ def crear_usuario(
     )
     db.commit()
     db.refresh(usuario)
-    return usuario, contrasena_temporal
+    return usuario, clave_final
 
 
 def editar_usuario(
