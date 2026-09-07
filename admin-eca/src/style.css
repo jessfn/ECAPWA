@@ -229,10 +229,9 @@ a {
    repetido vista por vista). Tarjetas de estadística, chips de filtro,
    avatar, badges, paginación con el prefijo `eca-page-*`/`eca-stat-*`
    propio de este proyecto. ---- */
-/* Barra superior verde: pegada al borde de arriba y de lado a lado (estilo
-   "app bar", pedido explícito). Sin esquinas redondeadas ni bordes
-   laterales — ocupa todo el ancho del área de contenido. El contenido de
-   abajo se separa con `--eca-gutter`. */
+/* Barra superior verde OSCURO: pegada al borde de arriba y de lado a lado
+   (estilo "app bar"), con el panel de filtros fusionado justo debajo —
+   todo dentro del mismo marco verde, como la referencia "Productores". */
 .eca-page-header {
   display: flex;
   align-items: center;
@@ -241,9 +240,8 @@ a {
   margin: 0;
   border: none;
   border-radius: 0;
-  background: linear-gradient(135deg, #4caf50 0%, #45a049 50%, #2e7d32 100%);
+  background: linear-gradient(135deg, #1f5b34 0%, #164227 58%, #0e3a20 100%);
   color: #fff;
-  box-shadow: 0 6px 18px rgba(46, 125, 50, 0.28);
 }
 
 /* Panel blanco "fusionado" directamente bajo `.eca-page-header` — mismo
@@ -255,21 +253,24 @@ a {
    quede como una sola tarjeta continua, igual que "Usuarios" en
    admin-pwa — antes cada vista dejaba un hueco entre el header verde y
    la tarjeta blanca, con sombras y bordes redondeados por separado. */
+/* Panel fusionado: pegado directamente bajo el header (sin hueco), fondo
+   verde muy tenue y marco verde oscuro en los lados + abajo, con las
+   esquinas inferiores redondeadas — el header y este panel forman UNA
+   sola tarjeta verde, como la referencia "Productores". */
 .eca-panel-fusionado {
-  background: #fff;
-  border: 1px solid var(--eca-surface-border);
-  border-radius: var(--eca-r-lg);
-  /* Tarjeta prominente separada del header por `--eca-gutter` arriba y a
-     los lados (pedido explícito: "abajo en una más fuerte los filtros"). */
-  margin: var(--eca-gutter, 1rem) var(--eca-gutter, 1rem) 1rem;
+  background: #eef6f0;
+  border: 1.5px solid #1f5b34;
+  border-top: none;
+  border-radius: 0 0 var(--eca-r-lg) var(--eca-r-lg);
+  margin: 0 0 1rem;
   padding: 1rem 1.25rem 1.1rem;
-  box-shadow: 0 14px 30px rgba(30, 20, 60, 0.12), 0 3px 8px rgba(30, 20, 60, 0.06);
+  box-shadow: 0 14px 30px rgba(15, 60, 35, 0.14);
 }
 .eca-panel-fusionado.eca-card {
-  box-shadow: 0 14px 30px rgba(30, 20, 60, 0.12), 0 3px 8px rgba(30, 20, 60, 0.06);
+  box-shadow: 0 14px 30px rgba(15, 60, 35, 0.14);
 }
 /* Tarjetas sueltas (p. ej. la tabla de Actividades, que va debajo del
-   panel de filtros) también se separan de los bordes con el gutter. */
+   panel de filtros) se separan de los bordes con el gutter. */
 .eca-card:not(.eca-panel-fusionado) {
   margin-left: var(--eca-gutter, 1rem);
   margin-right: var(--eca-gutter, 1rem);
@@ -281,13 +282,14 @@ a {
   margin-bottom: 0;
 }
 .eca-page-header__icono {
-  width: 2.4rem;
-  height: 2.4rem;
-  border-radius: var(--eca-r-sm);
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
   color: #fff;
   flex-shrink: 0;
 }
@@ -302,15 +304,17 @@ a {
 .eca-page-header__texto h1 {
   margin: 0;
   color: #fff;
-  font-size: 1.05rem;
+  font-size: 1.2rem;
   font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.01em;
 }
 .eca-page-header__texto p {
-  margin: 0.2rem 0 0;
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 0.85rem;
+  margin: 0.15rem 0 0;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
 }
 .eca-page-header__accion {
   flex-shrink: 0;

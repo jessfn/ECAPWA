@@ -647,8 +647,8 @@ onMounted(async () => {
   width: 100%;
   padding: 0.55rem 2.4rem;
   border-radius: 999px;
-  border: 1.5px solid var(--eca-surface-border);
-  background: var(--eca-surface);
+  border: 1.5px solid #cfe3d5;
+  background: #fff;
   font-family: inherit;
   font-size: 0.88rem;
   box-sizing: border-box;
@@ -784,8 +784,8 @@ onMounted(async () => {
 select.actividades__control {
   padding: 0 0.7rem;
   border-radius: var(--eca-r-sm);
-  border: 1px solid var(--eca-surface-border);
-  background: var(--eca-surface);
+  border: 1px solid #cfe3d5;
+  background: #fff;
   font-family: inherit;
   font-size: 0.82rem;
   color: var(--eca-ink);
@@ -810,8 +810,8 @@ select.actividades__control:disabled {
   display: flex;
   align-items: flex-end;
   border-radius: var(--eca-r-sm);
-  border: 1px solid var(--eca-surface-border);
-  background: var(--eca-surface);
+  border: 1px solid #cfe3d5;
+  background: #fff;
   transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 .actividades__fecha:focus-within {
