@@ -283,7 +283,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section>
+  <section class="actividades-vista">
     <div class="eca-page-header">
       <span class="eca-page-header__icono"><AuthIcon name="clock" /></span>
       <div class="eca-page-header__texto">
@@ -591,6 +591,36 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* ---- La vista ocupa exactamente el alto de la pantalla: header + panel
+   de filtros arriba (altura natural) y la tabla llena el resto y hace su
+   propio scroll interno — nunca scroll vertical de la página (pedido
+   explícito). El `1rem` que se resta es el padding inferior de
+   `.layout__contenido`. ---- */
+.actividades-vista {
+  height: calc(100dvh - 1rem);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.actividades-vista > .eca-page-header,
+.actividades-vista > .eca-panel-fusionado {
+  flex-shrink: 0;
+}
+.actividades-vista > .eca-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+  padding: 0.75rem 0.9rem;
+  overflow: hidden;
+}
+.actividades-vista :deep(.eca-paginacion) {
+  flex-shrink: 0;
+  margin-top: 0.6rem;
+  margin-bottom: 0;
+}
+
 /* ---- Barra de filtros: buscador de técnico (en tiempo real, nombre o
    CURP) arriba, ancho completo; el resto de los filtros abajo, en una
    fila que se centra y reparte el espacio de lado a lado, envolviendo en
@@ -603,11 +633,29 @@ onMounted(async () => {
 .actividades__stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0.7rem;
-  margin-bottom: 0.9rem;
+  gap: 0.55rem;
+  margin-bottom: 0.65rem;
 }
+/* Tarjetas de contador más compactas (pedido explícito): menos padding,
+   ícono y número más chicos. */
 .actividades__stats .eca-stat-card {
   min-width: 0;
+  padding: 0.45rem 0.65rem;
+  gap: 0.5rem;
+}
+.actividades__stats .eca-stat-card :deep(.eca-stat-card__icono) {
+  width: 1.7rem;
+  height: 1.7rem;
+}
+.actividades__stats .eca-stat-card :deep(.eca-stat-card__icono svg) {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+.actividades__stats .eca-stat-card :deep(.eca-stat-card__valor) {
+  font-size: 0.98rem;
+}
+.actividades__stats .eca-stat-card :deep(.eca-stat-card__etiqueta) {
+  font-size: 0.66rem;
 }
 @media (max-width: 820px) {
   .actividades__stats {
@@ -623,7 +671,7 @@ onMounted(async () => {
 .actividades__filtros {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  gap: 0.5rem;
   margin-bottom: 0.6rem;
 }
 .actividades__buscador {
@@ -645,12 +693,12 @@ onMounted(async () => {
 }
 .actividades__buscador input {
   width: 100%;
-  padding: 0.55rem 2.4rem;
+  padding: 0.42rem 2.2rem;
   border-radius: 999px;
   border: 1.5px solid #cfe3d5;
   background: #fff;
   font-family: inherit;
-  font-size: 0.88rem;
+  font-size: 0.8rem;
   box-sizing: border-box;
   transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
@@ -777,8 +825,8 @@ onMounted(async () => {
 }
 .actividades__control {
   flex: 1 1 0;
-  min-width: 8.5rem;
-  height: 2.4rem;
+  min-width: 8rem;
+  height: 2.05rem;
   box-sizing: border-box;
 }
 select.actividades__control {
@@ -835,9 +883,9 @@ select.actividades__control:disabled {
   height: 100%;
   border: none;
   background: none;
-  padding: 0.75rem 0.7rem 0.25rem;
+  padding: 0.72rem 0.6rem 0.15rem;
   font-family: inherit;
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   color: var(--eca-ink);
   box-sizing: border-box;
 }
@@ -854,13 +902,13 @@ select.actividades__control:disabled {
     flex: 1 1 100%;
   }
 }
-/* ---- Tabla con scroll INTERNO (pedido explícito, mismo patrón que
-   `.apple-table-container`/`.apple-table-wrapper` de admin-pwa): el
-   contenedor tiene una altura acotada y es ÉL el que hace scroll —
+/* ---- Tabla con scroll INTERNO (pedido explícito): el contenedor llena
+   el alto que le deja la tarjeta (flex) y es ÉL el que hace scroll —
    nunca la página completa — con el encabezado siempre visible arriba
    (`position: sticky`). ---- */
 .actividades__tabla-contenedor {
-  max-height: 60vh;
+  flex: 1;
+  min-height: 0;
   overflow: auto;
   border-radius: var(--eca-r-md);
   border: 1px solid var(--eca-surface-border);
