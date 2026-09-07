@@ -31,11 +31,13 @@ from app.api.routers import (
     solicitudes_acceso,
     sync,
     usuarios,
+    ws,
 )
 from app.core.errors import ManejadorExcepcionesNoControladasMiddleware, registrar_manejadores_error
 from app.core.logging import configurar_logging
 from app.core.security_headers import CabecerasSeguridadMiddleware
 from app.core.settings import get_settings
+from app.core.ws_permisos import arrancar_tarea_escucha, detener_tarea_escucha
 
 settings = get_settings()
 
@@ -49,7 +51,20 @@ async def _ciclo_de_vida(app: FastAPI) -> AsyncIterator[None]:
         "backend-eca arrancó",
         extra={"app_env": settings.APP_ENV, "version": __version__},
     )
+    # Un worker cuya escucha de permisos no arranca (Postgres inalcanzable
+    # en ese instante, etc.) no debe tumbar el arranque de TODA la app —
+    # los avisos en tiempo real son un complemento, el sondeo/refresco
+    # normal del cliente sigue funcionando sin ellos.
+    tarea_escucha = None
+    try:
+        tarea_escucha = arrancar_tarea_escucha()
+    except Exception:
+        logger.warning("no se pudo arrancar la escucha de permisos", exc_info=True)
+
     yield
+
+    if tarea_escucha is not None:
+        await detener_tarea_escucha(tarea_escucha)
 
 
 def crear_app() -> FastAPI:
@@ -99,6 +114,7 @@ def crear_app() -> FastAPI:
     app.include_router(evidencias.router)
     app.include_router(sync.router)
     app.include_router(solicitudes_acceso.router)
+    app.include_router(ws.router)
     # Los routers del HITO C (PWA técnico) siguen aquí, SIEMPRE antes de la
     # ruta comodín de abajo.
 

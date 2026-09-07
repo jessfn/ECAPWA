@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import registrar_evento
 from app.core.security import hash_contrasena
+from app.core.ws_permisos import notificar_cambio_permisos
 from app.models.usuario import Usuario
 from app.repositories import rbac as repo_rbac
 from app.repositories import usuarios as repo_usuarios
@@ -196,6 +197,7 @@ def cambiar_estado(db: Session, *, usuario: Usuario, estado_nuevo: str, actor: U
         datos_antes={"estado": estado_anterior},
         datos_despues={"estado": estado_nuevo},
     )
+    notificar_cambio_permisos(db, usuario.id)
     db.commit()
     db.refresh(usuario)
     return usuario
@@ -221,6 +223,7 @@ def asignar_roles(db: Session, *, usuario: Usuario, claves_rol: list[str], actor
         datos_antes={"roles": roles_antes},
         datos_despues={"roles": claves_rol},
     )
+    notificar_cambio_permisos(db, usuario.id)
     db.commit()
     db.refresh(usuario)
     return usuario
@@ -251,6 +254,7 @@ def asignar_permisos_directos(
         datos_antes={"permisos": antes},
         datos_despues={"permisos": sorted(claves_permiso)},
     )
+    notificar_cambio_permisos(db, usuario.id)
     db.commit()
     db.refresh(usuario)
     return usuario

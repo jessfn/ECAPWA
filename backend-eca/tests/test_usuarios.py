@@ -37,6 +37,13 @@ class DBFalsa:
     def refresh(self, _obj) -> None:
         pass
 
+    def execute(self, *_args, **_kwargs) -> None:
+        # `notificar_cambio_permisos` hace un `SELECT pg_notify(...)` real
+        # contra Postgres — aquí no hay Postgres, así que es un no-op
+        # (la parte que sí se prueba, `pg_notify` de verdad, vive en la
+        # infraestructura, no en lógica de negocio unitaria).
+        return None
+
 
 class RepoUsuariosEnMemoria:
     def __init__(self) -> None:

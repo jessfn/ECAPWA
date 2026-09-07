@@ -28,6 +28,24 @@ const ETIQUETA_ROL = { ADMIN: 'Administrador', USUARIO: 'Usuario' }
 const ETIQUETA_ESTADO = { ACTIVO: 'Activo', SUSPENDIDO: 'Suspendido', BAJA: 'Baja' }
 const BADGE_ESTADO = { ACTIVO: 'eca-badge--verde', SUSPENDIDO: 'eca-badge--ambar', BAJA: 'eca-badge--rojo' }
 
+// Mismo orden y mismas vistas que `Sidebar.vue` — el switch de cada una
+// prende/apaga exactamente el permiso `vista.*` que la muestra en el menú.
+// `modulo` conecta cada vista con los permisos "finos" de esa sección del
+// catálogo (p. ej. `ecas.gestionar`), que solo tienen sentido si la vista
+// ya está encendida.
+const VISTAS = [
+  { clave: 'vista.inicio', etiqueta: 'Inicio', icono: 'home', modulo: null },
+  { clave: 'vista.geografia', etiqueta: 'Geografía', icono: 'map', modulo: 'geo' },
+  { clave: 'vista.ecas', etiqueta: 'ECA', icono: 'school', modulo: 'ecas' },
+  { clave: 'vista.ambitos', etiqueta: 'Ámbitos', icono: 'shield', modulo: 'ambitos' },
+  { clave: 'vista.asignaciones', etiqueta: 'Asignaciones', icono: 'check-circle', modulo: 'asignaciones' },
+  { clave: 'vista.catalogos', etiqueta: 'Catálogos', icono: 'book', modulo: 'catalogos' },
+  { clave: 'vista.tecnicos', etiqueta: 'Técnicos', icono: 'user', modulo: 'usuarios' },
+  { clave: 'vista.actividades', etiqueta: 'Actividades', icono: 'clock', modulo: 'actividades' },
+  { clave: 'vista.solicitudes_acceso', etiqueta: 'Solicitudes de acceso', icono: 'user-plus', modulo: null },
+  { clave: 'vista.permisos_administrativos', etiqueta: 'Permisos administrativos', icono: 'shield-check', modulo: null },
+]
+
 // Solo cuentas de PANEL (admin/usuario) — los técnicos se gestionan en
 // su propia vista, aunque compartan la misma tabla `usuarios` de fondo.
 const usuariosPanel = computed(() => usuarios.value.filter((u) => u.roles?.some((r) => r === 'ADMIN' || r === 'USUARIO')))
@@ -47,11 +65,17 @@ const stats = computed(() => ({
 const permisosPorModulo = computed(() => {
   const mapa = new Map()
   for (const p of permisosCatalogo.value) {
+    if (p.clave.startsWith('vista.')) continue
     if (!mapa.has(p.modulo)) mapa.set(p.modulo, [])
     mapa.get(p.modulo).push(p)
   }
   return mapa
 })
+// Vistas + sus permisos finos, ya armado en el orden del sidebar — lo que
+// consume directamente el modal de permisos.
+const vistasConPermisos = computed(() =>
+  VISTAS.map((v) => ({ ...v, subPermisos: v.modulo ? permisosPorModulo.value.get(v.modulo) || [] : [] })),
+)
 
 function iniciales(u) {
   const n = (u.nombre || '').trim()
@@ -98,15 +122,28 @@ const nuevo = ref({ nombre: '', apellidoPaterno: '', apellidoMaterno: '', correo
 const creando = ref(false)
 const errorCrear = ref('')
 const resultadoCreado = ref(null)
+const copiado = ref(false)
 
 function abrirModalCrear() {
   nuevo.value = { nombre: '', apellidoPaterno: '', apellidoMaterno: '', correo: '', telefono: '', rol: 'USUARIO' }
   errorCrear.value = ''
   resultadoCreado.value = null
+  copiado.value = false
   modalCrearAbierto.value = true
 }
 function cerrarModalCrear() {
   modalCrearAbierto.value = false
+}
+async function copiarContrasena() {
+  try {
+    await navigator.clipboard.writeText(resultadoCreado.value.contrasena_temporal)
+    copiado.value = true
+  } catch {
+    // Portapapeles bloqueado (permiso denegado, contexto no seguro) — el
+    // botón "Listo" sigue exigiendo la confirmación, así que aquí no pasa
+    // nada silenciosamente: el admin ve que "Copiar" no cambió a "¡Copiada!"
+    // y puede seleccionar el texto a mano.
+  }
 }
 async function crearUsuario() {
   creando.value = true
@@ -129,22 +166,49 @@ async function crearUsuario() {
   }
 }
 
-// ---- Permisos (rol USUARIO) ----
-const modalPermisosAbierto = ref(false)
+// ---- Editar usuario: datos + permisos en un mismo modal (rol USUARIO) ----
+// Pedido explícito: el botón "Editar" de la tabla debe poder cambiar tanto
+// los datos básicos como los permisos por vista, en un solo guardado.
+const modalEditarAbierto = ref(false)
 const usuarioEditando = ref(null)
+const datosEditando = ref({ nombre: '', apellidoPaterno: '', apellidoMaterno: '', telefono: '', cargo: '' })
 const permisosSeleccionados = ref(new Set())
 const guardandoPermisos = ref(false)
 const errorPermisos = ref('')
 
 function abrirModalPermisos(usuario) {
   usuarioEditando.value = usuario
+  datosEditando.value = {
+    nombre: usuario.nombre || '',
+    apellidoPaterno: usuario.apellido_paterno || '',
+    apellidoMaterno: usuario.apellido_materno || '',
+    telefono: usuario.telefono || '',
+    cargo: usuario.cargo || '',
+  }
   permisosSeleccionados.value = new Set(usuario.permisos_directos || [])
   errorPermisos.value = ''
-  modalPermisosAbierto.value = true
+  modalEditarAbierto.value = true
 }
 function cerrarModalPermisos() {
-  modalPermisosAbierto.value = false
+  modalEditarAbierto.value = false
   usuarioEditando.value = null
+}
+function vistaEncendida(vista) {
+  return permisosSeleccionados.value.has(vista.clave)
+}
+// Apagar una vista no tiene sentido dejando prendidos sus permisos finos
+// (ver Ámbitos sin poder ver la vista sería un permiso fantasma) — se
+// apagan juntos. Prender la vista no prende sus sub-permisos: eso lo
+// decide el admin aparte (p. ej. ver Ámbitos sin poder gestionarlos).
+function alternarVista(vista) {
+  const nuevoSet = new Set(permisosSeleccionados.value)
+  if (nuevoSet.has(vista.clave)) {
+    nuevoSet.delete(vista.clave)
+    for (const p of vista.subPermisos) nuevoSet.delete(p.clave)
+  } else {
+    nuevoSet.add(vista.clave)
+  }
+  permisosSeleccionados.value = nuevoSet
 }
 function alternarPermiso(clave) {
   const nuevoSet = new Set(permisosSeleccionados.value)
@@ -152,25 +216,29 @@ function alternarPermiso(clave) {
   else nuevoSet.add(clave)
   permisosSeleccionados.value = nuevoSet
 }
-function alternarModuloCompleto(permisosDelModulo) {
-  const claves = permisosDelModulo.map((p) => p.clave)
-  const todosMarcados = claves.every((c) => permisosSeleccionados.value.has(c))
-  const nuevoSet = new Set(permisosSeleccionados.value)
-  for (const c of claves) {
-    if (todosMarcados) nuevoSet.delete(c)
-    else nuevoSet.add(c)
-  }
-  permisosSeleccionados.value = nuevoSet
-}
 async function guardarPermisos() {
   guardandoPermisos.value = true
   errorPermisos.value = ''
   try {
-    const actualizado = await asignarPermisos(usuarioEditando.value.id, [...permisosSeleccionados.value])
-    actualizarEnLista(actualizado)
+    const { data: usuarioActualizado } = await api.patch(`/usuarios/${usuarioEditando.value.id}`, {
+      nombre: datosEditando.value.nombre.trim(),
+      apellido_paterno: datosEditando.value.apellidoPaterno.trim(),
+      apellido_materno: datosEditando.value.apellidoMaterno.trim() || null,
+      telefono: datosEditando.value.telefono.trim() || null,
+      cargo: datosEditando.value.cargo.trim() || null,
+    })
+    // El rol ADMIN no tiene permisos directos que tocar (accede a todo por
+    // rol) — solo se manda el `PUT /permisos` para el rol USUARIO, y su
+    // respuesta (más fresca, con `permisos_directos` recalculados) es la
+    // que queda en la lista.
+    const permisosActualizado =
+      rolPrincipal(usuarioEditando.value) === 'USUARIO'
+        ? await asignarPermisos(usuarioEditando.value.id, [...permisosSeleccionados.value])
+        : null
+    actualizarEnLista(permisosActualizado || usuarioActualizado)
     cerrarModalPermisos()
   } catch (err) {
-    errorPermisos.value = err.response?.data?.error?.message || 'No se pudieron guardar los permisos.'
+    errorPermisos.value = err.response?.data?.error?.message || 'No se pudieron guardar los cambios.'
   } finally {
     guardandoPermisos.value = false
   }
@@ -323,13 +391,12 @@ async function cambiarEstado(usuario, estadoNuevo) {
               <td>
                 <div class="permisos__acciones">
                   <button
-                    v-if="rolPrincipal(u) === 'USUARIO'"
                     type="button"
-                    class="permisos__accion permisos__accion--permisos"
-                    title="Editar permisos"
+                    class="permisos__accion permisos__accion--editar"
+                    title="Editar usuario"
                     @click="abrirModalPermisos(u)"
                   >
-                    <AuthIcon name="shield-check" />
+                    <AuthIcon name="edit" />
                   </button>
                   <select
                     class="permisos__select-estado"
@@ -409,7 +476,7 @@ async function cambiarEstado(usuario, estadoNuevo) {
 
               <template v-else>
                 <div class="permisos__modal-cabecera permisos__modal-cabecera--exito">
-                  <span class="permisos__modal-icono"><AuthIcon name="check" /></span>
+                  <span class="permisos__modal-icono permisos__icono-exito"><AuthIcon name="check" /></span>
                   <div class="permisos__modal-titulo">
                     <h2>Usuario creado</h2>
                     <p>{{ resultadoCreado.usuario.correo }}</p>
@@ -419,12 +486,32 @@ async function cambiarEstado(usuario, estadoNuevo) {
                   <p class="eca-ayuda">
                     Contraseña temporal (compártela por un canal seguro; se le pedirá cambiarla al entrar):
                   </p>
-                  <p class="permisos__password">{{ resultadoCreado.contrasena_temporal }}</p>
+                  <div class="permisos__password-fila">
+                    <p class="permisos__password">{{ resultadoCreado.contrasena_temporal }}</p>
+                    <button
+                      type="button"
+                      class="permisos__copiar"
+                      :class="{ 'permisos__copiar--hecho': copiado }"
+                      @click="copiarContrasena"
+                    >
+                      <Transition name="permisos-copiar-icono" mode="out-in">
+                        <AuthIcon v-if="copiado" key="hecho" name="check" />
+                        <AuthIcon v-else key="copiar" name="clipboard" />
+                      </Transition>
+                      {{ copiado ? '¡Copiada!' : 'Copiar' }}
+                    </button>
+                  </div>
                   <p v-if="resultadoCreado.usuario.roles.includes('USUARIO')" class="eca-ayuda">
                     Recuerda asignarle permisos desde la tabla — por ahora no puede ver nada del panel.
                   </p>
-                  <button type="button" class="eca-btn eca-btn-primary permisos__form-enviar" @click="cerrarModalCrear">
-                    Listo
+                  <button
+                    type="button"
+                    class="eca-btn eca-btn-primary permisos__form-enviar"
+                    :disabled="!copiado"
+                    :title="!copiado ? 'Copia la contraseña antes de cerrar' : ''"
+                    @click="cerrarModalCrear"
+                  >
+                    {{ copiado ? 'Listo' : 'Copia la contraseña para continuar' }}
                   </button>
                 </div>
               </template>
@@ -434,10 +521,10 @@ async function cambiarEstado(usuario, estadoNuevo) {
       </Transition>
     </Teleport>
 
-    <!-- ============ Modal: editar permisos ============ -->
+    <!-- ============ Modal: editar usuario (datos + permisos) ============ -->
     <Teleport to="body">
       <Transition name="permisos-fondo">
-        <div v-if="modalPermisosAbierto" class="permisos__modal-fondo" @click.self="cerrarModalPermisos">
+        <div v-if="modalEditarAbierto" class="permisos__modal-fondo" @click.self="cerrarModalPermisos">
           <Transition name="permisos-modal" appear>
             <div class="permisos__modal" role="dialog" aria-modal="true">
               <button type="button" class="permisos__modal-cerrar" aria-label="Cerrar" @click="cerrarModalPermisos">
@@ -445,34 +532,76 @@ async function cambiarEstado(usuario, estadoNuevo) {
               </button>
 
               <div class="permisos__modal-cabecera">
-                <span class="permisos__modal-icono"><AuthIcon name="shield-check" /></span>
+                <span class="permisos__modal-icono"><AuthIcon name="edit" /></span>
                 <div class="permisos__modal-titulo">
-                  <h2>Permisos de {{ usuarioEditando ? nombreCompleto(usuarioEditando) : '' }}</h2>
-                  <p>{{ permisosSeleccionados.size }} de {{ permisosCatalogo.length }} permisos otorgados</p>
+                  <h2>Editar {{ usuarioEditando ? nombreCompleto(usuarioEditando) : '' }}</h2>
+                  <p v-if="usuarioEditando && rolPrincipal(usuarioEditando) === 'USUARIO'">
+                    {{ permisosSeleccionados.size }} permiso(s) otorgados
+                  </p>
+                  <p v-else>Administrador — acceso a todo el panel</p>
                 </div>
               </div>
 
               <div class="permisos__modal-cuerpo">
                 <p v-if="errorPermisos" class="eca-alerta-error" role="alert">{{ errorPermisos }}</p>
 
-                <div v-for="[modulo, lista] in permisosPorModulo" :key="modulo" class="permisos__modulo">
-                  <div class="permisos__modulo-cabecera">
-                    <h3>{{ modulo }}</h3>
-                    <button type="button" class="permisos__modulo-todo" @click="alternarModuloCompleto(lista)">
-                      {{ lista.every((p) => permisosSeleccionados.has(p.clave)) ? 'Quitar todos' : 'Marcar todos' }}
-                    </button>
+                <div class="permisos__seccion">
+                  <h3 class="permisos__seccion-titulo">Datos</h3>
+                  <div class="permisos__form-fila">
+                    <label>
+                      Nombre
+                      <input v-model="datosEditando.nombre" type="text" required />
+                    </label>
+                    <label>
+                      Apellido paterno
+                      <input v-model="datosEditando.apellidoPaterno" type="text" required />
+                    </label>
                   </div>
-                  <label v-for="p in lista" :key="p.clave" class="permisos__item">
-                    <input
-                      type="checkbox"
-                      :checked="permisosSeleccionados.has(p.clave)"
-                      @change="alternarPermiso(p.clave)"
-                    />
-                    <span>
-                      <strong>{{ p.nombre }}</strong>
-                      <small v-if="p.descripcion">{{ p.descripcion }}</small>
-                    </span>
+                  <div class="permisos__form-fila">
+                    <label>
+                      Apellido materno (opcional)
+                      <input v-model="datosEditando.apellidoMaterno" type="text" />
+                    </label>
+                    <label>
+                      Teléfono (opcional)
+                      <input v-model="datosEditando.telefono" type="text" />
+                    </label>
+                  </div>
+                  <label>
+                    Cargo (opcional)
+                    <input v-model="datosEditando.cargo" type="text" />
                   </label>
+                </div>
+
+                <div v-if="usuarioEditando && rolPrincipal(usuarioEditando) === 'USUARIO'" class="permisos__seccion">
+                  <h3 class="permisos__seccion-titulo">Acceso por vista</h3>
+                  <p class="eca-ayuda">Prende cada vista a la que este usuario debe poder entrar en el panel.</p>
+
+                  <div v-for="vista in vistasConPermisos" :key="vista.clave" class="permisos__vista">
+                    <div class="permisos__vista-fila">
+                      <span class="permisos__vista-icono"><AuthIcon :name="vista.icono" /></span>
+                      <span class="permisos__vista-etiqueta">{{ vista.etiqueta }}</span>
+                      <label class="permisos__switch">
+                        <input
+                          type="checkbox"
+                          :checked="vistaEncendida(vista)"
+                          @change="alternarVista(vista)"
+                        />
+                        <span class="permisos__switch-riel"></span>
+                      </label>
+                    </div>
+
+                    <div v-if="vista.subPermisos.length && vistaEncendida(vista)" class="permisos__subpermisos">
+                      <label v-for="p in vista.subPermisos" :key="p.clave" class="permisos__item">
+                        <input
+                          type="checkbox"
+                          :checked="permisosSeleccionados.has(p.clave)"
+                          @change="alternarPermiso(p.clave)"
+                        />
+                        <span>{{ p.nombre }}</span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -598,6 +727,9 @@ async function cambiarEstado(usuario, estadoNuevo) {
 }
 .permisos__accion--permisos {
   background: linear-gradient(135deg, var(--eca-purple-600), var(--eca-purple-500));
+}
+.permisos__accion--editar {
+  background: linear-gradient(135deg, var(--eca-green-600), var(--eca-green-500));
 }
 
 /* ---- Modales: mismo lenguaje visual "Apple 2026" que el de detalle de
@@ -769,44 +901,160 @@ async function cambiarEstado(usuario, estadoNuevo) {
   padding: 0.6rem 0.9rem;
   text-align: center;
   letter-spacing: 0.05em;
+  flex: 1;
+  margin: 0;
+}
+.permisos__password-fila {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+.permisos__copiar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 1rem;
+  border-radius: var(--eca-r-sm);
+  border: 1.5px solid var(--eca-green-600);
+  background: #fff;
+  color: var(--eca-green-700);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+.permisos__copiar svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+.permisos__copiar:hover {
+  background: #f0fdf4;
+  transform: translateY(-1px);
+}
+.permisos__copiar--hecho {
+  background: linear-gradient(135deg, var(--eca-green-500), var(--eca-green-700));
+  border-color: transparent;
+  color: #fff;
+}
+.permisos-copiar-icono-enter-active,
+.permisos-copiar-icono-leave-active {
+  transition: opacity 0.2s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.permisos-copiar-icono-enter-from {
+  opacity: 0;
+  transform: scale(0.5) rotate(-20deg);
+}
+.permisos-copiar-icono-leave-to {
+  opacity: 0;
+  transform: scale(0.6);
+}
+.permisos__icono-exito {
+  animation: permisosExitoResorte 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes permisosExitoResorte {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); }
 }
 
 .permisos__modal-cuerpo {
   padding: 1.25rem 1.75rem;
 }
-.permisos__modulo {
-  margin-bottom: 1.25rem;
+.permisos__seccion {
+  margin-bottom: 1.5rem;
 }
-.permisos__modulo:last-child {
+.permisos__seccion:last-child {
   margin-bottom: 0;
 }
-.permisos__modulo-cabecera {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.5rem;
-  padding-bottom: 0.35rem;
-  border-bottom: 1px solid var(--eca-surface-border);
-}
-.permisos__modulo-cabecera h3 {
-  margin: 0;
+.permisos__seccion-titulo {
+  margin: 0 0 0.75rem;
   font-size: 0.85rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--eca-purple-700);
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--eca-surface-border);
 }
-.permisos__modulo-todo {
-  border: none;
-  background: none;
+.permisos__vista {
+  border: 1px solid var(--eca-surface-border);
+  border-radius: var(--eca-r-sm);
+  padding: 0.7rem 0.85rem;
+  margin-bottom: 0.5rem;
+}
+.permisos__vista-fila {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.permisos__vista-icono {
+  width: 1.8rem;
+  height: 1.8rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--eca-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--eca-green-700);
-  font-size: 0.76rem;
-  font-weight: 700;
-  cursor: pointer;
-  padding: 0.15rem 0.4rem;
 }
-.permisos__modulo-todo:hover {
-  text-decoration: underline;
+.permisos__vista-icono svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+.permisos__vista-etiqueta {
+  flex: 1;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--eca-ink);
+}
+.permisos__subpermisos {
+  margin: 0.6rem 0 0 2.4rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--eca-surface-border);
+}
+
+/* Switch tipo "pill" — mismo lenguaje visual que `.geografia__switch`
+   (GeografiaView.vue), generalizado aquí para las vistas del panel. */
+.permisos__switch {
+  position: relative;
+  width: 2.5rem;
+  height: 1.4rem;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.permisos__switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+.permisos__switch-riel {
+  position: absolute;
+  inset: 0;
+  background: #d1d5db;
+  border-radius: 999px;
+  transition: background 0.2s ease;
+}
+.permisos__switch-riel::before {
+  content: '';
+  position: absolute;
+  width: 1.1rem;
+  height: 1.1rem;
+  left: 0.15rem;
+  top: 50%;
+  transform: translate(0, -50%);
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease;
+}
+.permisos__switch input:checked + .permisos__switch-riel {
+  background: linear-gradient(135deg, var(--eca-green-500), var(--eca-green-700));
+}
+.permisos__switch input:checked + .permisos__switch-riel::before {
+  transform: translate(1.1rem, -50%);
 }
 .permisos__item {
   display: flex;
