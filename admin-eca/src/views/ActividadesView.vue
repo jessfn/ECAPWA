@@ -12,11 +12,16 @@
      `ActividadDetalleView.vue`. -->
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { RouterLink } from 'vue-router'
 import { listarEstados, listarMunicipios } from '../services/geoService'
 import { listarCatalogo } from '../services/catalogosService'
-import { listarActividades, exportarCsv, urlVistaPreviaEvidencia } from '../services/actividadesService'
-import { listarEcas } from '../services/ecasService'
+import {
+  listarActividades,
+  exportarCsv,
+  urlVistaPreviaEvidencia,
+  obtenerActividad,
+  descargarEvidencia,
+} from '../services/actividadesService'
+import { listarEcas, obtenerEca } from '../services/ecasService'
 import { api } from '../services/api'
 import AuthIcon from '../components/auth/AuthIcon.vue'
 
@@ -179,9 +184,72 @@ function tipoInfo(actividad) {
   return { nombre: tipo?.nombre || '—', color: COLORES_TIPO[Math.max(0, indice) % COLORES_TIPO.length] }
 }
 
-onBeforeUnmount(limpiarVistasPrevias)
+// ---- Modal de detalle (pedido explícito: ya no navega a otra vista) ----
+const modalUuid = ref(null)
+const modalDetalle = ref(null)
+const modalTecnico = ref(null)
+const modalEca = ref(null)
+const modalCargando = ref(false)
+const modalError = ref('')
+const modalVistasPrevias = ref({})
+
+function limpiarModalVistasPrevias() {
+  for (const url of Object.values(modalVistasPrevias.value)) URL.revokeObjectURL(url)
+  modalVistasPrevias.value = {}
+}
+
+async function abrirDetalle(actividad) {
+  modalUuid.value = actividad.uuid
+  modalDetalle.value = null
+  modalTecnico.value = null
+  modalEca.value = null
+  modalError.value = ''
+  modalCargando.value = true
+  document.body.style.overflow = 'hidden'
+  try {
+    modalDetalle.value = await obtenerActividad(actividad.uuid)
+    for (const evidencia of modalDetalle.value.evidencias) {
+      urlVistaPreviaEvidencia(evidencia.id)
+        .then((url) => {
+          modalVistasPrevias.value = { ...modalVistasPrevias.value, [evidencia.id]: url }
+        })
+        .catch(() => {})
+    }
+    api
+      .get(`/usuarios/${modalDetalle.value.usuario_id}`)
+      .then(({ data }) => (modalTecnico.value = data))
+      .catch(() => {})
+    if (modalDetalle.value.eca_id) {
+      obtenerEca(modalDetalle.value.eca_id)
+        .then((data) => (modalEca.value = data))
+        .catch(() => {})
+    }
+  } catch {
+    modalError.value = 'No se pudo cargar el detalle de esta actividad.'
+  } finally {
+    modalCargando.value = false
+  }
+}
+
+function cerrarDetalle() {
+  modalUuid.value = null
+  limpiarModalVistasPrevias()
+  document.body.style.overflow = ''
+}
+
+function onTeclaEscape(evento) {
+  if (evento.key === 'Escape' && modalUuid.value) cerrarDetalle()
+}
+
+onBeforeUnmount(() => {
+  limpiarVistasPrevias()
+  limpiarModalVistasPrevias()
+  document.body.style.overflow = ''
+  window.removeEventListener('keydown', onTeclaEscape)
+})
 
 onMounted(async () => {
+  window.addEventListener('keydown', onTeclaEscape)
   await Promise.all([
     cargarTecnicos(),
     cargarEcas(),
@@ -305,7 +373,7 @@ onMounted(async () => {
                 </div>
               </td>
               <td>
-                <RouterLink :to="{ name: 'actividad-detalle', params: { uuid: a.uuid } }" class="actividades__foto-enlace">
+                <button type="button" class="actividades__foto-enlace" @click="abrirDetalle(a)">
                   <img
                     v-if="a.primera_evidencia_id && vistasPrevias[a.primera_evidencia_id]"
                     :src="vistasPrevias[a.primera_evidencia_id]"
@@ -318,7 +386,7 @@ onMounted(async () => {
                   <span v-else class="actividades__foto actividades__foto--vacia">
                     <AuthIcon name="camera" />
                   </span>
-                </RouterLink>
+                </button>
               </td>
               <td>
                 <span class="eca-badge" :class="`eca-badge--${tipoInfo(a).color}`">{{ tipoInfo(a).nombre }}</span>
@@ -336,13 +404,14 @@ onMounted(async () => {
               </td>
               <td>
                 <div class="actividades__acciones">
-                  <RouterLink
+                  <button
+                    type="button"
                     class="actividades__accion actividades__accion--ver"
-                    :to="{ name: 'actividad-detalle', params: { uuid: a.uuid } }"
                     title="Ver detalle"
+                    @click="abrirDetalle(a)"
                   >
-                    <AuthIcon name="search" />
-                  </RouterLink>
+                    <AuthIcon name="clipboard" />
+                  </button>
                 </div>
               </td>
             </tr>
@@ -360,6 +429,104 @@ onMounted(async () => {
         </button>
       </div>
     </div>
+
+    <Teleport to="body">
+      <Transition name="actividades-fondo">
+        <div v-if="modalUuid" class="actividades__modal-fondo" @click.self="cerrarDetalle">
+          <Transition name="actividades-modal" appear>
+            <div class="actividades__modal" role="dialog" aria-modal="true">
+              <button type="button" class="actividades__modal-cerrar" aria-label="Cerrar" @click="cerrarDetalle">
+                <AuthIcon name="close" />
+              </button>
+
+              <div v-if="modalCargando" class="actividades__modal-estado">
+                <span class="actividades__modal-spinner"></span>
+                <p>Cargando actividad…</p>
+              </div>
+              <div v-else-if="modalError" class="actividades__modal-estado">
+                <AuthIcon name="alert" />
+                <p>{{ modalError }}</p>
+              </div>
+
+              <template v-else-if="modalDetalle">
+                <div class="actividades__modal-cabecera">
+                  <span class="actividades__modal-icono"><AuthIcon name="clipboard" /></span>
+                  <div class="actividades__modal-titulo">
+                    <h2>Detalle de actividad</h2>
+                    <p>{{ modalDetalle.uuid }}</p>
+                  </div>
+                  <span class="eca-badge" :class="BADGE_GPS[modalDetalle.estado_gps] || 'eca-badge--gris'">
+                    <AuthIcon name="map-pin" /> {{ ETIQUETAS_GPS[modalDetalle.estado_gps] || '—' }}
+                  </span>
+                </div>
+
+                <div class="actividades__modal-cuerpo">
+                  <div class="actividades__modal-usuario">
+                    <span class="eca-avatar">{{ iniciales(modalTecnico) }}</span>
+                    <div>
+                      <strong>
+                        {{ modalTecnico ? `${modalTecnico.nombre} ${modalTecnico.apellido_paterno}` : `Técnico #${modalDetalle.usuario_id}` }}
+                      </strong>
+                      <span v-if="modalTecnico" class="eca-ayuda">{{ modalTecnico.correo }}</span>
+                    </div>
+                  </div>
+
+                  <dl class="actividades__modal-datos">
+                    <dt>Fecha</dt>
+                    <dd>{{ new Date(modalDetalle.fecha_hora).toLocaleString('es-MX') }}</dd>
+                    <dt>Tipo</dt>
+                    <dd>{{ tipoInfo(modalDetalle).nombre }}</dd>
+                    <dt>ECA</dt>
+                    <dd>
+                      {{
+                        modalEca
+                          ? modalEca.nombre
+                          : modalDetalle.eca_id
+                            ? `ECA #${modalDetalle.eca_id}`
+                            : modalDetalle.eca_nombre
+                              ? `${modalDetalle.eca_nombre} (escrita a mano)`
+                              : '—'
+                      }}
+                    </dd>
+                    <dt>Descripción</dt>
+                    <dd>{{ modalDetalle.descripcion }}</dd>
+                    <dt>Resultado</dt>
+                    <dd>{{ modalDetalle.resultado || '—' }}</dd>
+                    <dt>Ubicación GPS</dt>
+                    <dd>
+                      <span v-if="modalDetalle.latitud">
+                        {{ modalDetalle.latitud }}, {{ modalDetalle.longitud }} (±{{ Math.round(modalDetalle.precision_gps_m || 0) }} m)
+                      </span>
+                      <span v-else>Sin coordenadas</span>
+                    </dd>
+                  </dl>
+
+                  <div class="actividades__modal-galeria-seccion">
+                    <h3><AuthIcon name="camera" /> Evidencias fotográficas</h3>
+                    <div v-if="!modalDetalle.evidencias.length" class="eca-vacio">
+                      <AuthIcon name="camera" />
+                      <p>Sin fotos.</p>
+                    </div>
+                    <div v-else class="actividades__modal-galeria">
+                      <figure v-for="e in modalDetalle.evidencias" :key="e.uuid" class="actividades__modal-foto">
+                        <img v-if="modalVistasPrevias[e.id]" :src="modalVistasPrevias[e.id]" :alt="e.nombre_archivo" />
+                        <div v-else class="actividades__modal-foto-cargando">Cargando…</div>
+                        <figcaption>
+                          <span>{{ e.nombre_archivo }}</span>
+                          <button type="button" class="eca-btn eca-btn-secundario" @click="descargarEvidencia(e.id, e.nombre_archivo)">
+                            Descargar
+                          </button>
+                        </figcaption>
+                      </figure>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </Transition>
+        </div>
+      </Transition>
+    </Teleport>
   </section>
 </template>
 
@@ -520,6 +687,253 @@ onMounted(async () => {
 @media (max-width: 640px) {
   .actividades__tabla-contenedor {
     max-height: 70vh;
+  }
+}
+
+/* ---- Modal de detalle (pedido explícito: ya no navega a otra vista) —
+   fondo con blur, tarjeta con entrada tipo resorte y esquinas grandes,
+   pantalla completa en móvil. ---- */
+.actividades__modal-fondo {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(20, 24, 20, 0.45);
+  backdrop-filter: blur(10px) saturate(1.4);
+  -webkit-backdrop-filter: blur(10px) saturate(1.4);
+}
+.actividades-fondo-enter-active,
+.actividades-fondo-leave-active {
+  transition: opacity 0.25s ease;
+}
+.actividades-fondo-enter-from,
+.actividades-fondo-leave-to {
+  opacity: 0;
+}
+
+.actividades__modal {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  max-height: 88vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 28px;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.actividades__modal::-webkit-scrollbar {
+  width: 8px;
+}
+.actividades__modal::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 10px;
+}
+.actividades-modal-enter-active {
+  transition: opacity 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.actividades-modal-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.actividades-modal-enter-from {
+  opacity: 0;
+  transform: scale(0.92) translateY(18px);
+}
+.actividades-modal-leave-to {
+  opacity: 0;
+  transform: scale(0.96) translateY(10px);
+}
+
+.actividades__modal-cerrar {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--eca-ink);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease;
+}
+.actividades__modal-cerrar:hover {
+  transform: rotate(90deg) scale(1.08);
+  background: #fff;
+}
+.actividades__modal-cerrar svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.actividades__modal-estado {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  padding: 4rem 2rem;
+  color: var(--eca-ink-soft);
+}
+.actividades__modal-spinner {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 3px solid var(--eca-surface-border);
+  border-top-color: var(--eca-green-600);
+  animation: eca-girar 0.8s linear infinite;
+}
+
+.actividades__modal-cabecera {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem 0.9rem;
+  padding: 1.5rem 3rem 1.5rem 1.75rem;
+  border-radius: 28px 28px 0 0;
+  background: linear-gradient(135deg, #4caf50 0%, #45a049 50%, #2e7d32 100%);
+  color: #fff;
+}
+.actividades__modal-icono {
+  flex-shrink: 0;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: var(--eca-r-sm);
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.actividades__modal-titulo {
+  flex: 1;
+  min-width: 140px;
+}
+.actividades__modal-cabecera .eca-badge {
+  flex-shrink: 0;
+}
+.actividades__modal-titulo h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+.actividades__modal-titulo p {
+  margin: 0.15rem 0 0;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.8);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actividades__modal-cuerpo {
+  padding: 1.5rem 1.75rem 1.75rem;
+}
+.actividades__modal-usuario {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 1.1rem;
+  padding-bottom: 1.1rem;
+  border-bottom: 1px solid var(--eca-surface-border);
+}
+.actividades__modal-usuario div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.actividades__modal-datos {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.55rem 1.3rem;
+  margin: 0;
+}
+.actividades__modal-datos dt {
+  color: var(--eca-ink-soft);
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.actividades__modal-datos dd {
+  margin: 0;
+}
+.actividades__modal-galeria-seccion {
+  margin-top: 1.4rem;
+}
+.actividades__modal-galeria-seccion h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.9rem;
+  color: var(--eca-purple-700);
+  font-size: 0.95rem;
+}
+.actividades__modal-galeria-seccion h3 svg {
+  width: 15px;
+  height: 15px;
+}
+.actividades__modal-galeria {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+}
+.actividades__modal-foto {
+  margin: 0;
+  width: 150px;
+}
+.actividades__modal-foto img,
+.actividades__modal-foto-cargando {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: var(--eca-r-sm);
+  box-shadow: var(--eca-shadow-card);
+}
+.actividades__modal-foto-cargando {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--eca-surface);
+  color: var(--eca-ink-soft);
+  font-size: 0.78rem;
+}
+.actividades__modal-foto figcaption {
+  font-size: 0.75rem;
+  margin-top: 0.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  word-break: break-all;
+}
+.actividades__modal-foto figcaption .eca-btn {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.75rem;
+}
+
+@media (max-width: 640px) {
+  .actividades__modal-fondo {
+    padding: 0;
+    align-items: flex-end;
+  }
+  .actividades__modal {
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: 24px 24px 0 0;
+  }
+  .actividades-modal-enter-from,
+  .actividades-modal-leave-to {
+    transform: translateY(100%);
+  }
+  .actividades__modal-cabecera {
+    border-radius: 24px 24px 0 0;
   }
 }
 </style>

@@ -334,7 +334,12 @@ a {
 
 .eca-stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  /* `minmax(150px, 1fr)` estiraba cada tarjeta a lo ancho del panel en
+     pantallas grandes (se veía enorme y con mucho espacio muerto dentro
+     de cada una) — con un tope de 210px las tarjetas se quedan
+     compactas y el espacio sobrante del grid simplemente no se usa. */
+  grid-template-columns: repeat(auto-fit, minmax(150px, 210px));
+  justify-content: flex-start;
   gap: 0.9rem;
   margin-bottom: 1.25rem;
 }
