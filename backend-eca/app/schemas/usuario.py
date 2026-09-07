@@ -31,6 +31,7 @@ class UsuarioPublico(BaseModel):
     correo: str
     telefono: str | None
     cargo: str | None
+    curp: str | None
     estado: str
     requiere_cambio_contrasena: bool
     ultimo_acceso_en: datetime | None

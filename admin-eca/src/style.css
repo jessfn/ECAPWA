@@ -243,7 +243,9 @@ a {
   margin: 0;
   border: none;
   border-radius: 0;
-  background: linear-gradient(135deg, #1f5b34 0%, #164227 58%, #0e3a20 100%);
+  /* Mismo verde del sidebar (#388e3c → #2e7d32 → #1b5e20) pero un poco más
+     oscuro, pedido explícito. */
+  background: linear-gradient(135deg, #2f7a33 0%, #256a2a 55%, #14501c 100%);
   color: #fff;
 }
 
@@ -262,7 +264,7 @@ a {
    sola tarjeta verde, como la referencia "Productores". */
 .eca-panel-fusionado {
   background: #eef6f0;
-  border: 1.5px solid #1f5b34;
+  border: 1.5px solid #256a2a;
   border-radius: var(--eca-r-lg);
   /* Tarjeta propia bajo la barra full-width: pequeña separación arriba y
      espaciado a los lados con `--eca-gutter`. */
