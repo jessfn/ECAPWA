@@ -109,6 +109,23 @@ def crear(
         if tema_id is None:
             tema_id = subtema.tema_id
 
+    # Red anti-duplicado (además de la idempotencia por `uuid` de arriba):
+    # el doble-toque en la PWA generaba dos `uuid` distintos para la MISMA
+    # actividad, así que la idempotencia por uuid no la atrapaba y quedaban
+    # dos filas iguales. Si ya existe una actividad viva equivalente del
+    # mismo técnico en una ventana corta, se devuelve esa en vez de crear
+    # otra — el backend nunca vuelve a duplicar, venga de donde venga.
+    equivalente = repo_actividades.buscar_equivalente_reciente(
+        db,
+        usuario_id=actor.id,
+        jornada_id=jornada.id,
+        tipo_actividad_id=tipo_actividad_id,
+        descripcion=descripcion,
+        fecha_hora=fecha_hora,
+    )
+    if equivalente is not None:
+        return equivalente
+
     actividad = Actividad(
         uuid=uuid,
         usuario_id=actor.id,

@@ -73,8 +73,25 @@ class RepoActividadesEnMemoria:
     def obtener_por_uuid(self, _db, uuid):
         return next((a for a in self.filas if a.uuid == uuid), None)
 
+    def buscar_equivalente_reciente(self, _db, *, usuario_id, jornada_id, tipo_actividad_id, descripcion, fecha_hora, ventana_seg=120):
+        from datetime import timedelta
+
+        for a in self.filas:
+            if a.eliminado_en is not None:
+                continue
+            if (
+                a.usuario_id == usuario_id
+                and a.jornada_id == jornada_id
+                and a.tipo_actividad_id == tipo_actividad_id
+                and a.descripcion == descripcion
+                and abs((a.fecha_hora - fecha_hora).total_seconds()) <= ventana_seg
+            ):
+                return a
+        return None
+
     def crear(self, _db, actividad: Actividad) -> Actividad:
         actividad.id = next(_contador_ids)
+        actividad.eliminado_en = getattr(actividad, "eliminado_en", None)
         self.filas.append(actividad)
         return actividad
 
@@ -83,6 +100,7 @@ class RepoActividadesEnMemoria:
 def repo_actividades(monkeypatch: pytest.MonkeyPatch):
     repo = RepoActividadesEnMemoria()
     monkeypatch.setattr(actividades_service.repo_actividades, "obtener_por_uuid", repo.obtener_por_uuid)
+    monkeypatch.setattr(actividades_service.repo_actividades, "buscar_equivalente_reciente", repo.buscar_equivalente_reciente)
     monkeypatch.setattr(actividades_service.repo_actividades, "crear", repo.crear)
     return repo
 
@@ -141,6 +159,25 @@ def test_crear_actividad(db: DBFalsa, repo_actividades, repo_jornadas, actor: Us
 
     assert actividad.usuario_id == actor.id
     assert actividad.jornada_id == repo_jornadas.id
+    assert len(repo_actividades.filas) == 1
+
+
+def test_crear_actividad_duplicada_distinto_uuid_no_duplica(db: DBFalsa, repo_actividades, repo_jornadas, actor: Usuario) -> None:
+    # Doble-toque real: MISMA actividad con dos uuid distintos y fecha_hora
+    # a segundos — la red anti-duplicado devuelve la primera, no crea otra.
+    tipo = _tipo()
+    db.registrar(TipoActividad, tipo.id, tipo)
+    datos_a = dict(DATOS_BASE, fecha_hora=datetime(2026, 3, 5, 9, 0, 0, tzinfo=timezone.utc))
+    datos_b = dict(DATOS_BASE, fecha_hora=datetime(2026, 3, 5, 9, 0, 2, tzinfo=timezone.utc))
+
+    primera = actividades_service.crear(
+        db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, **datos_a
+    )
+    segunda = actividades_service.crear(
+        db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, **datos_b
+    )
+
+    assert primera.id == segunda.id
     assert len(repo_actividades.filas) == 1
 
 

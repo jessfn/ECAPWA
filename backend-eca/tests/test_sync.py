@@ -102,8 +102,23 @@ class RepoActividadesEnMemoria:
     def obtener_por_uuid(self, _db, uuid):
         return next((a for a in self.filas if a.uuid == uuid), None)
 
+    def buscar_equivalente_reciente(self, _db, *, usuario_id, jornada_id, tipo_actividad_id, descripcion, fecha_hora, ventana_seg=120):
+        for a in self.filas:
+            if a.eliminado_en is not None:
+                continue
+            if (
+                a.usuario_id == usuario_id
+                and a.jornada_id == jornada_id
+                and a.tipo_actividad_id == tipo_actividad_id
+                and a.descripcion == descripcion
+                and abs((a.fecha_hora - fecha_hora).total_seconds()) <= ventana_seg
+            ):
+                return a
+        return None
+
     def crear(self, _db, actividad: Actividad) -> Actividad:
         actividad.id = next(_contador_ids)
+        actividad.eliminado_en = getattr(actividad, "eliminado_en", None)
         self.filas.append(actividad)
         return actividad
 
@@ -133,6 +148,7 @@ def repos(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(repo_jornadas_modulo, "listar_de_usuario", jornadas.listar_de_usuario)
 
     monkeypatch.setattr(repo_actividades_modulo, "obtener_por_uuid", actividades.obtener_por_uuid)
+    monkeypatch.setattr(repo_actividades_modulo, "buscar_equivalente_reciente", actividades.buscar_equivalente_reciente)
     monkeypatch.setattr(repo_actividades_modulo, "crear", actividades.crear)
 
     monkeypatch.setattr(repo_dispositivos_modulo, "obtener_por_uuid", dispositivos.obtener_por_uuid)

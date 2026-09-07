@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import uuid as uuid_lib
-from datetime import date
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -13,6 +13,40 @@ from app.models.eca import Eca
 
 def obtener_por_uuid(db: Session, uuid: uuid_lib.UUID) -> Actividad | None:
     return db.execute(select(Actividad).where(Actividad.uuid == uuid)).scalar_one_or_none()
+
+
+def buscar_equivalente_reciente(
+    db: Session,
+    *,
+    usuario_id: int,
+    jornada_id: int,
+    tipo_actividad_id: int,
+    descripcion: str,
+    fecha_hora: datetime,
+    ventana_seg: int = 120,
+) -> Actividad | None:
+    """Busca una actividad viva "equivalente" del mismo técnico en una
+    ventana de tiempo — mismo usuario, jornada, tipo y descripción, con
+    `fecha_hora` a ±`ventana_seg`. Sirve de red anti-duplicado en el
+    backend: aunque un cliente (viejo o con bug) mande la MISMA actividad
+    dos veces con `uuid` distinto —el patrón real del doble-toque— aquí se
+    detecta y no se inserta una fila repetida."""
+    inicio = fecha_hora - timedelta(seconds=ventana_seg)
+    fin = fecha_hora + timedelta(seconds=ventana_seg)
+    return db.execute(
+        select(Actividad)
+        .where(
+            Actividad.eliminado_en.is_(None),
+            Actividad.usuario_id == usuario_id,
+            Actividad.jornada_id == jornada_id,
+            Actividad.tipo_actividad_id == tipo_actividad_id,
+            Actividad.descripcion == descripcion,
+            Actividad.fecha_hora >= inicio,
+            Actividad.fecha_hora <= fin,
+        )
+        .order_by(Actividad.id)
+        .limit(1)
+    ).scalar_one_or_none()
 
 
 def obtener_por_id(db: Session, actividad_id: int) -> Actividad | None:
