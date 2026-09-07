@@ -19,6 +19,7 @@ from app.schemas.usuario import (
     UsuarioCrearPeticion,
     UsuarioCreadoRespuesta,
     UsuarioEditarPeticion,
+    UsuarioPermisosPeticion,
     UsuarioPublico,
     UsuarioRolesPeticion,
 )
@@ -130,6 +131,23 @@ def asignar_roles_usuario(
     try:
         usuario = usuarios_service.asignar_roles(db, usuario=usuario, claves_rol=peticion.roles, actor=actor)
     except usuarios_service.RolDesconocidoError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    return usuarios_service.a_publico(db, usuario)
+
+
+@router.put("/{usuario_id}/permisos", response_model=UsuarioPublico)
+def asignar_permisos_usuario(
+    usuario_id: int,
+    peticion: UsuarioPermisosPeticion,
+    db: Session = Depends(get_db),
+    actor: Usuario = Depends(require_permission("usuarios.gestionar")),
+) -> UsuarioPublico:
+    usuario = _obtener_o_404(db, usuario_id)
+    try:
+        usuario = usuarios_service.asignar_permisos_directos(
+            db, usuario=usuario, claves_permiso=peticion.permisos, actor=actor
+        )
+    except usuarios_service.PermisoDesconocidoError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
     return usuarios_service.a_publico(db, usuario)
 

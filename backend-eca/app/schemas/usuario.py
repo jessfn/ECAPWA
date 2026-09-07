@@ -36,6 +36,14 @@ class UsuarioPublico(BaseModel):
     ultimo_acceso_en: datetime | None
     creado_en: datetime
     roles: list[str] = Field(default_factory=list)
+    # `permisos_efectivos`: unión de lo que da el rol + lo otorgado
+    # directamente (ver 0022) — lo que el backend de verdad usa para
+    # autorizar. `permisos_directos`: solo lo otorgado a este usuario en
+    # particular (subconjunto editable en "Permisos administrativos");
+    # nunca incluye lo que ya viene de ADMIN, que no se edita por permiso
+    # suelto — ADMIN es todo o nada.
+    permisos_efectivos: list[str] = Field(default_factory=list)
+    permisos_directos: list[str] = Field(default_factory=list)
 
 
 class UsuarioCrearPeticion(BaseModel):
@@ -85,6 +93,10 @@ class UsuarioCambioEstadoPeticion(BaseModel):
 
 class UsuarioRolesPeticion(BaseModel):
     roles: list[str] = Field(min_length=1)
+
+
+class UsuarioPermisosPeticion(BaseModel):
+    permisos: list[str] = Field(default_factory=list)
 
 
 class UsuarioCreadoRespuesta(BaseModel):

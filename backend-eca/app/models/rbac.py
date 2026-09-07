@@ -104,3 +104,24 @@ class UsuarioRol(Base):
 
     usuario: Mapped["Usuario"] = relationship(back_populates="roles", foreign_keys=[usuario_id])
     rol: Mapped["Rol"] = relationship()
+
+
+class UsuarioPermiso(Base):
+    """Permiso otorgado DIRECTAMENTE a un usuario, fuera de lo que ya da su
+    rol — ECA-021 ("Permisos administrativos"). Pensado para el rol
+    `USUARIO` (acceso de panel personalizado): ese rol no trae ningún
+    permiso propio en `roles_permisos`, así que sin esto no podría hacer
+    nada. `permisos_efectivos_de` hace la unión de ambas fuentes."""
+
+    __tablename__ = "usuarios_permisos"
+    __table_args__ = (Index("uq_up_usuario_permiso", "usuario_id", "permiso_id", unique=True),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False)
+    permiso_id: Mapped[int] = mapped_column(ForeignKey("permisos.id"), nullable=False)
+    otorgado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+    otorgado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+    permiso: Mapped["Permiso"] = relationship()

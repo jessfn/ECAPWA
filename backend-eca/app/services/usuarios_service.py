@@ -29,6 +29,10 @@ class RolDesconocidoError(Exception):
     pass
 
 
+class PermisoDesconocidoError(Exception):
+    pass
+
+
 def generar_contrasena_temporal() -> str:
     """12 caracteres alfanuméricos aleatorios: cumple la política mínima de
     `validar_fortaleza_contrasena` (longitud + letras y números) por
@@ -48,12 +52,15 @@ def a_publico(db: Session, usuario: Usuario) -> UsuarioPublico:
     `.model_copy(update=...)` posterior pudiera corregirlo) — por eso se arma
     el dict a mano, excluyendo esa relación, con las claves ya resueltas."""
     roles = [a.rol.clave for a in repo_rbac.asignaciones_activas_de(db, usuario.id)]
+    campos_calculados = {"roles", "permisos_efectivos", "permisos_directos"}
     datos = {
         campo: getattr(usuario, campo)
         for campo in UsuarioPublico.model_fields
-        if campo != "roles"
+        if campo not in campos_calculados
     }
     datos["roles"] = roles
+    datos["permisos_efectivos"] = sorted(repo_rbac.permisos_efectivos_de(db, usuario.id))
+    datos["permisos_directos"] = sorted(repo_rbac.permisos_directos_de(db, usuario.id))
     return UsuarioPublico.model_validate(datos)
 
 
@@ -213,6 +220,36 @@ def asignar_roles(db: Session, *, usuario: Usuario, claves_rol: list[str], actor
         entidad_uuid=usuario.uuid,
         datos_antes={"roles": roles_antes},
         datos_despues={"roles": claves_rol},
+    )
+    db.commit()
+    db.refresh(usuario)
+    return usuario
+
+
+def asignar_permisos_directos(
+    db: Session, *, usuario: Usuario, claves_permiso: list[str], actor: Usuario
+) -> Usuario:
+    """Reemplaza los permisos otorgados DIRECTAMENTE a `usuario` (nunca los
+    que ya le da un rol) — pensado para el rol `USUARIO` de "Permisos
+    administrativos" (ECA-021), que no trae ningún permiso propio."""
+    antes = sorted(repo_rbac.permisos_directos_de(db, usuario.id))
+    try:
+        repo_rbac.reemplazar_permisos_directos(
+            db, usuario_id=usuario.id, claves_nuevas=set(claves_permiso), otorgado_por=actor.id
+        )
+    except ValueError as exc:
+        raise PermisoDesconocidoError(str(exc)) from exc
+
+    registrar_evento(
+        db,
+        accion="permisos.cambio_directo",
+        modulo="usuarios",
+        actor_usuario_id=actor.id,
+        entidad_tipo="usuario",
+        entidad_id=usuario.id,
+        entidad_uuid=usuario.uuid,
+        datos_antes={"permisos": antes},
+        datos_despues={"permisos": sorted(claves_permiso)},
     )
     db.commit()
     db.refresh(usuario)

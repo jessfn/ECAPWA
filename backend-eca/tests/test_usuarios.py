@@ -80,6 +80,27 @@ class RepoRbacEnMemoria:
                 raise ValueError(f"Rol desconocido o inactivo: {clave}")
         self.asignaciones[usuario_id] = list(claves_rol_nuevas)
 
+    # ECA-021 "Permisos administrativos": permisos otorgados directo a un
+    # usuario, fuera de lo que ya da su rol. En memoria basta un dict simple
+    # (nunca se prueba aquí la unión con permisos-por-rol reales — eso vive
+    # en test_permisos.py contra Postgres real).
+    def __init_permisos(self) -> None:
+        if not hasattr(self, "permisos_directos"):
+            self.permisos_directos: dict[int, set[str]] = {}
+
+    def permisos_efectivos_de(self, _db, usuario_id: int) -> set[str]:
+        self.__init_permisos()
+        return set(self.permisos_directos.get(usuario_id, set()))
+
+    def permisos_directos_de(self, _db, usuario_id: int) -> set[str]:
+        self.__init_permisos()
+        return set(self.permisos_directos.get(usuario_id, set()))
+
+    def reemplazar_permisos_directos(self, _db, *, usuario_id: int, claves_nuevas: set[str], otorgado_por) -> set[str]:
+        self.__init_permisos()
+        self.permisos_directos[usuario_id] = set(claves_nuevas)
+        return claves_nuevas
+
 
 @pytest.fixture
 def repos(monkeypatch: pytest.MonkeyPatch) -> tuple[RepoUsuariosEnMemoria, RepoRbacEnMemoria]:
@@ -89,7 +110,15 @@ def repos(monkeypatch: pytest.MonkeyPatch) -> tuple[RepoUsuariosEnMemoria, RepoR
     for nombre in ("obtener_por_correo", "crear_usuario", "revocar_todos_los_tokens_de"):
         monkeypatch.setattr(usuarios_service.repo_usuarios, nombre, getattr(repo_u, nombre))
         monkeypatch.setattr(importacion_usuarios_service.repo_usuarios, nombre, getattr(repo_u, nombre))
-    for nombre in ("obtener_rol_por_clave", "asignar_rol", "asignaciones_activas_de", "reemplazar_roles"):
+    for nombre in (
+        "obtener_rol_por_clave",
+        "asignar_rol",
+        "asignaciones_activas_de",
+        "reemplazar_roles",
+        "permisos_efectivos_de",
+        "permisos_directos_de",
+        "reemplazar_permisos_directos",
+    ):
         monkeypatch.setattr(usuarios_service.repo_rbac, nombre, getattr(repo_r, nombre))
         monkeypatch.setattr(importacion_usuarios_service.repo_rbac, nombre, getattr(repo_r, nombre))
 

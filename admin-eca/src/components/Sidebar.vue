@@ -50,6 +50,13 @@ const enlaces = [
     permiso: 'usuarios.gestionar',
     icono: 'user-plus',
   },
+  {
+    nombre: 'permisos-administrativos',
+    etiqueta: 'Permisos administrativos',
+    ruta: { name: 'permisos-administrativos' },
+    permiso: 'usuarios.gestionar',
+    icono: 'shield-check',
+  },
 ]
 
 const enlacesVisibles = computed(() => enlaces.filter((e) => !e.permiso || auth.tienePermiso(e.permiso)))

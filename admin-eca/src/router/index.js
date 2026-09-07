@@ -13,6 +13,7 @@ import ActividadesView from '../views/ActividadesView.vue'
 import ActividadDetalleView from '../views/ActividadDetalleView.vue'
 import SolicitudesAccesoView from '../views/SolicitudesAccesoView.vue'
 import TecnicosView from '../views/TecnicosView.vue'
+import PermisosAdministrativosView from '../views/PermisosAdministrativosView.vue'
 
 // admin-eca — rutas (ECA-005 + ECA-006 + ECA-007 + ECA-008 + ECA-009).
 // Guard por token válido + expiración (no por sola presencia en
@@ -68,6 +69,12 @@ const routes = [
         path: 'solicitudes-acceso',
         name: 'solicitudes-acceso',
         component: SolicitudesAccesoView,
+        meta: { requierePermiso: 'usuarios.gestionar' },
+      },
+      {
+        path: 'permisos-administrativos',
+        name: 'permisos-administrativos',
+        component: PermisosAdministrativosView,
         meta: { requierePermiso: 'usuarios.gestionar' },
       },
     ],
