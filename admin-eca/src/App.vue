@@ -6,6 +6,7 @@ import { computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { conectarSocketPermisos, desconectarSocketPermisos } from './services/permisosSocket'
+import { primeraRutaAccesible } from './router'
 
 const route = useRoute()
 const router = useRouter()
@@ -21,7 +22,7 @@ watch(
   () => {
     const permisoRequerido = route.meta?.requierePermiso
     if (permisoRequerido && !auth.tienePermiso(permisoRequerido)) {
-      router.replace({ name: 'inicio' })
+      router.replace(primeraRutaAccesible(auth))
     }
   },
 )

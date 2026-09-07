@@ -89,6 +89,16 @@ const routes = [
       },
     ],
   },
+  // Sin `meta.requierePermiso`: red de seguridad para una cuenta USUARIO
+  // que (por lo que sea) no tiene ningún `vista.*` activo — sin esto,
+  // `primeraRutaAccesible()` no tendría a dónde mandarla y el guard
+  // volvería a caer en un bucle.
+  {
+    path: '/sin-acceso',
+    name: 'sin-acceso',
+    component: DefaultLayout,
+    children: [{ path: '', name: 'sin-acceso-vista', component: () => import('../views/SinAccesoView.vue') }],
+  },
   // Cualquier URL que no coincida con una ruta conocida (p. ej. escrita a
   // mano, o un enlace de otra app como `/registro` de pwa-eca) no debe
   // dejar la pantalla en blanco: se manda a inicio/login según corresponda.
@@ -100,12 +110,37 @@ const router = createRouter({
   routes,
 })
 
+// Mismo orden que el sidebar — el primer `vista.*` que el usuario sí tiene
+// es a donde lo mandamos tras login o cuando pierde acceso a la ruta
+// actual. Antes se asumía `{ name: 'inicio' }` a secas: un usuario creado
+// con un solo permiso distinto a `vista.inicio` quedaba en un bucle
+// infinito (inicio exige `vista.inicio` → lo rebota a inicio → ...), que es
+// justo lo que colgó el panel al loguear la cuenta de prueba.
+const ORDEN_VISTAS = [
+  'inicio',
+  'geografia',
+  'ecas',
+  'ambitos',
+  'asignaciones',
+  'catalogos',
+  'tecnicos',
+  'actividades',
+  'solicitudes-acceso',
+  'permisos-administrativos',
+]
+const PERMISO_DE_RUTA = { inicio: 'vista.inicio', geografia: 'vista.geografia', ecas: 'vista.ecas', ambitos: 'vista.ambitos', asignaciones: 'vista.asignaciones', catalogos: 'vista.catalogos', tecnicos: 'vista.tecnicos', actividades: 'vista.actividades', 'solicitudes-acceso': 'vista.solicitudes_acceso', 'permisos-administrativos': 'vista.permisos_administrativos' }
+
+function primeraRutaAccesible(auth) {
+  const nombre = ORDEN_VISTAS.find((n) => auth.tienePermiso(PERMISO_DE_RUTA[n]))
+  return nombre ? { name: nombre } : { name: 'sin-acceso-vista' }
+}
+
 router.beforeEach((to) => {
   const auth = useAuthStore()
 
   if (to.meta.publica) {
     if (to.name === 'login' && auth.estaAutenticado) {
-      return { name: 'inicio' }
+      return primeraRutaAccesible(auth)
     }
     return true
   }
@@ -116,10 +151,14 @@ router.beforeEach((to) => {
 
   const permisoRequerido = to.meta.requierePermiso
   if (permisoRequerido && !auth.tienePermiso(permisoRequerido)) {
-    return { name: 'inicio' }
+    // Nunca mandar de vuelta a `to` ni a un destino fijo que el usuario
+    // tampoco pueda ver — eso es lo que producía el bucle.
+    if (to.name === 'sin-acceso-vista') return true
+    return primeraRutaAccesible(auth)
   }
 
   return true
 })
 
+export { primeraRutaAccesible }
 export default router

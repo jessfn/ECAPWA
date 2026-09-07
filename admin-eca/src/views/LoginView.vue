@@ -5,6 +5,7 @@
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { primeraRutaAccesible } from '../router'
 import AuthLayout from '../components/auth/AuthLayout.vue'
 import AuthIcon from '../components/auth/AuthIcon.vue'
 
@@ -32,7 +33,7 @@ async function enviar() {
   cargando.value = true
   try {
     await auth.login(correo.value, contrasena.value)
-    router.push(route.query.redirigir || { name: 'inicio' })
+    router.push(route.query.redirigir || primeraRutaAccesible(auth))
   } catch (err) {
     fallar(err.response?.data?.error?.message || 'No se pudo iniciar sesión. Intenta de nuevo.')
   } finally {
