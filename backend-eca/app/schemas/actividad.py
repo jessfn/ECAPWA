@@ -52,6 +52,10 @@ class ActividadPublica(BaseModel):
     num_participantes: int | None
     requiere_seguimiento: bool
     fecha_proximo_seguimiento: date | None
+    # Miniatura para el listado admin — nunca se calcula en el detalle
+    # (`ActividadDetallePublica` ya trae la lista completa en `evidencias`).
+    # `None` en cualquier respuesta que no la calcule explícitamente.
+    primera_evidencia_id: int | None = None
 
 
 class ActividadListaPaginada(BaseModel):

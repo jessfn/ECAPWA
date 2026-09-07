@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import uuid as uuid_lib
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.evidencia import ActividadEvidencia
@@ -36,6 +36,32 @@ def listar_de_actividad(db: Session, actividad_id: int) -> list[ActividadEvidenc
             .order_by(ActividadEvidencia.orden)
         ).scalars()
     )
+
+
+def primera_por_actividad(db: Session, actividad_ids: list[int]) -> dict[int, int]:
+    """`{actividad_id: evidencia_id}` de la evidencia con `orden` más bajo de
+    cada actividad — UNA sola consulta para toda una página de resultados
+    (nunca N+1), usada por el listado admin para mostrar una miniatura sin
+    tener que pedir el detalle completo de cada actividad."""
+    if not actividad_ids:
+        return {}
+    subconsulta = (
+        select(
+            ActividadEvidencia.actividad_id,
+            func.min(ActividadEvidencia.orden).label("orden_min"),
+        )
+        .where(ActividadEvidencia.actividad_id.in_(actividad_ids))
+        .group_by(ActividadEvidencia.actividad_id)
+        .subquery()
+    )
+    filas = db.execute(
+        select(ActividadEvidencia.actividad_id, ActividadEvidencia.id).join(
+            subconsulta,
+            (ActividadEvidencia.actividad_id == subconsulta.c.actividad_id)
+            & (ActividadEvidencia.orden == subconsulta.c.orden_min),
+        )
+    ).all()
+    return {actividad_id: evidencia_id for actividad_id, evidencia_id in filas}
 
 
 def crear(db: Session, evidencia: ActividadEvidencia) -> ActividadEvidencia:

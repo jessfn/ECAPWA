@@ -140,7 +140,15 @@ def listar_actividades(
 ) -> ActividadListaPaginada:
     filtros = _filtros_admin(tecnico_id, eca_id, municipio_id, tipo_actividad_id, tema_id, estado_gps, desde, hasta)
     resultados, total = actividades_service.listar_todas(db, page=page, page_size=page_size, **filtros)
-    return ActividadListaPaginada(total=total, page=page, page_size=page_size, resultados=resultados)
+
+    # Miniatura de evidencia por fila — UNA consulta para toda la página
+    # (ver `repo_evidencias.primera_por_actividad`), nunca una por actividad.
+    mapa_evidencias = repo_evidencias.primera_por_actividad(db, [a.id for a in resultados])
+    publicos = [
+        ActividadPublica.model_validate(a).model_copy(update={"primera_evidencia_id": mapa_evidencias.get(a.id)})
+        for a in resultados
+    ]
+    return ActividadListaPaginada(total=total, page=page, page_size=page_size, resultados=publicos)
 
 
 @router.get("/exportar")

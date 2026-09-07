@@ -1,20 +1,21 @@
 <!-- admin-eca — pantalla "Actividades" (ECA-019). Rediseño pedido
      explícito: mismo lenguaje visual que `RegistrosView.vue` de
-     admin-pwa — header con ícono, tarjetas de estadística, avatar +
-     nombre real del técnico (el listado del backend solo trae
-     `usuario_id`, se cruza con `GET /usuarios`), badges de estado GPS,
-     nombre real de la ECA (se cruza con `GET /ecas`), y paginación real
-     con los metadatos que el backend ya devuelve (`total/page/page_size`
-     — a diferencia de Técnicos, aquí SÍ pagina el servidor). El listado
-     admin NO trae fotos de evidencia (serían N+1 peticiones si se
-     pidieran una por una); se ve el detalle completo con galería en
-     `ActividadDetalleView.vue`, ya existente. -->
+     admin-pwa — tabla con scroll interno (encabezado fijo), miniatura de
+     evidencia por fila, badges de tipo/GPS, botones de acción circulares,
+     avatar + nombre real del técnico (el listado del backend solo trae
+     `usuario_id`, se cruza con `GET /usuarios`), nombre real de la ECA
+     (se cruza con `GET /ecas`), y paginación real con los metadatos que
+     el backend ya devuelve (`total/page/page_size`). La miniatura usa
+     `primera_evidencia_id` (una sola consulta extra para toda la página,
+     ver `repo_evidencias.primera_por_actividad` en el backend — nunca
+     N+1); el detalle completo con galería sigue en
+     `ActividadDetalleView.vue`. -->
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { RouterLink } from 'vue-router'
 import { listarEstados, listarMunicipios } from '../services/geoService'
 import { listarCatalogo } from '../services/catalogosService'
-import { listarActividades, exportarCsv } from '../services/actividadesService'
+import { listarActividades, exportarCsv, urlVistaPreviaEvidencia } from '../services/actividadesService'
 import { listarEcas } from '../services/ecasService'
 import { api } from '../services/api'
 import AuthIcon from '../components/auth/AuthIcon.vue'
@@ -44,6 +45,28 @@ const exportando = ref(false)
 
 const ETIQUETAS_GPS = { CON_GPS: 'Con GPS', GPS_IMPRECISO: 'GPS impreciso', SIN_GPS: 'Sin GPS' }
 const BADGE_GPS = { CON_GPS: 'eca-badge--verde', GPS_IMPRECISO: 'eca-badge--ambar', SIN_GPS: 'eca-badge--gris' }
+const COLORES_TIPO = ['morado', 'verde', 'azul', 'ambar']
+
+// Miniatura de evidencia: `evidenciaId -> object URL`, cargadas bajo
+// demanda solo para las filas visibles de la página actual (nunca todas
+// las evidencias de golpe). Se liberan (`URL.revokeObjectURL`) al
+// cambiar de página o desmontar la vista — si no, cada blob se queda
+// vivo en memoria del navegador para siempre.
+const vistasPrevias = ref({})
+function limpiarVistasPrevias() {
+  for (const url of Object.values(vistasPrevias.value)) URL.revokeObjectURL(url)
+  vistasPrevias.value = {}
+}
+async function cargarVistasPrevias(lista) {
+  for (const a of lista) {
+    if (!a.primera_evidencia_id) continue
+    urlVistaPreviaEvidencia(a.primera_evidencia_id)
+      .then((url) => {
+        vistasPrevias.value = { ...vistasPrevias.value, [a.primera_evidencia_id]: url }
+      })
+      .catch(() => {})
+  }
+}
 
 const totalPaginas = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
 
@@ -98,10 +121,12 @@ function filtrosActuales() {
 async function cargar() {
   cargando.value = true
   error.value = ''
+  limpiarVistasPrevias()
   try {
     const respuesta = await listarActividades({ ...filtrosActuales(), page: page.value, pageSize })
     actividades.value = respuesta.resultados
     total.value = respuesta.total
+    cargarVistasPrevias(respuesta.resultados)
   } catch {
     error.value = 'No se pudieron cargar las actividades.'
   } finally {
@@ -148,6 +173,13 @@ function ecaNombre(actividad) {
   if (actividad.eca_nombre) return `${actividad.eca_nombre} (escrita)`
   return '—'
 }
+function tipoInfo(actividad) {
+  const tipo = tiposActividad.value.find((t) => t.id === actividad.tipo_actividad_id)
+  const indice = tiposActividad.value.findIndex((t) => t.id === actividad.tipo_actividad_id)
+  return { nombre: tipo?.nombre || '—', color: COLORES_TIPO[Math.max(0, indice) % COLORES_TIPO.length] }
+}
+
+onBeforeUnmount(limpiarVistasPrevias)
 
 onMounted(async () => {
   await Promise.all([
@@ -247,16 +279,18 @@ onMounted(async () => {
         <p>No hay actividades con estos filtros.</p>
       </div>
 
-      <div v-else class="eca-tabla-scroll">
-        <table class="eca-tabla">
+      <div v-else class="actividades__tabla-contenedor">
+        <table class="eca-tabla actividades__tabla">
           <thead>
             <tr>
               <th>Técnico</th>
+              <th>Foto</th>
+              <th>Tipo</th>
               <th>Fecha</th>
               <th>ECA</th>
               <th>Descripción</th>
               <th>GPS</th>
-              <th></th>
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -271,10 +305,29 @@ onMounted(async () => {
                 </div>
               </td>
               <td>
+                <RouterLink :to="{ name: 'actividad-detalle', params: { uuid: a.uuid } }" class="actividades__foto-enlace">
+                  <img
+                    v-if="a.primera_evidencia_id && vistasPrevias[a.primera_evidencia_id]"
+                    :src="vistasPrevias[a.primera_evidencia_id]"
+                    alt="Evidencia"
+                    class="actividades__foto"
+                  />
+                  <span v-else-if="a.primera_evidencia_id" class="actividades__foto actividades__foto--cargando">
+                    <AuthIcon name="sync" class="actividades__foto-spinner" />
+                  </span>
+                  <span v-else class="actividades__foto actividades__foto--vacia">
+                    <AuthIcon name="camera" />
+                  </span>
+                </RouterLink>
+              </td>
+              <td>
+                <span class="eca-badge" :class="`eca-badge--${tipoInfo(a).color}`">{{ tipoInfo(a).nombre }}</span>
+              </td>
+              <td>
                 <span class="actividades__fecha-badge">{{ new Date(a.fecha_hora).toLocaleDateString('es-MX') }}</span>
                 <span class="actividades__hora-badge">{{ new Date(a.fecha_hora).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) }}</span>
               </td>
-              <td>{{ ecaNombre(a) }}</td>
+              <td class="actividades__eca">{{ ecaNombre(a) }}</td>
               <td class="actividades__descripcion">{{ a.descripcion }}</td>
               <td>
                 <span class="eca-badge" :class="BADGE_GPS[a.estado_gps] || 'eca-badge--gris'">
@@ -282,9 +335,15 @@ onMounted(async () => {
                 </span>
               </td>
               <td>
-                <RouterLink class="actividades__ver" :to="{ name: 'actividad-detalle', params: { uuid: a.uuid } }">
-                  <AuthIcon name="camera" /> Ver
-                </RouterLink>
+                <div class="actividades__acciones">
+                  <RouterLink
+                    class="actividades__accion actividades__accion--ver"
+                    :to="{ name: 'actividad-detalle', params: { uuid: a.uuid } }"
+                    title="Ver detalle"
+                  >
+                    <AuthIcon name="search" />
+                  </RouterLink>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -326,11 +385,56 @@ onMounted(async () => {
   color: var(--eca-ink-soft);
   gap: 0.2rem;
 }
-.eca-tabla-scroll {
-  overflow-x: auto;
+/* ---- Tabla con scroll INTERNO (pedido explícito, mismo patrón que
+   `.apple-table-container`/`.apple-table-wrapper` de admin-pwa): el
+   contenedor tiene una altura acotada y es ÉL el que hace scroll —
+   nunca la página completa — con el encabezado siempre visible arriba
+   (`position: sticky`). ---- */
+.actividades__tabla-contenedor {
+  max-height: 60vh;
+  overflow: auto;
+  border-radius: var(--eca-r-md);
+  border: 1px solid var(--eca-surface-border);
 }
+.actividades__tabla-contenedor::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.actividades__tabla-contenedor::-webkit-scrollbar-track {
+  background: transparent;
+}
+.actividades__tabla-contenedor::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+.actividades__tabla-contenedor::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.28);
+  background-clip: content-box;
+}
+.actividades__tabla {
+  min-width: 900px;
+}
+.actividades__tabla thead th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--eca-surface);
+  box-shadow: 0 1px 0 var(--eca-surface-border);
+}
+.actividades__tabla tbody tr {
+  transition: background 0.15s ease;
+}
+
 .actividades__descripcion {
-  max-width: 260px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.actividades__eca {
+  max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -345,24 +449,77 @@ onMounted(async () => {
   font-size: 0.75rem;
   color: var(--eca-ink-soft);
 }
-.actividades__ver {
-  display: inline-flex;
+
+/* Miniatura de evidencia */
+.actividades__foto-enlace {
+  display: block;
+  width: fit-content;
+}
+.actividades__foto {
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  object-fit: cover;
+  display: flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.3rem 0.65rem;
-  border-radius: 999px;
+  justify-content: center;
+  border: 2px solid rgba(139, 195, 74, 0.35);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.25s ease;
+}
+.actividades__foto-enlace:hover .actividades__foto {
+  transform: scale(1.15);
+  border-color: var(--eca-green-600);
+}
+.actividades__foto--vacia,
+.actividades__foto--cargando {
+  color: var(--eca-ink-faint, #9aa1af);
   background: var(--eca-surface);
-  color: var(--eca-purple-700);
-  text-decoration: none;
-  font-size: 0.8rem;
-  font-weight: 600;
-  white-space: nowrap;
+  border-color: var(--eca-surface-border);
 }
-.actividades__ver svg {
-  width: 13px;
-  height: 13px;
+.actividades__foto--vacia svg,
+.actividades__foto-spinner {
+  width: 1.1rem;
+  height: 1.1rem;
 }
-.actividades__ver:hover {
-  background: #ede9fe;
+.actividades__foto-spinner {
+  animation: eca-girar 0.9s linear infinite;
+}
+
+/* Acciones circulares — mismo lenguaje visual que las tarjetas del
+   dashboard de Inicio (degradado + sombra + hover con escala). */
+.actividades__acciones {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+.actividades__accion {
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+}
+.actividades__accion svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+.actividades__accion:hover {
+  transform: scale(1.12);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
+}
+.actividades__accion--ver {
+  background: linear-gradient(135deg, var(--eca-purple-600), var(--eca-purple-500));
+}
+
+@media (max-width: 640px) {
+  .actividades__tabla-contenedor {
+    max-height: 70vh;
+  }
 }
 </style>
