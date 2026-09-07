@@ -546,62 +546,75 @@ async function cambiarEstado(usuario, estadoNuevo) {
                 <p v-if="errorPermisos" class="eca-alerta-error" role="alert">{{ errorPermisos }}</p>
 
                 <div class="permisos__seccion">
-                  <h3 class="permisos__seccion-titulo">Datos</h3>
-                  <div class="permisos__form-fila">
-                    <label>
-                      Nombre
+                  <h3 class="permisos__seccion-titulo"><AuthIcon name="user" /> Datos</h3>
+                  <div class="permisos__campos-fila">
+                    <label class="permisos__campo">
+                      <span>Nombre</span>
                       <input v-model="datosEditando.nombre" type="text" required />
                     </label>
-                    <label>
-                      Apellido paterno
+                    <label class="permisos__campo">
+                      <span>Apellido paterno</span>
                       <input v-model="datosEditando.apellidoPaterno" type="text" required />
                     </label>
                   </div>
-                  <div class="permisos__form-fila">
-                    <label>
-                      Apellido materno (opcional)
-                      <input v-model="datosEditando.apellidoMaterno" type="text" />
+                  <div class="permisos__campos-fila">
+                    <label class="permisos__campo">
+                      <span>Apellido materno</span>
+                      <input v-model="datosEditando.apellidoMaterno" type="text" placeholder="Opcional" />
                     </label>
-                    <label>
-                      Teléfono (opcional)
-                      <input v-model="datosEditando.telefono" type="text" />
+                    <label class="permisos__campo">
+                      <span>Teléfono</span>
+                      <input v-model="datosEditando.telefono" type="text" placeholder="Opcional" />
                     </label>
                   </div>
-                  <label>
-                    Cargo (opcional)
-                    <input v-model="datosEditando.cargo" type="text" />
+                  <label class="permisos__campo">
+                    <span>Cargo</span>
+                    <input v-model="datosEditando.cargo" type="text" placeholder="Opcional" />
                   </label>
                 </div>
 
-                <div v-if="usuarioEditando && rolPrincipal(usuarioEditando) === 'USUARIO'" class="permisos__seccion">
-                  <h3 class="permisos__seccion-titulo">Acceso por vista</h3>
-                  <p class="eca-ayuda">Prende cada vista a la que este usuario debe poder entrar en el panel.</p>
+                <div class="permisos__seccion">
+                  <h3 class="permisos__seccion-titulo"><AuthIcon name="shield-check" /> Acceso al panel</h3>
 
-                  <div v-for="vista in vistasConPermisos" :key="vista.clave" class="permisos__vista">
-                    <div class="permisos__vista-fila">
-                      <span class="permisos__vista-icono"><AuthIcon :name="vista.icono" /></span>
-                      <span class="permisos__vista-etiqueta">{{ vista.etiqueta }}</span>
-                      <label class="permisos__switch">
-                        <input
-                          type="checkbox"
-                          :checked="vistaEncendida(vista)"
-                          @change="alternarVista(vista)"
-                        />
-                        <span class="permisos__switch-riel"></span>
-                      </label>
-                    </div>
-
-                    <div v-if="vista.subPermisos.length && vistaEncendida(vista)" class="permisos__subpermisos">
-                      <label v-for="p in vista.subPermisos" :key="p.clave" class="permisos__item">
-                        <input
-                          type="checkbox"
-                          :checked="permisosSeleccionados.has(p.clave)"
-                          @change="alternarPermiso(p.clave)"
-                        />
-                        <span>{{ p.nombre }}</span>
-                      </label>
+                  <div v-if="usuarioEditando && rolPrincipal(usuarioEditando) === 'ADMIN'" class="permisos__admin-total">
+                    <span class="permisos__admin-total-icono"><AuthIcon name="shield" /></span>
+                    <div>
+                      <strong>Administrador</strong>
+                      <p>Ve y gestiona todas las vistas del panel — no se otorgan permisos uno por uno.</p>
                     </div>
                   </div>
+
+                  <template v-else>
+                    <p class="eca-ayuda permisos__ayuda-vistas">Prende cada vista a la que este usuario debe poder entrar en el panel.</p>
+
+                    <div v-for="vista in vistasConPermisos" :key="vista.clave" class="permisos__vista" :class="{ 'permisos__vista--activa': vistaEncendida(vista) }">
+                      <div class="permisos__vista-fila">
+                        <span class="permisos__vista-icono"><AuthIcon :name="vista.icono" /></span>
+                        <span class="permisos__vista-etiqueta">{{ vista.etiqueta }}</span>
+                        <label class="permisos__switch">
+                          <input
+                            type="checkbox"
+                            :checked="vistaEncendida(vista)"
+                            @change="alternarVista(vista)"
+                          />
+                          <span class="permisos__switch-riel"></span>
+                        </label>
+                      </div>
+
+                      <Transition name="permisos-subpermisos">
+                        <div v-if="vista.subPermisos.length && vistaEncendida(vista)" class="permisos__subpermisos">
+                          <label v-for="p in vista.subPermisos" :key="p.clave" class="permisos__item">
+                            <input
+                              type="checkbox"
+                              :checked="permisosSeleccionados.has(p.clave)"
+                              @change="alternarPermiso(p.clave)"
+                            />
+                            <span>{{ p.nombre }}</span>
+                          </label>
+                        </div>
+                      </Transition>
+                    </div>
+                  </template>
                 </div>
               </div>
 
@@ -977,31 +990,125 @@ async function cambiarEstado(usuario, estadoNuevo) {
   padding-bottom: 0.35rem;
   border-bottom: 1px solid var(--eca-surface-border);
 }
-.permisos__vista {
-  border: 1px solid var(--eca-surface-border);
+.permisos__seccion-titulo {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.permisos__seccion-titulo svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+.permisos__campos-fila {
+  display: flex;
+  gap: 0.9rem;
+}
+.permisos__campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.32rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--eca-ink-soft);
+  flex: 1;
+  margin-bottom: 0.85rem;
+}
+.permisos__campo input {
+  padding: 0.65rem 0.85rem;
   border-radius: var(--eca-r-sm);
-  padding: 0.7rem 0.85rem;
-  margin-bottom: 0.5rem;
+  border: 1.5px solid var(--eca-surface-border);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--eca-ink);
+  background: var(--eca-surface);
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+.permisos__campo input:focus {
+  outline: none;
+  border-color: var(--eca-green-500);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.14);
+}
+.permisos__ayuda-vistas {
+  margin: -0.3rem 0 0.85rem;
+}
+.permisos__admin-total {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1rem 1.1rem;
+  border-radius: var(--eca-r-md);
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border: 1px solid #fde68a;
+}
+.permisos__admin-total-icono {
+  flex-shrink: 0;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3);
+}
+.permisos__admin-total-icono svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+.permisos__admin-total strong {
+  display: block;
+  font-size: 0.92rem;
+  color: #92400e;
+  margin-bottom: 0.15rem;
+}
+.permisos__admin-total p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #92400e;
+  opacity: 0.85;
+  line-height: 1.4;
+}
+.permisos__vista {
+  border: 1.5px solid var(--eca-surface-border);
+  border-radius: var(--eca-r-md);
+  padding: 0.75rem 0.95rem;
+  margin-bottom: 0.55rem;
+  background: var(--eca-surface);
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+.permisos__vista--activa {
+  border-color: rgba(34, 197, 94, 0.4);
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(34, 197, 94, 0.08);
 }
 .permisos__vista-fila {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.7rem;
 }
 .permisos__vista-icono {
-  width: 1.8rem;
-  height: 1.8rem;
+  width: 2rem;
+  height: 2rem;
   flex-shrink: 0;
   border-radius: 50%;
-  background: var(--eca-surface);
+  background: #fff;
+  border: 1px solid var(--eca-surface-border);
   display: flex;
   align-items: center;
   justify-content: center;
+  color: var(--eca-ink-soft);
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+.permisos__vista--activa .permisos__vista-icono {
   color: var(--eca-green-700);
+  border-color: rgba(34, 197, 94, 0.4);
 }
 .permisos__vista-icono svg {
-  width: 0.9rem;
-  height: 0.9rem;
+  width: 0.95rem;
+  height: 0.95rem;
 }
 .permisos__vista-etiqueta {
   flex: 1;
@@ -1010,9 +1117,22 @@ async function cambiarEstado(usuario, estadoNuevo) {
   color: var(--eca-ink);
 }
 .permisos__subpermisos {
-  margin: 0.6rem 0 0 2.4rem;
-  padding-top: 0.5rem;
+  margin: 0.65rem 0 0 2.7rem;
+  padding-top: 0.55rem;
   border-top: 1px dashed var(--eca-surface-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.permisos-subpermisos-enter-active,
+.permisos-subpermisos-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  overflow: hidden;
+}
+.permisos-subpermisos-enter-from,
+.permisos-subpermisos-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 
 /* Switch tipo "pill" — mismo lenguaje visual que `.geografia__switch`
@@ -1112,8 +1232,10 @@ async function cambiarEstado(usuario, estadoNuevo) {
   .permisos__modal-cabecera--exito {
     border-radius: 24px 24px 0 0;
   }
-  .permisos__form-fila {
+  .permisos__form-fila,
+  .permisos__campos-fila {
     flex-direction: column;
+    gap: 0;
   }
   .permisos__nuevo {
     margin-left: 0;
