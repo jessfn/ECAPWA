@@ -229,18 +229,21 @@ a {
    repetido vista por vista). Tarjetas de estadística, chips de filtro,
    avatar, badges, paginación con el prefijo `eca-page-*`/`eca-stat-*`
    propio de este proyecto. ---- */
+/* Barra superior verde: pegada al borde de arriba y de lado a lado (estilo
+   "app bar", pedido explícito). Sin esquinas redondeadas ni bordes
+   laterales — ocupa todo el ancho del área de contenido. El contenido de
+   abajo se separa con `--eca-gutter`. */
 .eca-page-header {
   display: flex;
   align-items: center;
   gap: 0.9rem;
-  padding: 1rem 1.25rem;
-  margin-bottom: 0;
-  border-radius: 24px 24px 0 0;
-  border: 2px solid #8bc34a;
-  border-bottom: none;
+  padding: 1rem 1.5rem;
+  margin: 0;
+  border: none;
+  border-radius: 0;
   background: linear-gradient(135deg, #4caf50 0%, #45a049 50%, #2e7d32 100%);
   color: #fff;
-  box-shadow: 0 8px 20px rgba(46, 125, 50, 0.25);
+  box-shadow: 0 6px 18px rgba(46, 125, 50, 0.28);
 }
 
 /* Panel blanco "fusionado" directamente bajo `.eca-page-header` — mismo
@@ -254,15 +257,22 @@ a {
    la tarjeta blanca, con sombras y bordes redondeados por separado. */
 .eca-panel-fusionado {
   background: #fff;
-  border: 2px solid #8bc34a;
-  border-top: none;
-  border-radius: 0 0 24px 24px;
-  margin: -1px 0 1rem;
-  padding: 0.85rem 1.25rem 0.95rem;
-  box-shadow: 0 10px 24px rgba(46, 125, 50, 0.1);
+  border: 1px solid var(--eca-surface-border);
+  border-radius: var(--eca-r-lg);
+  /* Tarjeta prominente separada del header por `--eca-gutter` arriba y a
+     los lados (pedido explícito: "abajo en una más fuerte los filtros"). */
+  margin: var(--eca-gutter, 1rem) var(--eca-gutter, 1rem) 1rem;
+  padding: 1rem 1.25rem 1.1rem;
+  box-shadow: 0 14px 30px rgba(30, 20, 60, 0.12), 0 3px 8px rgba(30, 20, 60, 0.06);
 }
 .eca-panel-fusionado.eca-card {
-  box-shadow: 0 10px 24px rgba(46, 125, 50, 0.1);
+  box-shadow: 0 14px 30px rgba(30, 20, 60, 0.12), 0 3px 8px rgba(30, 20, 60, 0.06);
+}
+/* Tarjetas sueltas (p. ej. la tabla de Actividades, que va debajo del
+   panel de filtros) también se separan de los bordes con el gutter. */
+.eca-card:not(.eca-panel-fusionado) {
+  margin-left: var(--eca-gutter, 1rem);
+  margin-right: var(--eca-gutter, 1rem);
 }
 .eca-panel-fusionado .eca-stats-grid {
   margin-bottom: 0.7rem;

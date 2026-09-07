@@ -288,7 +288,7 @@ onMounted(async () => {
       <span class="eca-page-header__icono"><AuthIcon name="clock" /></span>
       <div class="eca-page-header__texto">
         <h1>Actividades</h1>
-        <p>Registros de todos los técnicos, con filtros y exportación.</p>
+        <p>Registros de todos los técnicos, con filtros y búsqueda.</p>
       </div>
       <button
         type="button"

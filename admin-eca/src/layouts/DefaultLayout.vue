@@ -25,12 +25,12 @@ import Sidebar from '../components/Sidebar.vue'
   margin-left: min(220px, 18vw);
   min-height: 100vh;
   min-height: 100dvh;
-  /* Mismo espaciado que `.apple-main-content` de admin-pwa: poco margen
-     arriba/lados y nada abajo — la vista es la que decide su propio
-     padding interno (dentro de `.eca-page-header`/`.eca-panel-fusionado`).
-     Antes eran 2rem parejos en los cuatro lados, muy separado del borde
-     de la ventana comparado con el original. */
-  padding: 0.6rem 1rem 1rem;
+  /* Sin padding arriba ni a los lados: el header verde (`.eca-page-header`)
+     va pegado al borde superior y de lado a lado (pedido explícito, estilo
+     "barra de app"). El contenido bajo el header trae su propio margen
+     lateral (`--eca-gutter`), así no queda pegado a los bordes. */
+  --eca-gutter: 1rem;
+  padding: 0 0 1rem;
   box-sizing: border-box;
 }
 @media (max-width: 768px) {
@@ -38,7 +38,7 @@ import Sidebar from '../components/Sidebar.vue'
     /* El sidebar se colapsa a un riel de 60px de solo iconos en este
        breakpoint (ver Sidebar.vue) — el margen debe coincidir. */
     margin-left: 60px;
-    padding: 0.5rem 0.6rem 1rem;
+    --eca-gutter: 0.6rem;
   }
 }
 </style>
