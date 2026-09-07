@@ -124,6 +124,10 @@ DATOS_BASE = dict(
     num_participantes=None,
     requiere_seguimiento=False,
     fecha_proximo_seguimiento=None,
+    # La ubicación es obligatoria (ver `_validar_gps`): las pruebas genéricas
+    # traen un GPS válido por defecto para no chocar con esa regla; las
+    # pruebas específicas de GPS lo sobreescriben con `dict(DATOS_BASE, gps=…)`.
+    gps=GpsPeticion(latitud=19.4, longitud=-99.1, precision_gps_m=8.5, estado_gps="CON_GPS"),
 )
 
 
@@ -225,48 +229,47 @@ def test_crear_actividad_jornada_de_otro_usuario_es_error(db: DBFalsa, repo_acti
 def test_crear_actividad_con_gps_bueno(db: DBFalsa, repo_actividades, repo_jornadas, actor: Usuario) -> None:
     tipo = _tipo()
     db.registrar(TipoActividad, tipo.id, tipo)
-    gps = GpsPeticion(latitud=19.4, longitud=-99.1, precision_gps_m=8.5, estado_gps="CON_GPS")
+    datos = dict(DATOS_BASE, gps=GpsPeticion(latitud=19.4, longitud=-99.1, precision_gps_m=8.5, estado_gps="CON_GPS"))
 
     actividad = actividades_service.crear(
-        db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, gps=gps, **DATOS_BASE
+        db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, **datos
     )
 
     assert actividad.latitud == 19.4
     assert actividad.estado_gps == "CON_GPS"
 
 
-def test_crear_actividad_sin_gps_no_bloquea(db: DBFalsa, repo_actividades, repo_jornadas, actor: Usuario) -> None:
+def test_crear_actividad_sin_gps_es_error(db: DBFalsa, repo_actividades, repo_jornadas, actor: Usuario) -> None:
+    # Ubicación obligatoria (pedido explícito): SIN_GPS ya no se acepta.
     tipo = _tipo()
     db.registrar(TipoActividad, tipo.id, tipo)
-    gps = GpsPeticion(estado_gps="SIN_GPS")
+    datos = dict(DATOS_BASE, gps=GpsPeticion(estado_gps="SIN_GPS"))
 
-    actividad = actividades_service.crear(
-        db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, gps=gps, **DATOS_BASE
-    )
-
-    assert actividad.latitud is None
-    assert actividad.estado_gps == "SIN_GPS"
+    with pytest.raises(actividades_service.GpsInvalidoError):
+        actividades_service.crear(
+            db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, **datos
+        )
 
 
-def test_crear_actividad_con_gps_ausente_no_bloquea(db: DBFalsa, repo_actividades, repo_jornadas, actor: Usuario) -> None:
+def test_crear_actividad_con_gps_ausente_es_error(db: DBFalsa, repo_actividades, repo_jornadas, actor: Usuario) -> None:
+    # Sin objeto GPS tampoco: la ubicación es obligatoria.
     tipo = _tipo()
     db.registrar(TipoActividad, tipo.id, tipo)
+    datos = dict(DATOS_BASE, gps=None)
 
-    actividad = actividades_service.crear(
-        db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, gps=None, **DATOS_BASE
-    )
-
-    assert actividad.latitud is None
-    assert actividad.estado_gps is None
+    with pytest.raises(actividades_service.GpsInvalidoError):
+        actividades_service.crear(
+            db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, **datos
+        )
 
 
 def test_crear_actividad_con_gps_imprecisa(db: DBFalsa, repo_actividades, repo_jornadas, actor: Usuario) -> None:
     tipo = _tipo()
     db.registrar(TipoActividad, tipo.id, tipo)
-    gps = GpsPeticion(latitud=19.4, longitud=-99.1, precision_gps_m=120, estado_gps="GPS_IMPRECISO")
+    datos = dict(DATOS_BASE, gps=GpsPeticion(latitud=19.4, longitud=-99.1, precision_gps_m=120, estado_gps="GPS_IMPRECISO"))
 
     actividad = actividades_service.crear(
-        db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, gps=gps, **DATOS_BASE
+        db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, **datos
     )
 
     assert actividad.estado_gps == "GPS_IMPRECISO"
@@ -275,20 +278,20 @@ def test_crear_actividad_con_gps_imprecisa(db: DBFalsa, repo_actividades, repo_j
 def test_crear_actividad_con_gps_true_sin_coordenadas_es_error(db: DBFalsa, repo_actividades, repo_jornadas, actor: Usuario) -> None:
     tipo = _tipo()
     db.registrar(TipoActividad, tipo.id, tipo)
-    gps = GpsPeticion(estado_gps="CON_GPS")
+    datos = dict(DATOS_BASE, gps=GpsPeticion(estado_gps="CON_GPS"))
 
     with pytest.raises(actividades_service.GpsInvalidoError):
         actividades_service.crear(
-            db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, gps=gps, **DATOS_BASE
+            db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, **datos
         )
 
 
 def test_crear_actividad_con_lat_sin_lon_es_error(db: DBFalsa, repo_actividades, repo_jornadas, actor: Usuario) -> None:
     tipo = _tipo()
     db.registrar(TipoActividad, tipo.id, tipo)
-    gps = GpsPeticion(latitud=19.4, longitud=None)
+    datos = dict(DATOS_BASE, gps=GpsPeticion(latitud=19.4, longitud=None))
 
     with pytest.raises(actividades_service.GpsInvalidoError):
         actividades_service.crear(
-            db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, gps=gps, **DATOS_BASE
+            db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, **datos
         )

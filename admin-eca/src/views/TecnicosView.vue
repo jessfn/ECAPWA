@@ -26,7 +26,11 @@ async function cargar() {
   cargando.value = true
   error.value = ''
   try {
-    const { data } = await api.get('/usuarios')
+    // Solo técnicos de campo (rol TECNICO). Los usuarios del PANEL (ADMIN /
+    // USUARIO), que se crean en "Permisos administrativos" para entrar a
+    // admin-eca, comparten la tabla `usuarios` pero NO son técnicos y no
+    // deben aparecer aquí — por eso se filtra por rol en el servidor.
+    const { data } = await api.get('/usuarios', { params: { rol: 'TECNICO' } })
     usuarios.value = data
   } catch {
     error.value = 'No se pudieron cargar los técnicos.'

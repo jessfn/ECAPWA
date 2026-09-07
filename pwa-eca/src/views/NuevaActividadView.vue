@@ -46,6 +46,13 @@ const avisoExito = ref(false)
 const gps = ref(null)
 const fotos = ref([])
 const errorFotos = ref('')
+// Candado de reentrada: evita que un doble toque en "Guardar" cree DOS
+// actividades (cada llamada a `actividad.crear` genera un uuid nuevo, así
+// que el backend no puede deduplicarlas — se veían como filas duplicadas
+// en admin). Se pone en true de forma síncrona al entrar a `guardar`,
+// antes de cualquier `await`, y solo se libera si hubo error (en éxito se
+// navega fuera de la pantalla).
+const enviando = ref(false)
 
 const tipoSeleccionado = computed(
   () => catalogos.value?.tiposActividad.find((t) => t.id === tipoActividadId.value) || null,
@@ -114,8 +121,21 @@ onMounted(async () => {
 })
 
 async function guardar() {
+  // Candado síncrono: si ya hay un envío en curso, ignorar el segundo toque.
+  if (enviando.value) return
+  enviando.value = true
   actividad.error = ''
   errorFotos.value = ''
+
+  // Ubicación OBLIGATORIA (pedido explícito): no se puede subir una
+  // actividad sin una lectura de GPS real (CON_GPS o GPS_IMPRECISO). Sin
+  // esto, el técnico podía guardar con estado SIN_GPS y quedaba sin
+  // coordenadas.
+  if (!pasoUbicacionListo.value) {
+    actividad.error = 'Debes capturar la ubicación (GPS) antes de guardar la actividad.'
+    enviando.value = false
+    return
+  }
 
   // Antes, si la jornada no estaba abierta en ESTE dispositivo (p. ej.
   // se inició desde otro), esto tronaba en silencio al leer
@@ -126,11 +146,13 @@ async function guardar() {
   // jornada abierta, se corta aquí con un mensaje claro.
   if (!jornada.abierta) {
     actividad.error = 'Necesitas una jornada abierta para registrar una actividad.'
+    enviando.value = false
     return
   }
 
   if (minFotos.value && fotos.value.length < minFotos.value) {
     errorFotos.value = `Este tipo de actividad requiere al menos ${minFotos.value} foto(s).`
+    enviando.value = false
     return
   }
 
@@ -161,7 +183,9 @@ async function guardar() {
     // lo cierra, y solo entonces se navega (`cerrarAvisoExito`).
     avisoExito.value = true
   } catch {
-    // el mensaje ya quedó en actividad.error
+    // el mensaje ya quedó en actividad.error; se libera el candado para
+    // permitir reintentar.
+    enviando.value = false
   }
 }
 
@@ -342,9 +366,16 @@ function cerrarAvisoExito() {
           <AuthIcon name="check" /> Todo listo para enviar
         </p>
 
-        <button type="submit" class="eca-btn eca-btn-primary" :disabled="actividad.guardando || !jornada.abierta">
-          {{ actividad.guardando ? 'Guardando…' : 'Guardar actividad' }}
+        <button
+          type="submit"
+          class="eca-btn eca-btn-primary"
+          :disabled="enviando || actividad.guardando || !jornada.abierta || !pasoUbicacionListo"
+        >
+          {{ enviando || actividad.guardando ? 'Guardando…' : 'Guardar actividad' }}
         </button>
+        <p v-if="!pasoUbicacionListo" class="eca-ayuda" style="text-align:center;margin:0">
+          Captura tu ubicación (paso 1) para poder guardar.
+        </p>
       </form>
     </div>
 

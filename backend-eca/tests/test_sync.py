@@ -33,6 +33,7 @@ from app.models.catalogos import TipoActividad
 from app.models.dispositivo import Dispositivo
 from app.models.jornada import Jornada
 from app.models.usuario import Usuario
+from app.schemas.gps import GpsPeticion
 from app.schemas.sync import ActividadSyncItem, JornadaSyncItem
 from app.services import sync_service
 
@@ -142,6 +143,10 @@ def repos(monkeypatch: pytest.MonkeyPatch):
 
 DISPOSITIVO_UUID = uuid_lib.uuid4()
 INICIO = datetime(2026, 3, 5, 8, 0, tzinfo=timezone.utc)
+# La ubicación es obligatoria al crear una actividad (ver `_validar_gps`):
+# los items de sync de prueba traen un GPS válido para no ser rechazados
+# por esa regla antes de llegar a la validación que cada test busca probar.
+GPS_VALIDO = GpsPeticion(latitud=19.4, longitud=-99.1, precision_gps_m=8.5, estado_gps="CON_GPS")
 
 
 def _tipo_actividad(db: DBFalsa, **overrides) -> TipoActividad:
@@ -183,6 +188,7 @@ def test_push_mismo_lote_dos_veces_no_duplica(db: DBFalsa, repos, actor: Usuario
         tipo_actividad_id=tipo.id,
         descripcion="Visita de campo.",
         fecha_hora=INICIO,
+        gps=GPS_VALIDO,
     )
 
     primera = sync_service.push(
@@ -208,6 +214,7 @@ def test_push_tipo_actividad_inexistente_es_rechazado_los_demas_aplicados(db: DB
         tipo_actividad_id=tipo.id,
         descripcion="Actividad válida.",
         fecha_hora=INICIO,
+        gps=GPS_VALIDO,
     )
     mala = ActividadSyncItem(
         uuid=uuid_lib.uuid4(),
@@ -216,6 +223,7 @@ def test_push_tipo_actividad_inexistente_es_rechazado_los_demas_aplicados(db: DB
         tipo_actividad_id=9999,
         descripcion="Actividad con tipo inexistente.",
         fecha_hora=INICIO,
+        gps=GPS_VALIDO,
     )
 
     resultados = sync_service.push(
@@ -238,6 +246,7 @@ def test_push_actividad_con_jornada_inexistente_es_rechazada(db: DBFalsa, repos,
         tipo_actividad_id=tipo.id,
         descripcion="x",
         fecha_hora=INICIO,
+        gps=GPS_VALIDO,
     )
 
     resultados = sync_service.push(db, dispositivo_uuid=DISPOSITIVO_UUID, jornadas=[], actividades=[item], actor=actor)

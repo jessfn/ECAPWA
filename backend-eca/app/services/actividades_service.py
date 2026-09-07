@@ -49,6 +49,11 @@ def _validar_gps(gps: GpsPeticion) -> None:
         raise GpsInvalidoError("latitud y longitud deben venir juntas o ninguna.")
     if gps.estado_gps == "CON_GPS" and (gps.latitud is None or gps.longitud is None):
         raise GpsInvalidoError("estado_gps='CON_GPS' requiere latitud y longitud.")
+    # Ubicación OBLIGATORIA (pedido explícito): una actividad no puede
+    # guardarse sin coordenadas reales. Bloquea estado SIN_GPS o cualquier
+    # envío sin latitud/longitud, tanto por el endpoint online como por sync.
+    if gps.latitud is None or gps.longitud is None:
+        raise GpsInvalidoError("La ubicación (GPS) es obligatoria para registrar una actividad.")
 
 
 def crear(
