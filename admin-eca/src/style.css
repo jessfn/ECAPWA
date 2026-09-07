@@ -237,13 +237,14 @@ a {
   align-items: center;
   gap: 0.9rem;
   padding: 1rem 1.5rem;
-  /* Separado de los bordes con `--eca-gutter` a los lados y arriba: el
-     bloque (header + filtros) queda como una tarjeta que no toca las
-     orillas. Esquinas superiores redondeadas; las inferiores las cierra
+  /* Pegada al borde superior (sin hueco arriba) pero separada de los lados
+     con `--eca-gutter`: el bloque (header + filtros) toca el tope y deja
+     aire a izquierda y derecha. Esquinas superiores rectas para que quede
+     realmente pegada arriba; las inferiores las redondea
      `.eca-panel-fusionado`, fusionado justo debajo. */
-  margin: var(--eca-gutter, 1rem) var(--eca-gutter, 1rem) 0;
+  margin: 0 var(--eca-gutter, 1rem);
   border: none;
-  border-radius: var(--eca-r-lg) var(--eca-r-lg) 0 0;
+  border-radius: 0;
   background: linear-gradient(135deg, #1f5b34 0%, #164227 58%, #0e3a20 100%);
   color: #fff;
 }
