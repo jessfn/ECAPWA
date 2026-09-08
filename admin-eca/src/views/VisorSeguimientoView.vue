@@ -158,6 +158,10 @@ const mapaError = ref('')
 let mapa = null
 let marcadoresActividades = []
 let marcadoresEcas = []
+// Elemento DOM del marcador de actividad actualmente resaltado (no es
+// reactivo a propósito: solo se usa para alternar una clase CSS sobre el
+// nodo directo, sin pasar por el ciclo de reactividad de Vue).
+let elementoMarcadorSeleccionado = null
 
 const CENTRO_MEXICO = [-99.1332, 23.6345]
 
@@ -186,6 +190,44 @@ const modalIndice = ref(0)
 // cuando el admin quiere ver todo — galería completa con contador y
 // flechas, descripción sin recortar.
 const panelExpandido = ref(false)
+
+// Pedido explícito: al seleccionar una ubicación, el mapa hace un zoom
+// suave hacia ella (poco, no un acercamiento extremo) y el marcador se
+// anima para que quede claro cuál se tocó. `seleccionarMarcador` es el
+// punto de entrada único desde el click del marcador: resalta, centra y
+// abre el panel de detalle, en ese orden.
+function seleccionarMarcador(a, el) {
+  if (elementoMarcadorSeleccionado && elementoMarcadorSeleccionado !== el) {
+    elementoMarcadorSeleccionado.classList.remove('visor-marcador--seleccionado')
+  }
+  // Se retira y se vuelve a poner la clase aunque ya la tuviera (reinicia
+  // la animación) — tocar el mismo marcador dos veces debe rebotar de
+  // nuevo, no quedarse quieto la segunda vez.
+  el.classList.remove('visor-marcador--seleccionado')
+  void el.offsetWidth // fuerza reflow para que el navegador note el "quita y pon" de la clase
+  el.classList.add('visor-marcador--seleccionado')
+  elementoMarcadorSeleccionado = el
+
+  centrarEnMarcador(a)
+  abrirModalActividad(a)
+}
+
+function centrarEnMarcador(a) {
+  if (!mapa) return
+  // "Zoom poco": si ya se estaba bastante cerca, no se aleja ni se
+  // exagera; si se estaba viendo el país completo, sí se acerca lo
+  // suficiente para distinguir la ubicación exacta. Nunca menos de 12 ni
+  // más de 15 — sigue siendo un acercamiento moderado, no al máximo.
+  const zoomActual = mapa.getZoom()
+  const zoomObjetivo = Math.min(15, Math.max(zoomActual + 1.3, 12.5))
+  mapa.flyTo({
+    center: [a.longitud, a.latitud],
+    zoom: zoomObjetivo,
+    speed: 0.85,
+    curve: 1.35,
+    essential: true,
+  })
+}
 
 function limpiarModalFotos() {
   for (const f of modalFotos.value) {
@@ -228,6 +270,10 @@ function cerrarModal() {
   modalDetalle.value = null
   panelExpandido.value = false
   limpiarModalFotos()
+  if (elementoMarcadorSeleccionado) {
+    elementoMarcadorSeleccionado.classList.remove('visor-marcador--seleccionado')
+    elementoMarcadorSeleccionado = null
+  }
 }
 function fotoSiguiente() {
   if (!modalFotos.value.length) return
@@ -258,23 +304,46 @@ function pintarMarcadores() {
   if (!mapa || !mapaListo.value) return
   limpiarMarcadoresActividades()
   limpiarMarcadoresEcas()
+  elementoMarcadorSeleccionado = null
 
   if (capaActividades.value) {
     actividades.value.forEach((a) => {
       const color = a.estado_gps === 'GPS_IMPRECISO' ? '#d97706' : '#2e7d32'
-      // Sin popup nativo: al tocar la ubicación se abre el panel de detalle
-      // acoplado al mapa (con fotos) — mucho más útil aquí que un globo de
-      // texto, ya que las actividades sí tienen evidencia fotográfica.
-      const marcador = new window.mapboxgl.Marker({ color }).setLngLat([a.longitud, a.latitud]).addTo(mapa)
-      const el = marcador.getElement()
+      // Elemento PROPIO (en vez de dejar que Mapbox arme su pin por
+      // defecto): así el "seleccionado" se anima en un hijo interno
+      // (`.visor-marcador__nucleo`/`__anillo`), nunca en la raíz — la raíz
+      // es la que Mapbox mueve con su propio `transform` para ubicarla en
+      // el mapa, y animar esa misma propiedad ahí pelearía con esa
+      // posición (el marcador "temblaría" fuera de su lugar).
+      const el = document.createElement('div')
+      el.className = 'visor-marcador'
+      el.style.color = color
+      el.innerHTML = '<span class="visor-marcador__anillo"></span><span class="visor-marcador__nucleo"></span>'
       el.style.cursor = 'pointer'
       el.setAttribute('role', 'button')
       el.setAttribute('aria-label', 'Ver detalle de la actividad')
+
+      const marcador = new window.mapboxgl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([a.longitud, a.latitud])
+        .addTo(mapa)
+
+      // Sin popup nativo: al tocar la ubicación se abre el panel de detalle
+      // acoplado al mapa (con fotos) — mucho más útil aquí que un globo de
+      // texto, ya que las actividades sí tienen evidencia fotográfica.
       el.addEventListener('click', (evento) => {
         evento.stopPropagation()
-        abrirModalActividad(a)
+        seleccionarMarcador(a, el)
       })
       marcadoresActividades.push(marcador)
+
+      // Si el panel ya estaba abierto para esta actividad (p. ej. se
+      // reconstruyeron los marcadores por un cambio de filtro mientras se
+      // veía su detalle), se re-marca como seleccionada sin volver a
+      // hacer zoom — solo se conserva el resaltado visual.
+      if (modalAbierto.value && modalActividad.value?.uuid === a.uuid) {
+        el.classList.add('visor-marcador--seleccionado')
+        elementoMarcadorSeleccionado = el
+      }
     })
   }
 
@@ -946,6 +1015,71 @@ onBeforeUnmount(() => {
   font-size: 0.8rem;
   line-height: 1.4;
   padding: 0.6rem 0.75rem;
+}
+
+/* ---- Marcador de actividad (elemento propio, no el pin por defecto de
+   Mapbox): la raíz (`.visor-marcador`) es la que Mapbox reposiciona con su
+   propio `transform` — las animaciones de abajo van SIEMPRE en los hijos
+   (`__nucleo`/`__anillo`), nunca en la raíz, para no pelearse con esa
+   posición. ---- */
+:deep(.visor-marcador) {
+  position: relative;
+  width: 1.35rem;
+  height: 1.35rem;
+}
+:deep(.visor-marcador__nucleo) {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: currentColor;
+  border: 2.5px solid #fff;
+  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.35);
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+:deep(.visor-marcador:hover .visor-marcador__nucleo) {
+  transform: scale(1.18);
+}
+:deep(.visor-marcador__anillo) {
+  position: absolute;
+  inset: -0.5rem;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  opacity: 0;
+  pointer-events: none;
+}
+/* Seleccionado: el núcleo rebota y crece un poco; el anillo pulsa hacia
+   afuera en bucle mientras el panel de detalle sigue abierto. */
+:deep(.visor-marcador--seleccionado .visor-marcador__nucleo) {
+  transform: scale(1.35);
+  animation: visor-marcador-rebote 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+:deep(.visor-marcador--seleccionado .visor-marcador__anillo) {
+  animation: visor-marcador-pulso 1.6s ease-out infinite;
+}
+@keyframes visor-marcador-rebote {
+  0% {
+    transform: scale(0.5);
+  }
+  55% {
+    transform: scale(1.5);
+  }
+  100% {
+    transform: scale(1.35);
+  }
+}
+@keyframes visor-marcador-pulso {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.5);
+  }
+  70% {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.9);
+  }
 }
 
 @media (max-width: 900px) {
