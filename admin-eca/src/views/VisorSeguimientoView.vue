@@ -1023,7 +1023,14 @@ onBeforeUnmount(() => {
    (`__nucleo`/`__anillo`), nunca en la raíz, para no pelearse con esa
    posición. ---- */
 :deep(.visor-marcador) {
-  position: relative;
+  /* SIN `position` aquí — Mapbox ya le pone `position: absolute` por su
+     cuenta (clase `.mapboxgl-marker` de su propio CSS) y calcula el
+     `transform` de cada marcador asumiendo esa posición fija; pisarla con
+     `relative` sacaba al marcador de ese cálculo y lo dejaba apilarse en
+     el flujo normal del documento — la causa real de que "se movieran" al
+     hacer zoom/paneo (terminaban todos en fila, muy al sur, en el mar).
+     `position: absolute` de Mapbox de todos modos ya sirve como contexto
+     de posicionamiento para los hijos `position: absolute` de abajo. */
   width: 1.35rem;
   height: 1.35rem;
 }
