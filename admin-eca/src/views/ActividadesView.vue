@@ -679,50 +679,91 @@ onMounted(async () => {
                     </div>
                   </div>
 
-                  <dl class="actividades__modal-datos">
-                    <dt>Fecha</dt>
-                    <dd>{{ new Date(modalDetalle.fecha_hora).toLocaleString('es-MX') }}</dd>
-                    <dt>Tipo</dt>
-                    <dd>{{ tipoInfo(modalDetalle).nombre }}</dd>
-                    <dt>ECA</dt>
-                    <dd>
-                      {{
-                        modalEca
-                          ? modalEca.nombre
-                          : modalDetalle.eca_id
-                            ? `ECA #${modalDetalle.eca_id}`
-                            : modalDetalle.eca_nombre
-                              ? `${modalDetalle.eca_nombre} (escrita a mano)`
-                              : '—'
-                      }}
-                    </dd>
-                    <dt>Descripción</dt>
-                    <dd>{{ modalDetalle.descripcion }}</dd>
-                    <dt>Resultado</dt>
-                    <dd>{{ modalDetalle.resultado || '—' }}</dd>
-                    <dt>Ubicación GPS</dt>
-                    <dd>
-                      <button
-                        v-if="modalDetalle.latitud"
-                        type="button"
-                        class="actividades__modal-btn-mapa"
-                        :class="{ 'actividades__modal-btn-mapa--activo': modalMapaAbierto }"
-                        @click="alternarModalMapa"
-                      >
-                        <AuthIcon name="map-pin" />
-                        {{ modalMapaAbierto ? 'Ocultar mapa' : 'Ver ubicación en el mapa' }}
-                        <small>(±{{ Math.round(modalDetalle.precision_gps_m || 0) }} m)</small>
-                      </button>
-                      <span v-else class="actividades__modal-sin-gps">Sin coordenadas</span>
-                    </dd>
-                  </dl>
-
-                  <Transition name="actividades-mapa">
-                    <div v-if="modalMapaAbierto" class="actividades__modal-mapa-seccion">
-                      <p v-if="modalMapaError" class="eca-alerta-error" role="alert">{{ modalMapaError }}</p>
-                      <div ref="modalMapaContenedor" class="actividades__modal-mapa"></div>
+                  <div class="actividades__modal-columnas">
+                    <!-- Columna: información de la actividad -->
+                    <div class="actividades__modal-col actividades__modal-col--info">
+                      <div class="actividades__modal-col-cabecera">
+                        <span class="actividades__modal-col-icono"><AuthIcon name="clipboard" /></span>
+                        <strong>Información</strong>
+                      </div>
+                      <div class="actividades__modal-dato">
+                        <span class="actividades__modal-dato-etiqueta">Fecha y hora</span>
+                        <span class="actividades__modal-dato-valor">{{ new Date(modalDetalle.fecha_hora).toLocaleString('es-MX') }}</span>
+                      </div>
+                      <div class="actividades__modal-dato">
+                        <span class="actividades__modal-dato-etiqueta">Tipo</span>
+                        <span class="actividades__modal-dato-valor">{{ tipoInfo(modalDetalle).nombre }}</span>
+                      </div>
+                      <div class="actividades__modal-dato">
+                        <span class="actividades__modal-dato-etiqueta">ECA</span>
+                        <span class="actividades__modal-dato-valor">
+                          {{
+                            modalEca
+                              ? modalEca.nombre
+                              : modalDetalle.eca_id
+                                ? `ECA #${modalDetalle.eca_id}`
+                                : modalDetalle.eca_nombre
+                                  ? `${modalDetalle.eca_nombre} (escrita a mano)`
+                                  : '—'
+                          }}
+                        </span>
+                      </div>
+                      <div class="actividades__modal-dato">
+                        <span class="actividades__modal-dato-etiqueta">Descripción</span>
+                        <span class="actividades__modal-dato-valor">{{ modalDetalle.descripcion }}</span>
+                      </div>
+                      <div class="actividades__modal-dato">
+                        <span class="actividades__modal-dato-etiqueta">Resultado</span>
+                        <span v-if="modalDetalle.resultado" class="actividades__modal-dato-valor">{{ modalDetalle.resultado }}</span>
+                        <span v-else class="actividades__modal-vacio">Aún no hay un mensaje</span>
+                      </div>
                     </div>
-                  </Transition>
+
+                    <!-- Columna: ubicación GPS -->
+                    <div class="actividades__modal-col actividades__modal-col--gps">
+                      <div class="actividades__modal-col-cabecera">
+                        <span class="actividades__modal-col-icono actividades__modal-col-icono--gps"><AuthIcon name="map-pin" /></span>
+                        <strong>Ubicación</strong>
+                      </div>
+
+                      <template v-if="modalDetalle.latitud">
+                        <div class="actividades__modal-dato">
+                          <span class="actividades__modal-dato-etiqueta">Precisión</span>
+                          <span class="eca-badge" :class="BADGE_GPS[modalDetalle.estado_gps] || 'eca-badge--gris'">
+                            {{ ETIQUETAS_GPS[modalDetalle.estado_gps] || '—' }} (±{{ Math.round(modalDetalle.precision_gps_m || 0) }} m)
+                          </span>
+                        </div>
+                        <div class="actividades__modal-dato">
+                          <span class="actividades__modal-dato-etiqueta">Coordenadas</span>
+                          <span class="actividades__modal-dato-valor actividades__modal-coordenadas">
+                            {{ modalDetalle.latitud.toFixed(6) }}, {{ modalDetalle.longitud.toFixed(6) }}
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          class="actividades__modal-btn-mapa"
+                          :class="{ 'actividades__modal-btn-mapa--activo': modalMapaAbierto }"
+                          @click="alternarModalMapa"
+                        >
+                          <AuthIcon name="map-pin" />
+                          {{ modalMapaAbierto ? 'Ocultar mapa' : 'Ver ubicación en el mapa' }}
+                        </button>
+
+                        <Transition name="actividades-mapa">
+                          <div v-if="modalMapaAbierto" class="actividades__modal-mapa-seccion">
+                            <p v-if="modalMapaError" class="eca-alerta-error" role="alert">{{ modalMapaError }}</p>
+                            <div ref="modalMapaContenedor" class="actividades__modal-mapa"></div>
+                          </div>
+                        </Transition>
+                      </template>
+                      <div v-else class="actividades__modal-pendiente">
+                        <AuthIcon name="wifi-off" />
+                        <p>Sin coordenadas</p>
+                        <small>Esta actividad no tiene ubicación registrada.</small>
+                      </div>
+                    </div>
+                  </div>
 
                   <div class="actividades__modal-galeria-seccion">
                     <h3><AuthIcon name="camera" /> Evidencias fotográficas</h3>
@@ -1437,7 +1478,7 @@ select.actividades__control:disabled {
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
 }
 .actividades__accion--ver {
-  background: linear-gradient(135deg, var(--eca-purple-600), var(--eca-purple-500));
+  background: linear-gradient(135deg, #2f7a33, #14501c);
 }
 
 @media (max-width: 640px) {
@@ -1473,7 +1514,7 @@ select.actividades__control:disabled {
 .actividades__modal {
   position: relative;
   width: 100%;
-  max-width: 640px;
+  max-width: 780px;
   max-height: 88vh;
   overflow-y: auto;
   background: #fff;
@@ -1604,28 +1645,142 @@ select.actividades__control:disabled {
   flex-direction: column;
   gap: 0.1rem;
 }
-.actividades__modal-datos {
+/* ---- Dos columnas: Información / Ubicación (rediseño) ---- */
+.actividades__modal-columnas {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.55rem 1.3rem;
-  margin: 0;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  margin: 0 -1.75rem;
+  border-top: 1px solid var(--eca-surface-border);
+  border-bottom: 1px solid var(--eca-surface-border);
 }
-.actividades__modal-datos dt {
-  color: var(--eca-ink-soft);
-  font-size: 0.76rem;
+.actividades__modal-col {
+  padding: 1.1rem 1.75rem 1.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  animation: actividades-col-entra 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.actividades__modal-col--info {
+  background: linear-gradient(180deg, rgba(46, 125, 50, 0.06), transparent 55%);
+  border-right: 1px solid var(--eca-surface-border);
+  animation-delay: 0.02s;
+}
+.actividades__modal-col--gps {
+  background: linear-gradient(180deg, rgba(102, 126, 234, 0.06), transparent 55%);
+  animation-delay: 0.09s;
+}
+@keyframes actividades-col-entra {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.actividades__modal-col-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 2px solid var(--eca-surface-border);
+}
+.actividades__modal-col-cabecera strong {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--eca-ink);
+}
+.actividades__modal-col-icono {
+  flex-shrink: 0;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: linear-gradient(135deg, #4caf50, #2e7d32);
+  box-shadow: 0 3px 10px rgba(46, 125, 50, 0.32);
+}
+.actividades__modal-col-icono svg {
+  width: 0.82rem;
+  height: 0.82rem;
+}
+.actividades__modal-col-icono--gps {
+  background: linear-gradient(135deg, var(--eca-purple-600), var(--eca-purple-500));
+  box-shadow: 0 3px 10px rgba(118, 75, 162, 0.32);
+}
+.actividades__modal-dato {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px dashed var(--eca-surface-border);
+}
+.actividades__modal-dato:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.actividades__modal-dato-etiqueta {
+  font-size: 0.66rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
+  letter-spacing: 0.03em;
+  color: var(--eca-ink-soft);
 }
-.actividades__modal-datos dd {
+.actividades__modal-dato-valor {
+  font-size: 0.86rem;
+  color: var(--eca-ink);
+  font-weight: 600;
+  word-break: break-word;
+}
+.actividades__modal-coordenadas {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--eca-ink-soft);
+}
+.actividades__modal-vacio {
+  font-size: 0.82rem;
+  font-style: italic;
+  color: var(--eca-ink-faint, #9aa1af);
+}
+.actividades__modal-pendiente {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 1.5rem 0.5rem;
+  color: var(--eca-ink-faint, #9aa1af);
+  text-align: center;
+}
+.actividades__modal-pendiente svg {
+  width: 1.5rem;
+  height: 1.5rem;
+  opacity: 0.55;
+}
+.actividades__modal-pendiente p {
   margin: 0;
+  font-weight: 700;
+  font-style: italic;
+  font-size: 0.86rem;
+}
+.actividades__modal-pendiente small {
+  font-size: 0.74rem;
 }
 .actividades__modal-btn-mapa {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.4rem 0.8rem;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  margin-top: 0.2rem;
   border: 1.5px solid #cfe3d5;
   border-radius: 999px;
   background: #fff;
@@ -1764,6 +1919,13 @@ select.actividades__control:disabled {
   }
   .actividades__modal-cabecera {
     border-radius: 24px 24px 0 0;
+  }
+  .actividades__modal-columnas {
+    grid-template-columns: 1fr;
+  }
+  .actividades__modal-col--info {
+    border-right: none;
+    border-bottom: 1px solid var(--eca-surface-border);
   }
 }
 </style>
