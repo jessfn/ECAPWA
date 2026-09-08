@@ -208,6 +208,61 @@ def test_crear_actividad_requiere_eca_sin_eca_es_error(db: DBFalsa, repo_activid
         )
 
 
+def test_crear_actividad_eca_es_obligatoria_aunque_el_tipo_no_la_exija(
+    db: DBFalsa, repo_actividades, repo_jornadas, actor: Usuario
+) -> None:
+    # Pedido explícito (2026-09-08): la ECA es obligatoria SIEMPRE, no solo
+    # cuando `tipo.requiere_eca=True`.
+    tipo = _tipo(requiere_eca=False)
+    db.registrar(TipoActividad, tipo.id, tipo)
+    datos = dict(DATOS_BASE, eca_id=None, eca_nombre=None)
+
+    with pytest.raises(actividades_service.EcaRequeridaError):
+        actividades_service.crear(
+            db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, **datos
+        )
+
+
+def test_crear_actividad_eca_nombre_se_guarda_en_mayusculas_sin_tildes(
+    db: DBFalsa, repo_actividades, repo_jornadas, actor: Usuario
+) -> None:
+    tipo = _tipo(requiere_eca=False)
+    db.registrar(TipoActividad, tipo.id, tipo)
+    datos = dict(DATOS_BASE, eca_id=None, eca_nombre="  Ejido López García  ")
+
+    actividad = actividades_service.crear(
+        db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, **datos
+    )
+
+    assert actividad.eca_nombre == "EJIDO LOPEZ GARCIA"
+
+
+def test_crear_actividad_eca_nombre_preserva_la_ene(db: DBFalsa, repo_actividades, repo_jornadas, actor: Usuario) -> None:
+    # La "ñ" es una letra propia del español, no una "n acentuada" — no debe
+    # perderse al normalizar (bug real: un `unicodedata.normalize("NFD")`
+    # genérico la convertía en "N", corrompiendo nombres como "Muñoz").
+    tipo = _tipo(requiere_eca=False)
+    db.registrar(TipoActividad, tipo.id, tipo)
+    datos = dict(DATOS_BASE, eca_id=None, eca_nombre="Ejido Peña Muñoz")
+
+    actividad = actividades_service.crear(
+        db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, **datos
+    )
+
+    assert actividad.eca_nombre == "EJIDO PEÑA MUÑOZ"
+
+
+def test_crear_actividad_eca_nombre_solo_espacios_es_error(db: DBFalsa, repo_actividades, repo_jornadas, actor: Usuario) -> None:
+    tipo = _tipo(requiere_eca=False)
+    db.registrar(TipoActividad, tipo.id, tipo)
+    datos = dict(DATOS_BASE, eca_id=None, eca_nombre="   ")
+
+    with pytest.raises(actividades_service.EcaRequeridaError):
+        actividades_service.crear(
+            db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, **datos
+        )
+
+
 def test_crear_actividad_participantes_no_permitidos_es_error(db: DBFalsa, repo_actividades, repo_jornadas, actor: Usuario) -> None:
     tipo = _tipo(permite_participantes=False)
     db.registrar(TipoActividad, tipo.id, tipo)

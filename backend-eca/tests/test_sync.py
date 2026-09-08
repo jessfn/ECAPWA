@@ -204,6 +204,7 @@ def test_push_mismo_lote_dos_veces_no_duplica(db: DBFalsa, repos, actor: Usuario
         tipo_actividad_id=tipo.id,
         descripcion="Visita de campo.",
         fecha_hora=INICIO,
+        eca_nombre="ECA DE PRUEBA",
         gps=GPS_VALIDO,
     )
 
@@ -230,6 +231,7 @@ def test_push_tipo_actividad_inexistente_es_rechazado_los_demas_aplicados(db: DB
         tipo_actividad_id=tipo.id,
         descripcion="Actividad válida.",
         fecha_hora=INICIO,
+        eca_nombre="ECA DE PRUEBA",
         gps=GPS_VALIDO,
     )
     mala = ActividadSyncItem(
@@ -239,6 +241,7 @@ def test_push_tipo_actividad_inexistente_es_rechazado_los_demas_aplicados(db: DB
         tipo_actividad_id=9999,
         descripcion="Actividad con tipo inexistente.",
         fecha_hora=INICIO,
+        eca_nombre="ECA DE PRUEBA",
         gps=GPS_VALIDO,
     )
 
@@ -262,6 +265,7 @@ def test_push_actividad_con_jornada_inexistente_es_rechazada(db: DBFalsa, repos,
         tipo_actividad_id=tipo.id,
         descripcion="x",
         fecha_hora=INICIO,
+        eca_nombre="ECA DE PRUEBA",
         gps=GPS_VALIDO,
     )
 

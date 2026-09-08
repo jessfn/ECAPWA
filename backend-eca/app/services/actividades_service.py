@@ -56,6 +56,28 @@ def _validar_gps(gps: GpsPeticion) -> None:
         raise GpsInvalidoError("La ubicación (GPS) es obligatoria para registrar una actividad.")
 
 
+# Solo el acento de las vocales — la "ñ" NO se toca: es una letra propia
+# del español, no una "n acentuada". Un `unicodedata.normalize("NFD", …)`
+# genérico (quitar toda marca combinante) la convierte en "N" — bug real
+# probado con "Muñoz" -> "MUNOZ", "Peña" -> "PENA", que corrompería nombres
+# de lugar comunes en México.
+_MAPA_ACENTOS = str.maketrans("áéíóúü", "aeiouu")
+
+
+def _normalizar_eca(texto: str | None) -> str | None:
+    """MAYÚSCULAS y sin tildes en vocales (pedido explícito): la PWA ya
+    manda el texto así (transformado mientras el técnico escribe), pero se
+    vuelve a normalizar aquí por si acaso — un cliente viejo, la API usada
+    directo, o cualquier otro origen no debe poder colar un nombre de ECA
+    con minúsculas o acentos."""
+    if texto is None:
+        return None
+    limpio = texto.strip()
+    if not limpio:
+        return None
+    return limpio.lower().translate(_MAPA_ACENTOS).upper()
+
+
 def crear(
     db: Session,
     *,
@@ -93,10 +115,13 @@ def crear(
         raise TipoActividadDesconocidoError(f"Tipo de actividad desconocido: {tipo_actividad_id}")
     # `eca_id` (catálogo) o `eca_nombre` (escrita a mano) — lo segundo
     # existe porque muchos técnicos no tienen ninguna ECA para elegir en
-    # su ámbito/asignación todavía (ver 0021); de cualquier forma sigue
-    # siendo obligatorio dar una ECA cuando el tipo la requiere.
-    if tipo.requiere_eca and eca_id is None and not (eca_nombre or "").strip():
-        raise EcaRequeridaError(f"El tipo de actividad «{tipo.nombre}» requiere una ECA.")
+    # su ámbito/asignación todavía (ver 0021).
+    # Pedido explícito (2026-09-08): la ECA es obligatoria SIEMPRE, sin
+    # importar `tipo.requiere_eca` — antes solo se exigía para los tipos
+    # marcados así en el catálogo.
+    eca_nombre = _normalizar_eca(eca_nombre)
+    if eca_id is None and not eca_nombre:
+        raise EcaRequeridaError("El nombre de la ECA es obligatorio.")
     if num_participantes is not None and not tipo.permite_participantes:
         raise ParticipantesNoPermitidosError(
             f"El tipo de actividad «{tipo.nombre}» no admite número de participantes."
@@ -131,7 +156,7 @@ def crear(
         usuario_id=actor.id,
         jornada_id=jornada.id,
         eca_id=eca_id,
-        eca_nombre=(eca_nombre or "").strip() or None,
+        eca_nombre=eca_nombre,  # ya normalizado (mayúsculas, sin tildes) arriba
         modalidad_id=modalidad_id,
         tipo_actividad_id=tipo_actividad_id,
         tema_id=tema_id,

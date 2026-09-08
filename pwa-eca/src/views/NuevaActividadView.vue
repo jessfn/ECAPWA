@@ -35,8 +35,33 @@ const sistemaProductivoId = ref(null)
 // Pedido explícito (2026-09-03): la ECA se escribe a mano en vez de
 // elegirse de un selector — muchos técnicos no tienen ninguna ECA en su
 // catálogo/ámbito todavía y el selector los dejaba sin poder guardar
-// ninguna actividad que la requiriera. Sigue siendo obligatoria.
+// ninguna actividad que la requiriera.
+// Pedido explícito (2026-09-08): la ECA es SIEMPRE obligatoria (antes solo
+// lo era si el tipo de actividad la exigía) y se escribe/guarda siempre en
+// MAYÚSCULAS y SIN TILDES — se transforma mientras el técnico teclea, no
+// solo al enviar, para que lo que ve en pantalla sea igual a lo que se
+// guarda (backend refuerza lo mismo por si acaso, ver `_normalizar_eca`).
 const ecaNombre = ref('')
+// Solo quita el acento de las vocales (á/é/í/ó/ú/ü) — la "ñ" NO se toca:
+// es una letra propia del español, no una "n acentuada", y un `normalize
+// ('NFD')` genérico la convertía en "N" (bug real: "Muñoz" -> "MUNOZ",
+// "Peña" -> "PENA"), corrompiendo nombres de lugar comunes en México.
+const MAPA_ACENTOS = { á: 'a', é: 'e', í: 'i', ó: 'o', ú: 'u', ü: 'u' }
+function normalizarEca(texto) {
+  return (texto || '')
+    .toLowerCase()
+    .replace(/[áéíóúü]/g, (c) => MAPA_ACENTOS[c])
+    .toUpperCase()
+}
+function onInputEca(evento) {
+  // La normalización (mayúsculas + quitar acento) es 1 carácter -> 1
+  // carácter, así que el cursor casi siempre queda en el mismo índice —
+  // pero Vue reasigna `value` del input, y el navegador por defecto manda
+  // el cursor al final del texto si no se restaura a mano.
+  const cursor = evento.target.selectionStart
+  ecaNombre.value = normalizarEca(evento.target.value)
+  requestAnimationFrame(() => evento.target.setSelectionRange(cursor, cursor))
+}
 const descripcion = ref('')
 const resultado = ref('')
 const numParticipantes = ref(null)
@@ -76,10 +101,7 @@ const minFotos = computed(() =>
 // obtuvo una lectura real, no solo que ya se intentó.
 const pasoUbicacionListo = computed(() => gps.value?.estado_gps === 'CON_GPS' || gps.value?.estado_gps === 'GPS_IMPRECISO')
 const pasoClasificacionListo = computed(
-  () =>
-    Boolean(modalidadId.value) &&
-    Boolean(tipoActividadId.value) &&
-    (!tipoSeleccionado.value?.requiere_eca || Boolean(ecaNombre.value.trim())),
+  () => Boolean(modalidadId.value) && Boolean(tipoActividadId.value) && Boolean(ecaNombre.value.trim()),
 )
 const pasoDescripcionListo = computed(() => Boolean(descripcion.value.trim()))
 const pasoFotosListo = computed(() => !minFotos.value || fotos.value.length >= minFotos.value)
@@ -150,6 +172,16 @@ async function guardar() {
     return
   }
 
+  // ECA OBLIGATORIA (pedido explícito): toda actividad debe traer el
+  // nombre de la ECA, sin importar el tipo. Ya viene en mayúsculas y sin
+  // tildes desde que el técnico la escribió (`onInputEca`); `.trim()` solo
+  // quita espacios sueltos al inicio/fin.
+  if (!ecaNombre.value.trim()) {
+    actividad.error = 'Escribe el nombre de la ECA antes de guardar la actividad.'
+    enviando.value = false
+    return
+  }
+
   if (minFotos.value && fotos.value.length < minFotos.value) {
     errorFotos.value = `Este tipo de actividad requiere al menos ${minFotos.value} foto(s).`
     enviando.value = false
@@ -159,7 +191,7 @@ async function guardar() {
   try {
     const nuevaActividad = await actividad.crear({
       jornadaUuid: jornada.actual.uuid,
-      ecaNombre: tipoSeleccionado.value?.requiere_eca ? ecaNombre.value.trim() : null,
+      ecaNombre: ecaNombre.value.trim(),
       modalidadId: modalidadId.value,
       tipoActividadId: tipoActividadId.value,
       temaId: temaId.value,
@@ -273,14 +305,19 @@ function cerrarAvisoExito() {
             </select>
           </label>
 
-          <label v-if="tipoSeleccionado?.requiere_eca">
-            ECA (requerida)
+          <label>
+            ECA (obligatoria)
             <input
-              v-model="ecaNombre"
+              :value="ecaNombre"
               type="text"
-              class="nueva-actividad__select"
-              placeholder="Escribe el nombre de la ECA…"
+              class="nueva-actividad__select nueva-actividad__eca"
+              placeholder="ESCRIBE EL NOMBRE DE LA ECA…"
+              autocapitalize="characters"
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="false"
               required
+              @input="onInputEca"
             />
           </label>
         </section>
@@ -486,6 +523,13 @@ function cerrarAvisoExito() {
 }
 .nueva-actividad__textarea {
   resize: vertical;
+}
+/* La transformación real (mayúsculas + sin tildes) la hace `onInputEca` en
+   JS — esto solo asegura que, mientras el navegador repinta, el texto ya
+   se VEA en mayúsculas (evita un parpadeo con minúsculas de por medio). */
+.nueva-actividad__eca {
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 .nueva-actividad__select:focus,
 .nueva-actividad__textarea:focus {
