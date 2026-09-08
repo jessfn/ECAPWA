@@ -11,7 +11,7 @@
      N+1); el detalle completo con galería sigue en
      `ActividadDetalleView.vue`. -->
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { listarEstados, listarMunicipios } from '../services/geoService'
 import { listarCatalogo } from '../services/catalogosService'
 import {
@@ -364,10 +364,44 @@ async function abrirFotos(actividad) {
     visorCargando.value = false
   }
 }
+async function abrirVisorDesdeModal(indice) {
+  // Reutiliza las evidencias ya cargadas del detalle (sin volver a pedir
+  // `obtenerActividad`); pide sus propios blobs frescos para el visor —
+  // nunca reusar los mismos Object URL que ya están pintados en la
+  // galería del modal, porque al cerrar el visor se revocan y dejarían
+  // las miniaturas de abajo rotas.
+  if (!modalDetalle.value) return
+  const evidencias = modalDetalle.value.evidencias || []
+  visorAbierto.value = true
+  visorCargando.value = true
+  visorError.value = ''
+  visorIndice.value = indice
+  limpiarVisor()
+  document.body.style.overflow = 'hidden'
+  try {
+    visorFotos.value = evidencias.map((e) => ({ id: e.id, url: null }))
+    await Promise.all(
+      evidencias.map((e, i) =>
+        urlVistaPreviaEvidencia(e.id)
+          .then((url) => {
+            if (visorFotos.value[i]) visorFotos.value[i] = { id: e.id, url }
+          })
+          .catch(() => {}),
+      ),
+    )
+    if (!visorFotos.value.length) visorError.value = 'Esta actividad no tiene fotos.'
+  } catch {
+    visorError.value = 'No se pudieron cargar las fotos.'
+  } finally {
+    visorCargando.value = false
+  }
+}
 function cerrarVisor() {
   visorAbierto.value = false
   limpiarVisor()
-  document.body.style.overflow = ''
+  // Si el visor se abrió desde el modal de detalle, ese modal sigue
+  // abierto debajo — no restaurar el scroll de la página en ese caso.
+  document.body.style.overflow = modalUuid.value ? 'hidden' : ''
 }
 function fotoSiguiente() {
   if (!visorFotos.value.length) return
@@ -778,9 +812,18 @@ onMounted(async () => {
                         <small>Esta actividad no tiene evidencias fotográficas.</small>
                       </div>
                       <div v-else class="actividades__modal-galeria">
-                        <figure v-for="e in modalDetalle.evidencias" :key="e.uuid" class="actividades__modal-foto">
-                          <img v-if="modalVistasPrevias[e.id]" :src="modalVistasPrevias[e.id]" :alt="e.nombre_archivo" />
-                          <div v-else class="actividades__modal-foto-cargando">Cargando…</div>
+                        <figure v-for="(e, i) in modalDetalle.evidencias" :key="e.uuid" class="actividades__modal-foto">
+                          <button
+                            type="button"
+                            class="actividades__modal-foto-boton"
+                            :disabled="!modalVistasPrevias[e.id]"
+                            title="Ver foto en grande"
+                            @click="abrirVisorDesdeModal(i)"
+                          >
+                            <img v-if="modalVistasPrevias[e.id]" :src="modalVistasPrevias[e.id]" :alt="e.nombre_archivo" />
+                            <div v-else class="actividades__modal-foto-cargando">Cargando…</div>
+                            <span class="actividades__modal-foto-zoom"><AuthIcon name="search" /></span>
+                          </button>
                           <figcaption>
                             <span>{{ e.nombre_archivo }}</span>
                             <button type="button" class="eca-btn eca-btn-secundario" @click="descargarEvidencia(e.id, e.nombre_archivo)">
@@ -1923,6 +1966,20 @@ select.actividades__control:disabled {
   margin: 0;
   width: 150px;
 }
+.actividades__modal-foto-boton {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: var(--eca-r-sm);
+  overflow: hidden;
+}
+.actividades__modal-foto-boton:disabled {
+  cursor: default;
+}
 .actividades__modal-foto img,
 .actividades__modal-foto-cargando {
   width: 100%;
@@ -1930,6 +1987,8 @@ select.actividades__control:disabled {
   object-fit: cover;
   border-radius: var(--eca-r-sm);
   box-shadow: var(--eca-shadow-card);
+  display: block;
+  transition: transform 0.25s ease, filter 0.25s ease;
 }
 .actividades__modal-foto-cargando {
   display: flex;
@@ -1938,6 +1997,29 @@ select.actividades__control:disabled {
   background: var(--eca-surface);
   color: var(--eca-ink-soft);
   font-size: 0.78rem;
+}
+.actividades__modal-foto-zoom {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: rgba(20, 24, 20, 0);
+  opacity: 0;
+  transition: opacity 0.2s ease, background 0.2s ease;
+}
+.actividades__modal-foto-zoom svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
+}
+.actividades__modal-foto-boton:not(:disabled):hover .actividades__modal-foto-zoom {
+  opacity: 1;
+  background: rgba(20, 24, 20, 0.32);
+}
+.actividades__modal-foto-boton:not(:disabled):hover img {
+  transform: scale(1.06);
 }
 .actividades__modal-foto figcaption {
   font-size: 0.75rem;
