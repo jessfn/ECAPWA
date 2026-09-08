@@ -227,6 +227,7 @@ async function abrirDetalle(actividad) {
   modalEca.value = null
   modalError.value = ''
   modalCargando.value = true
+  limpiarModalMapa()
   document.body.style.overflow = 'hidden'
   try {
     modalDetalle.value = await obtenerActividad(actividad.uuid)
@@ -256,7 +257,64 @@ async function abrirDetalle(actividad) {
 function cerrarDetalle() {
   modalUuid.value = null
   limpiarModalVistasPrevias()
+  limpiarModalMapa()
   document.body.style.overflow = ''
+}
+
+// ---- Mapa Mapbox del detalle: en vez de mostrar las coordenadas en
+// crudo, un botón que despliega el mapa dentro del propio modal (sin
+// apilar un segundo modal encima) — mismo estilo/patrón que el mapa de
+// la vista Asistencia. ----
+const modalMapaAbierto = ref(false)
+const modalMapaContenedor = ref(null)
+const modalMapaError = ref('')
+let modalMapaInstancia = null
+
+function limpiarModalMapa() {
+  modalMapaInstancia?.remove()
+  modalMapaInstancia = null
+  modalMapaAbierto.value = false
+  modalMapaError.value = ''
+}
+
+async function alternarModalMapa() {
+  if (modalMapaAbierto.value) {
+    limpiarModalMapa()
+    return
+  }
+  modalMapaAbierto.value = true
+  modalMapaError.value = ''
+  await nextTick()
+  iniciarModalMapa()
+}
+
+function iniciarModalMapa() {
+  if (!modalMapaContenedor.value || !modalDetalle.value?.latitud) return
+
+  if (!window.mapboxgl) {
+    modalMapaError.value = 'No se pudo cargar Mapbox (revisa tu conexión).'
+    return
+  }
+  const token = import.meta.env.VITE_MAPBOX_TOKEN
+  if (!token) {
+    modalMapaError.value = 'Falta configurar VITE_MAPBOX_TOKEN.'
+    return
+  }
+  window.mapboxgl.accessToken = token
+  const { latitud, longitud } = modalDetalle.value
+  modalMapaInstancia = new window.mapboxgl.Map({
+    container: modalMapaContenedor.value,
+    style: 'mapbox://styles/mapbox/satellite-streets-v12',
+    center: [longitud, latitud],
+    zoom: 15,
+  })
+  modalMapaInstancia.addControl(new window.mapboxgl.NavigationControl(), 'top-right')
+  modalMapaInstancia.on('load', () => {
+    new window.mapboxgl.Marker({ color: '#2e7d32' }).setLngLat([longitud, latitud]).addTo(modalMapaInstancia)
+  })
+  modalMapaInstancia.on('error', () => {
+    modalMapaError.value = 'No se pudo cargar el mapa.'
+  })
 }
 
 // ---- Visor de fotos (lightbox) ----
@@ -334,6 +392,7 @@ function onTeclaEscape(evento) {
 onBeforeUnmount(() => {
   limpiarVistasPrevias()
   limpiarModalVistasPrevias()
+  limpiarModalMapa()
   limpiarVisor()
   document.body.style.overflow = ''
   window.removeEventListener('keydown', onTeclaEscape)
@@ -643,12 +702,27 @@ onMounted(async () => {
                     <dd>{{ modalDetalle.resultado || '—' }}</dd>
                     <dt>Ubicación GPS</dt>
                     <dd>
-                      <span v-if="modalDetalle.latitud">
-                        {{ modalDetalle.latitud }}, {{ modalDetalle.longitud }} (±{{ Math.round(modalDetalle.precision_gps_m || 0) }} m)
-                      </span>
-                      <span v-else>Sin coordenadas</span>
+                      <button
+                        v-if="modalDetalle.latitud"
+                        type="button"
+                        class="actividades__modal-btn-mapa"
+                        :class="{ 'actividades__modal-btn-mapa--activo': modalMapaAbierto }"
+                        @click="alternarModalMapa"
+                      >
+                        <AuthIcon name="map-pin" />
+                        {{ modalMapaAbierto ? 'Ocultar mapa' : 'Ver ubicación en el mapa' }}
+                        <small>(±{{ Math.round(modalDetalle.precision_gps_m || 0) }} m)</small>
+                      </button>
+                      <span v-else class="actividades__modal-sin-gps">Sin coordenadas</span>
                     </dd>
                   </dl>
+
+                  <Transition name="actividades-mapa">
+                    <div v-if="modalMapaAbierto" class="actividades__modal-mapa-seccion">
+                      <p v-if="modalMapaError" class="eca-alerta-error" role="alert">{{ modalMapaError }}</p>
+                      <div ref="modalMapaContenedor" class="actividades__modal-mapa"></div>
+                    </div>
+                  </Transition>
 
                   <div class="actividades__modal-galeria-seccion">
                     <h3><AuthIcon name="camera" /> Evidencias fotográficas</h3>
@@ -1547,6 +1621,80 @@ select.actividades__control:disabled {
 .actividades__modal-datos dd {
   margin: 0;
 }
+.actividades__modal-btn-mapa {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.8rem;
+  border: 1.5px solid #cfe3d5;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--eca-green-700, #2e7d32);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+.actividades__modal-btn-mapa svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+.actividades__modal-btn-mapa small {
+  color: var(--eca-ink-soft);
+  font-weight: 500;
+  font-size: 0.72rem;
+}
+.actividades__modal-btn-mapa:hover {
+  background: #eef6f0;
+  border-color: var(--eca-green-500);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.18);
+}
+.actividades__modal-btn-mapa--activo {
+  background: linear-gradient(135deg, #4caf50, #2e7d32);
+  border-color: transparent;
+  color: #fff;
+}
+.actividades__modal-btn-mapa--activo:hover {
+  background: linear-gradient(135deg, #43a047, #256a2a);
+  box-shadow: 0 4px 14px rgba(46, 125, 50, 0.3);
+}
+.actividades__modal-btn-mapa--activo small {
+  color: rgba(255, 255, 255, 0.85);
+}
+.actividades__modal-sin-gps {
+  color: var(--eca-ink-faint, #9aa1af);
+  font-style: italic;
+  font-size: 0.85rem;
+}
+.actividades__modal-mapa-seccion {
+  overflow: hidden;
+  margin-top: 0.75rem;
+}
+.actividades__modal-mapa {
+  width: 100%;
+  height: 15rem;
+  border-radius: var(--eca-r-md);
+  overflow: hidden;
+  box-shadow: var(--eca-shadow-card);
+}
+.actividades-mapa-enter-active {
+  transition: opacity 0.3s ease, max-height 0.35s cubic-bezier(0.34, 1.06, 0.64, 1);
+}
+.actividades-mapa-leave-active {
+  transition: opacity 0.2s ease, max-height 0.25s ease;
+}
+.actividades-mapa-enter-from,
+.actividades-mapa-leave-to {
+  opacity: 0;
+  max-height: 0;
+}
+.actividades-mapa-enter-to,
+.actividades-mapa-leave-from {
+  max-height: 16rem;
+}
+
 .actividades__modal-galeria-seccion {
   margin-top: 1.4rem;
 }
