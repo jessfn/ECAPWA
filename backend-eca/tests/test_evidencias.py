@@ -170,8 +170,39 @@ def test_subir_evidencia_reemplaza_la_del_mismo_orden(db, repo, storage, activid
 
 
 def test_subir_evidencia_mime_no_permitido_es_error(db, repo, storage, actividad, actor) -> None:
+    # Contenido sin firma de imagen Y declarado como NO-imagen → se rechaza.
     with pytest.raises(evidencias_service.MimeNoPermitidoError):
         _subir(db, actividad, actor, storage, mime="application/pdf")
+
+
+def test_subir_evidencia_detecta_jpeg_aunque_el_mime_venga_vacio(db, repo, storage, actividad, actor) -> None:
+    # Caso real (2026-09-08): el celular manda `application/octet-stream`
+    # (MIME vacío) para una foto real; los magic bytes de JPEG deben bastar
+    # para aceptarla — antes se perdía y la actividad quedaba "Sin fotos".
+    jpeg = b"\xff\xd8\xff\xe0\x00\x10JFIF" + b"\x00" * 50
+    evidencia = _subir(db, actividad, actor, storage, contenido=jpeg, mime="application/octet-stream")
+
+    assert evidencia.mime == "image/jpeg"
+    assert evidencia.storage_clave.endswith(".jpg")
+
+
+def test_subir_evidencia_detecta_heic_por_bytes(db, repo, storage, actividad, actor) -> None:
+    # HEIC de iPhone que Android no puede recomprimir y llega con MIME vacío:
+    # se reconoce por el 'ftyp....heic' del contenedor y se acepta.
+    heic = b"\x00\x00\x00\x18ftypheic" + b"\x00" * 40
+    evidencia = _subir(db, actividad, actor, storage, contenido=heic, mime="")
+
+    assert evidencia.mime == "image/heic"
+    assert evidencia.storage_clave.endswith(".heic")
+
+
+def test_subir_evidencia_acepta_imagen_declarada_sin_firma_reconocida(db, repo, storage, actividad, actor) -> None:
+    # Formato de imagen que no sniffeamos pero el cliente asegura `image/*`:
+    # se acepta igual (no se pierde la evidencia) con extensión genérica.
+    evidencia = _subir(db, actividad, actor, storage, contenido=b"rarezaimagen", mime="image/x-raro")
+
+    assert evidencia.mime == "image/x-raro"
+    assert evidencia.storage_clave.endswith(".img")
 
 
 def test_subir_evidencia_demasiado_grande_es_error(db, repo, storage, actividad, actor) -> None:

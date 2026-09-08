@@ -24,12 +24,18 @@ from app.models.evidencia import ActividadEvidencia
 from app.models.usuario import Usuario
 from app.repositories import evidencias as repo_evidencias
 
+# Extensión con la que se guarda cada tipo de imagen conocido. Sirve tanto
+# para el nombre en storage como para responder el `media_type` correcto al
+# descargar.
 MIME_PERMITIDOS = {
     "image/jpeg": "jpg",
     "image/png": "png",
     "image/webp": "webp",
     "image/heic": "heic",
     "image/heif": "heif",
+    "image/gif": "gif",
+    "image/bmp": "bmp",
+    "image/tiff": "tiff",
 }
 # Pedido explícito (2026-09-07): "se deben subir las imágenes como sea, sin
 # importar el tamaño" — el cliente comprime a ~100 KB, pero desde que
@@ -38,6 +44,61 @@ MIME_PERMITIDOS = {
 # decodifica, etc.), este límite debe ser generoso de verdad: una foto sin
 # comprimir de una cámara de 48 MP puede pesar 15-20 MB.
 TAMANO_MAXIMO_BYTES = 25 * 1024 * 1024
+
+
+def _sniff_imagen(contenido: bytes) -> tuple[str, str] | None:
+    """Detecta el tipo real de imagen por sus "magic bytes" (la firma del
+    archivo), no por el MIME que declara el cliente — pedido explícito
+    (2026-09-08): algunas fotos NO se subían.
+
+    Causa: cuando el navegador del celular no puede decodificar la foto
+    (típico con HEIC de iPhone en Android, o un archivo cuyo `.type` llega
+    vacío), `CapturaEvidencia.vue` sube el ORIGINAL sin comprimir; el MIME
+    que entonces llega es a menudo `application/octet-stream` (vacío) o uno
+    equivocado, y la lista blanca estricta lo rechazaba — la evidencia se
+    perdía y la actividad quedaba "Sin fotos". Mirar los bytes es fiable
+    aunque el MIME venga mal o vacío."""
+    b = contenido[:32]
+    if b[:3] == b"\xff\xd8\xff":
+        return ("image/jpeg", "jpg")
+    if b[:8] == b"\x89PNG\r\n\x1a\n":
+        return ("image/png", "png")
+    if b[:6] in (b"GIF87a", b"GIF89a"):
+        return ("image/gif", "gif")
+    if b[:4] == b"RIFF" and b[8:12] == b"WEBP":
+        return ("image/webp", "webp")
+    if b[:2] == b"BM":
+        return ("image/bmp", "bmp")
+    if b[:4] in (b"II*\x00", b"MM\x00*"):
+        return ("image/tiff", "tiff")
+    # HEIC/HEIF (contenedor ISO-BMFF): 'ftyp' en el offset 4, luego la marca.
+    if b[4:8] == b"ftyp":
+        marca = b[8:12]
+        if marca in (b"heic", b"heix", b"hevc", b"hevx", b"heim", b"heis", b"hevm", b"hevs"):
+            return ("image/heic", "heic")
+        if marca in (b"mif1", b"msf1", b"heif"):
+            return ("image/heif", "heif")
+    return None
+
+
+def _resolver_tipo(contenido: bytes, mime_declarado: str) -> tuple[str, str]:
+    """Decide con qué (mime, extensión) guardar la evidencia. Los BYTES
+    mandan sobre el MIME declarado; si no se reconoce la firma pero el
+    cliente asegura que es una imagen (`image/*`), se acepta igual — así
+    una foto nunca se pierde por un MIME raro. Solo se rechaza contenido
+    que ni tiene firma de imagen ni se declara como imagen (p. ej. un PDF).
+
+    Devuelve `(mime, extension)` o levanta `MimeNoPermitidoError`."""
+    sniff = _sniff_imagen(contenido)
+    if sniff is not None:
+        return sniff
+    if mime_declarado in MIME_PERMITIDOS:
+        return (mime_declarado, MIME_PERMITIDOS[mime_declarado])
+    if (mime_declarado or "").startswith("image/"):
+        # Dice ser imagen pero no reconocimos la firma: se acepta con una
+        # extensión genérica antes que perder la evidencia.
+        return (mime_declarado, "img")
+    raise MimeNoPermitidoError(f"Tipo de archivo no permitido: {mime_declarado or 'desconocido'}")
 
 
 class ActividadAjenaError(Exception):
@@ -84,8 +145,9 @@ def subir(
 
     if not (1 <= orden <= 3):
         raise OrdenInvalidoError("orden debe estar entre 1 y 3.")
-    if mime not in MIME_PERMITIDOS:
-        raise MimeNoPermitidoError(f"Tipo de archivo no permitido: {mime}")
+    # El tipo real lo dan los bytes (el MIME declarado suele venir mal o
+    # vacío desde el celular); `mime`/`extension` finales salen de aquí.
+    mime, extension = _resolver_tipo(contenido, mime)
     if len(contenido) > TAMANO_MAXIMO_BYTES:
         raise ArchivoDemasiadoGrandeError("El archivo excede el tamaño máximo permitido.")
 
@@ -106,7 +168,7 @@ def subir(
         repo_evidencias.eliminar(db, previa_en_orden)
         db.flush()
 
-    clave = _clave_de(actividad.id, uuid, MIME_PERMITIDOS[mime])
+    clave = _clave_de(actividad.id, uuid, extension)
     storage.guardar(clave, contenido)
 
     evidencia = ActividadEvidencia(
