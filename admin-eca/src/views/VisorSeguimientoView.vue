@@ -269,6 +269,7 @@ function cerrarModal() {
   modalActividad.value = null
   modalDetalle.value = null
   panelExpandido.value = false
+  fotoGrandeAbierta.value = false
   limpiarModalFotos()
   if (elementoMarcadorSeleccionado) {
     elementoMarcadorSeleccionado.classList.remove('visor-marcador--seleccionado')
@@ -283,9 +284,27 @@ function fotoAnterior() {
   if (!modalFotos.value.length) return
   modalIndice.value = (modalIndice.value - 1 + modalFotos.value.length) % modalFotos.value.length
 }
+
+// ---- Ver la foto en grande (pedido explícito): al dar clic en la imagen
+// del panel se abre el mismo visor de pantalla completa que ya existe en
+// la columna de fotos de Actividades — contador + anterior/siguiente,
+// reutilizando el MISMO índice (`modalIndice`) que ya gobierna la
+// miniatura del panel, así que ambos quedan siempre sincronizados. ----
+const fotoGrandeAbierta = ref(false)
+function abrirFotoGrande() {
+  if (!modalFotos.value.length) return
+  fotoGrandeAbierta.value = true
+}
+function cerrarFotoGrande() {
+  fotoGrandeAbierta.value = false
+}
+
 function onTeclaModal(evento) {
   if (!modalAbierto.value) return
-  if (evento.key === 'Escape') return cerrarModal()
+  if (evento.key === 'Escape') {
+    if (fotoGrandeAbierta.value) return cerrarFotoGrande()
+    return cerrarModal()
+  }
   if (modalFotos.value.length < 2) return
   if (evento.key === 'ArrowRight') fotoSiguiente()
   if (evento.key === 'ArrowLeft') fotoAnterior()
@@ -392,7 +411,11 @@ function iniciarMapa() {
   window.mapboxgl.accessToken = token
   mapa = new window.mapboxgl.Map({
     container: mapaContenedor.value,
-    style: 'mapbox://styles/mapbox/streets-v11',
+    // Vista satelital (pedido explícito) — la versión "streets" incluye
+    // calles/etiquetas sobre la imagen satelital, más útil aquí que la
+    // vista pura (`satellite-v9`, sin ningún contexto de calles/pueblos)
+    // para ubicar de un vistazo dónde cae cada actividad.
+    style: 'mapbox://styles/mapbox/satellite-streets-v12',
     center: CENTRO_MEXICO,
     zoom: 4.6,
   })
@@ -659,13 +682,17 @@ onBeforeUnmount(() => {
                       <AuthIcon name="chevron-left" />
                     </button>
                     <Transition name="visor-panel-imagen" mode="out-in">
-                      <img
+                      <button
                         v-if="modalFotos[modalIndice]?.url"
                         :key="modalFotos[modalIndice].id"
-                        :src="modalFotos[modalIndice].url"
-                        alt="Evidencia de la actividad"
-                        class="visor-panel__img"
-                      />
+                        type="button"
+                        class="visor-panel__img-boton"
+                        aria-label="Ver foto en grande"
+                        @click="abrirFotoGrande"
+                      >
+                        <img :src="modalFotos[modalIndice].url" alt="Evidencia de la actividad" class="visor-panel__img" />
+                        <span class="visor-panel__img-ampliar"><AuthIcon name="search" /></span>
+                      </button>
                       <p v-else key="cargando-img" class="visor-panel__estado">Cargando imagen…</p>
                     </Transition>
                     <button
@@ -687,6 +714,56 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </div>
+
+    <!-- ============ Foto en grande (pedido explícito): mismo visor de
+         pantalla completa que la columna de fotos de Actividades —
+         contador + anterior/siguiente, comparte `modalIndice` con la
+         miniatura del panel de arriba. ============ -->
+    <Teleport to="body">
+      <Transition name="visor-foto-grande-fondo">
+        <div v-if="fotoGrandeAbierta" class="visor-foto-grande" @click.self="cerrarFotoGrande">
+          <button type="button" class="visor-foto-grande__cerrar" aria-label="Cerrar" @click="cerrarFotoGrande">
+            <AuthIcon name="close" />
+          </button>
+
+          <span v-if="modalFotos.length > 1" class="visor-foto-grande__contador">
+            {{ modalIndice + 1 }} / {{ modalFotos.length }}
+          </span>
+
+          <button
+            v-if="modalFotos.length > 1"
+            type="button"
+            class="visor-foto-grande__nav visor-foto-grande__nav--prev"
+            aria-label="Anterior"
+            @click="fotoAnterior"
+          >
+            <AuthIcon name="chevron-left" />
+          </button>
+
+          <div class="visor-foto-grande__lienzo">
+            <Transition name="visor-foto-grande-imagen" mode="out-in">
+              <img
+                v-if="modalFotos[modalIndice]?.url"
+                :key="modalFotos[modalIndice].id"
+                :src="modalFotos[modalIndice].url"
+                alt="Evidencia de la actividad"
+                class="visor-foto-grande__img"
+              />
+            </Transition>
+          </div>
+
+          <button
+            v-if="modalFotos.length > 1"
+            type="button"
+            class="visor-foto-grande__nav visor-foto-grande__nav--next"
+            aria-label="Siguiente"
+            @click="fotoSiguiente"
+          >
+            <AuthIcon name="chevron-right" />
+          </button>
+        </div>
+      </Transition>
+    </Teleport>
   </section>
 </template>
 
@@ -1376,10 +1453,44 @@ onBeforeUnmount(() => {
   height: 0.75rem;
   flex-shrink: 0;
 }
+.visor-panel__img-boton {
+  position: relative;
+  max-width: 100%;
+  max-height: 100%;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: zoom-in;
+  display: flex;
+}
 .visor-panel__img {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+}
+.visor-panel__img-ampliar {
+  position: absolute;
+  bottom: 0.4rem;
+  right: 0.4rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.visor-panel__img-boton:hover .visor-panel__img-ampliar {
+  opacity: 1;
+  transform: scale(1);
+}
+.visor-panel__img-ampliar svg {
+  width: 0.6rem;
+  height: 0.6rem;
 }
 .visor-panel-imagen-enter-active,
 .visor-panel-imagen-leave-active {
@@ -1431,5 +1542,130 @@ onBeforeUnmount(() => {
 .visor-panel__nav svg {
   width: 0.8rem;
   height: 0.8rem;
+}
+
+/* ---- Foto en grande: mismo lenguaje que el visor de fotos de
+   Actividades (fondo oscuro con desenfoque, imagen centrada, contador y
+   flechas) — esta sí es una capa de pantalla completa a propósito: ver
+   una foto ampliada es una acción secundaria explícita (clic en la
+   imagen), no cambia de vista ni navega a otra pantalla. ---- */
+.visor-foto-grande {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  background: rgba(10, 15, 12, 0.85);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.visor-foto-grande-fondo-enter-active,
+.visor-foto-grande-fondo-leave-active {
+  transition: opacity 0.2s ease;
+}
+.visor-foto-grande-fondo-enter-from,
+.visor-foto-grande-fondo-leave-to {
+  opacity: 0;
+}
+.visor-foto-grande__lienzo {
+  flex: 1;
+  max-width: min(92vw, 900px);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.visor-foto-grande__img {
+  max-width: 100%;
+  max-height: 82vh;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  object-fit: contain;
+}
+.visor-foto-grande-imagen-enter-active,
+.visor-foto-grande-imagen-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.visor-foto-grande-imagen-enter-from {
+  opacity: 0;
+  transform: scale(0.98);
+}
+.visor-foto-grande-imagen-leave-to {
+  opacity: 0;
+}
+.visor-foto-grande__cerrar {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.visor-foto-grande__cerrar:hover {
+  background: rgba(255, 255, 255, 0.28);
+  transform: rotate(90deg);
+}
+.visor-foto-grande__cerrar svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.visor-foto-grande__contador {
+  position: absolute;
+  top: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.visor-foto-grande__nav {
+  flex-shrink: 0;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.visor-foto-grande__nav:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.08);
+}
+.visor-foto-grande__nav svg {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+@media (max-width: 640px) {
+  .visor-foto-grande {
+    padding: 0.6rem;
+    gap: 0.25rem;
+  }
+  .visor-foto-grande__nav {
+    width: 2.4rem;
+    height: 2.4rem;
+  }
+  .visor-foto-grande__img {
+    max-height: 74vh;
+  }
 }
 </style>
