@@ -17,9 +17,21 @@ const esRutaAuth = computed(() => route.name === 'login')
 // abierta, debe salir de ahí al instante, sin recargar el navegador — el
 // WebSocket dispara `auth.cargarPerfil()`, y este watcher es quien de
 // verdad reacciona al nuevo arreglo de permisos revisando la ruta activa.
+//
+// Bug real encontrado: `cerrarSesionLocal()` (logout) también vacía
+// `auth.permisos` — eso disparaba este mismo watcher DURANTE el logout,
+// que calculaba "sin permiso" (con la sesión ya cerrada) y mandaba a
+// `/sin-acceso` justo cuando `confirmLogout()` en Sidebar.vue estaba a
+// punto de mandar a `/login`; según el orden en que resolvían ambas
+// navegaciones, el usuario podía quedar varado viendo "Sin vistas
+// asignadas" en vez del login. El guard de abajo (`!auth.estaAutenticado`
+// → no hacer nada) es lo que lo corrige: esta redirección es solo para una
+// sesión SIGUE activa que perdió un permiso puntual, nunca para una
+// sesión que se está cerrando — de eso ya se encarga el propio logout.
 watch(
   () => auth.permisos,
   () => {
+    if (!auth.estaAutenticado) return
     const permisoRequerido = route.meta?.requierePermiso
     if (permisoRequerido && !auth.tienePermiso(permisoRequerido)) {
       router.replace(primeraRutaAccesible(auth))
