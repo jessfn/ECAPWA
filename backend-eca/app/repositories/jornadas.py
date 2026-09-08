@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid as uuid_lib
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.jornada import Jornada
@@ -38,3 +38,34 @@ def listar_de_usuario(db: Session, *, usuario_id: int, fecha: date | None = None
     if fecha is not None:
         consulta = consulta.where(Jornada.fecha == fecha)
     return list(db.execute(consulta).scalars())
+
+
+def listar_todas(
+    db: Session,
+    *,
+    usuario_id: int | None = None,
+    estado: str | None = None,
+    desde: date | None = None,
+    hasta: date | None = None,
+    page: int = 1,
+    page_size: int = 50,
+) -> tuple[list[Jornada], int]:
+    """Para la vista admin "Asistencia" — todos los técnicos, no solo el
+    dueño de la jornada (a diferencia de `listar_de_usuario`)."""
+    consulta = select(Jornada).where(Jornada.eliminado_en.is_(None))
+    if usuario_id is not None:
+        consulta = consulta.where(Jornada.usuario_id == usuario_id)
+    if estado is not None:
+        consulta = consulta.where(Jornada.estado == estado)
+    if desde is not None:
+        consulta = consulta.where(Jornada.fecha >= desde)
+    if hasta is not None:
+        consulta = consulta.where(Jornada.fecha <= hasta)
+
+    total = db.execute(select(func.count()).select_from(consulta.subquery())).scalar_one()
+    resultados = db.execute(
+        consulta.order_by(Jornada.fecha.desc(), Jornada.inicio_en.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    ).scalars()
+    return list(resultados), total

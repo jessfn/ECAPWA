@@ -40,6 +40,7 @@ const VISTAS = [
   { clave: 'vista.asignaciones', etiqueta: 'Asignaciones', icono: 'check-circle', modulo: 'asignaciones' },
   { clave: 'vista.catalogos', etiqueta: 'Catálogos', icono: 'book', modulo: 'catalogos' },
   { clave: 'vista.tecnicos', etiqueta: 'Técnicos', icono: 'user', modulo: 'usuarios' },
+  { clave: 'vista.asistencia', etiqueta: 'Asistencia', icono: 'check-circle', modulo: 'jornadas' },
   { clave: 'vista.actividades', etiqueta: 'Actividades', icono: 'clock', modulo: 'actividades' },
   { clave: 'vista.permisos_administrativos', etiqueta: 'Permisos administrativos', icono: 'shield-check', modulo: null },
 ]

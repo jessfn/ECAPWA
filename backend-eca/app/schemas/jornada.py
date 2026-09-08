@@ -8,7 +8,13 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.gps import GpsPeticion
 
-__all__ = ["GpsPeticion", "JornadaIniciarPeticion", "JornadaCerrarPeticion", "JornadaPublica"]
+__all__ = [
+    "GpsPeticion",
+    "JornadaIniciarPeticion",
+    "JornadaCerrarPeticion",
+    "JornadaPublica",
+    "JornadaListaPaginada",
+]
 
 
 class JornadaIniciarPeticion(BaseModel):
@@ -45,3 +51,10 @@ class JornadaPublica(BaseModel):
     estado_gps_fin: str | None
     nota: str | None
     nota_fin: str | None
+
+
+class JornadaListaPaginada(BaseModel):
+    total: int
+    page: int
+    page_size: int
+    resultados: list[JornadaPublica]

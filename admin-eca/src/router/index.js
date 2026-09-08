@@ -11,6 +11,7 @@ import CatalogosView from '../views/CatalogosView.vue'
 import ActividadesView from '../views/ActividadesView.vue'
 import ActividadDetalleView from '../views/ActividadDetalleView.vue'
 import TecnicosView from '../views/TecnicosView.vue'
+import AsistenciaView from '../views/AsistenciaView.vue'
 import PermisosAdministrativosView from '../views/PermisosAdministrativosView.vue'
 
 // admin-eca — rutas (ECA-005 + ECA-006 + ECA-007 + ECA-008 + ECA-009).
@@ -59,6 +60,12 @@ const routes = [
         name: 'tecnicos',
         component: TecnicosView,
         meta: { requierePermiso: 'vista.tecnicos' },
+      },
+      {
+        path: 'asistencia',
+        name: 'asistencia',
+        component: AsistenciaView,
+        meta: { requierePermiso: 'vista.asistencia' },
       },
       {
         path: 'actividades',
@@ -114,10 +121,11 @@ const ORDEN_VISTAS = [
   'asignaciones',
   'catalogos',
   'tecnicos',
+  'asistencia',
   'actividades',
   'permisos-administrativos',
 ]
-const PERMISO_DE_RUTA = { 'visor-seguimiento': 'vista.visor_seguimiento', ecas: 'vista.ecas', ambitos: 'vista.ambitos', asignaciones: 'vista.asignaciones', catalogos: 'vista.catalogos', tecnicos: 'vista.tecnicos', actividades: 'vista.actividades', 'permisos-administrativos': 'vista.permisos_administrativos' }
+const PERMISO_DE_RUTA = { 'visor-seguimiento': 'vista.visor_seguimiento', ecas: 'vista.ecas', ambitos: 'vista.ambitos', asignaciones: 'vista.asignaciones', catalogos: 'vista.catalogos', tecnicos: 'vista.tecnicos', asistencia: 'vista.asistencia', actividades: 'vista.actividades', 'permisos-administrativos': 'vista.permisos_administrativos' }
 
 function primeraRutaAccesible(auth) {
   const nombre = ORDEN_VISTAS.find((n) => auth.tienePermiso(PERMISO_DE_RUTA[n]))

@@ -73,6 +73,21 @@ class RepoJornadasEnMemoria:
             filas = [j for j in filas if j.fecha == fecha]
         return filas
 
+    def listar_todas(self, _db, *, usuario_id=None, estado=None, desde=None, hasta=None, page=1, page_size=50):
+        filas = list(self.filas)
+        if usuario_id is not None:
+            filas = [j for j in filas if j.usuario_id == usuario_id]
+        if estado is not None:
+            filas = [j for j in filas if j.estado == estado]
+        if desde is not None:
+            filas = [j for j in filas if j.fecha >= desde]
+        if hasta is not None:
+            filas = [j for j in filas if j.fecha <= hasta]
+        filas.sort(key=lambda j: (j.fecha, j.inicio_en), reverse=True)
+        total = len(filas)
+        inicio = (page - 1) * page_size
+        return filas[inicio : inicio + page_size], total
+
 
 @pytest.fixture
 def repo(monkeypatch: pytest.MonkeyPatch):
@@ -83,6 +98,7 @@ def repo(monkeypatch: pytest.MonkeyPatch):
     )
     monkeypatch.setattr(jornadas_service.repo_jornadas, "crear", repo_en_memoria.crear)
     monkeypatch.setattr(jornadas_service.repo_jornadas, "listar_de_usuario", repo_en_memoria.listar_de_usuario)
+    monkeypatch.setattr(jornadas_service.repo_jornadas, "listar_todas", repo_en_memoria.listar_todas)
     return repo_en_memoria
 
 
@@ -182,3 +198,42 @@ def test_cerrar_jornada_sin_nota_fin_es_error(repo, actor: Usuario) -> None:
 
     with pytest.raises(jornadas_service.DetalleRequeridoError):
         jornadas_service.cerrar(DB, uuid=identificador, fin_en=fin, gps=None, nota_fin="", actor=actor)
+
+
+# --- listar_todas (vista admin "Asistencia") -------------------------------
+
+
+def test_listar_todas_trae_jornadas_de_cualquier_tecnico(repo, actor: Usuario) -> None:
+    otro = Usuario(id=2, nombre="B", apellido_paterno="B", correo="otro@ejemplo.org", contrasena_hash="x")
+    jornadas_service.iniciar(DB, uuid=uuid_lib.uuid4(), inicio_en=INICIO, gps=None, nota="Detalle.", actor=actor)
+    jornadas_service.iniciar(DB, uuid=uuid_lib.uuid4(), inicio_en=INICIO, gps=None, nota="Detalle.", actor=otro)
+
+    resultados, total = jornadas_service.listar_todas(DB)
+
+    assert total == 2
+    assert {j.usuario_id for j in resultados} == {actor.id, otro.id}
+
+
+def test_listar_todas_filtra_por_tecnico(repo, actor: Usuario) -> None:
+    otro = Usuario(id=2, nombre="B", apellido_paterno="B", correo="otro@ejemplo.org", contrasena_hash="x")
+    jornadas_service.iniciar(DB, uuid=uuid_lib.uuid4(), inicio_en=INICIO, gps=None, nota="Detalle.", actor=actor)
+    jornadas_service.iniciar(DB, uuid=uuid_lib.uuid4(), inicio_en=INICIO, gps=None, nota="Detalle.", actor=otro)
+
+    resultados, total = jornadas_service.listar_todas(DB, usuario_id=otro.id)
+
+    assert total == 1
+    assert resultados[0].usuario_id == otro.id
+
+
+def test_listar_todas_pagina(repo) -> None:
+    # 5 técnicos distintos, cada uno con su propia jornada ese día — así
+    # cada `iniciar` produce una fila real (la deduplicación es por
+    # usuario_id + fecha, nunca entre técnicos distintos).
+    for i in range(5):
+        tecnico = Usuario(id=i + 1, nombre=f"T{i}", apellido_paterno="T", correo=f"t{i}@ejemplo.org", contrasena_hash="x")
+        jornadas_service.iniciar(DB, uuid=uuid_lib.uuid4(), inicio_en=INICIO, gps=None, nota="Detalle.", actor=tecnico)
+
+    resultados, total = jornadas_service.listar_todas(DB, page=1, page_size=2)
+
+    assert total == 5
+    assert len(resultados) == 2

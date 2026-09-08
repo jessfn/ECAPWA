@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.core.permissions import require_permission
 from app.models.usuario import Usuario
-from app.schemas.jornada import JornadaCerrarPeticion, JornadaIniciarPeticion, JornadaPublica
+from app.schemas.jornada import JornadaCerrarPeticion, JornadaIniciarPeticion, JornadaListaPaginada, JornadaPublica
 from app.services import jornadas_service
 
 router = APIRouter(prefix="/jornadas", tags=["jornadas"])
@@ -74,3 +74,26 @@ def mi_jornada_de_hoy(
 ) -> JornadaPublica | None:
     jornada = jornadas_service.obtener_de_hoy(db, usuario_id=actor.id)
     return JornadaPublica.model_validate(jornada) if jornada else None
+
+
+@router.get("/todas", response_model=JornadaListaPaginada)
+def listar_todas_las_jornadas(
+    tecnico_id: int | None = None,
+    estado: str | None = None,
+    desde: date_cls | None = None,
+    hasta: date_cls | None = None,
+    page: int = 1,
+    page_size: int = 50,
+    db: Session = Depends(get_db),
+    _actor: Usuario = Depends(require_permission("jornadas.ver_todas")),
+) -> JornadaListaPaginada:
+    """Para la vista admin "Asistencia": entrada/salida de TODOS los
+    técnicos (a diferencia de `GET /jornadas`, que solo trae las propias
+    del actor). Va como `/jornadas/todas` (segmento fijo) — no colisiona
+    con `PATCH /jornadas/{uuid}/cerrar` porque son métodos distintos."""
+    resultados, total = jornadas_service.listar_todas(
+        db, usuario_id=tecnico_id, estado=estado, desde=desde, hasta=hasta, page=page, page_size=page_size
+    )
+    return JornadaListaPaginada(
+        total=total, page=page, page_size=page_size, resultados=[JornadaPublica.model_validate(j) for j in resultados]
+    )

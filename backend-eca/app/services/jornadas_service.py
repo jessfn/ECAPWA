@@ -129,6 +129,22 @@ def listar(db: Session, *, usuario_id: int, fecha=None) -> list[Jornada]:
     return repo_jornadas.listar_de_usuario(db, usuario_id=usuario_id, fecha=fecha)
 
 
+def listar_todas(
+    db: Session,
+    *,
+    usuario_id: int | None = None,
+    estado: str | None = None,
+    desde=None,
+    hasta=None,
+    page: int = 1,
+    page_size: int = 50,
+) -> tuple[list[Jornada], int]:
+    """Para "Asistencia" (admin): entrada/salida de TODOS los técnicos."""
+    return repo_jornadas.listar_todas(
+        db, usuario_id=usuario_id, estado=estado, desde=desde, hasta=hasta, page=page, page_size=page_size
+    )
+
+
 def obtener_de_hoy(db: Session, *, usuario_id: int) -> Jornada | None:
     hoy = _fecha_local(datetime.now(ZONA_MVP))
     return repo_jornadas.obtener_abierta_del_dia(db, usuario_id=usuario_id, fecha=hoy)

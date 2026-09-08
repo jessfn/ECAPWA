@@ -54,6 +54,13 @@ const enlaces = [
     icono: 'user',
   },
   {
+    nombre: 'asistencia',
+    etiqueta: 'Asistencia',
+    ruta: { name: 'asistencia' },
+    permiso: 'vista.asistencia',
+    icono: 'check-circle',
+  },
+  {
     nombre: 'actividades',
     etiqueta: 'Actividades',
     ruta: { name: 'actividades' },
