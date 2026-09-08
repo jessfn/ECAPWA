@@ -13,6 +13,14 @@ vi.mock('../src/services/jornadasService', () => ({
   obtenerJornadaDeHoy: vi.fn(),
 }))
 
+// El store no debe depender del timing interno del GPS (eso lo cubre
+// `gps.spec.js`): se mockea `capturarGps` para que resuelva de inmediato.
+// Por defecto SIN_GPS — así los tests de "el GPS falla, no bloquea" siguen
+// siendo válidos y rápidos.
+vi.mock('../src/services/gps', () => ({
+  capturarGps: vi.fn(async () => ({ estado_gps: 'SIN_GPS' })),
+}))
+
 // `cargarHoy` ahora asegura sesión de servidor (sesionServidorValida)
 // antes de llamar a `obtenerJornadaDeHoy` — sin un access_token vigente en
 // localStorage, se salta la hidratación de raíz (evita el 401 predecible

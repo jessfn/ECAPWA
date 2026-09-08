@@ -1,5 +1,8 @@
-// pwa-eca — pruebas del servicio de GPS (ECA-014 + ECA-021: watchPosition,
-// mismo flujo que pwasuper).
+// pwa-eca — pruebas del servicio de GPS (ECA-014 + rediseño de velocidad).
+// El flujo nuevo prioriza rapidez: resuelve APENAS logra una lectura bajo
+// el umbral, acepta caché reciente vía `getCurrentPosition`, y si a
+// `objetivoMs` no hay una "buena" entrega la mejor imprecisa. Tope duro
+// corto como salvavidas.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 vi.mock('../src/services/parametrosConfigService', () => ({
@@ -18,20 +21,21 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-// `mockWatchPosition(fn)` deja que cada test controle cuándo/qué emite el
-// watch; `clearWatch` se registra para poder afirmar que se limpia bien.
-function mockGeolocation({ watchPosition, clearWatch = vi.fn() } = {}) {
-  global.navigator.geolocation = { watchPosition, clearWatch }
+// `getCurrentPosition` por defecto no llama a ningún callback (el watch
+// dirige la prueba); cada test puede sobreescribirlo. `clearWatch` se
+// registra para afirmar la limpieza.
+function mockGeolocation({ watchPosition, getCurrentPosition = vi.fn(), clearWatch = vi.fn() } = {}) {
+  global.navigator.geolocation = { watchPosition, getCurrentPosition, clearWatch }
 }
 
-describe('capturarGps', () => {
+describe('capturarGps (flujo rápido)', () => {
   it('SIN_GPS si el navegador no tiene geolocation', async () => {
     delete global.navigator.geolocation
     const resultado = await capturarGps()
     expect(resultado).toEqual({ estado_gps: 'SIN_GPS' })
   })
 
-  it('CON_GPS cuando la precisión está dentro del umbral', async () => {
+  it('CON_GPS al instante cuando la primera lectura ya está bajo el umbral (no espera)', async () => {
     obtenerParametro.mockResolvedValueOnce(30)
     let onExito
     const clearWatch = vi.fn()
@@ -43,9 +47,9 @@ describe('capturarGps', () => {
       clearWatch,
     })
 
-    const promesa = capturarGps({ maxEsperaMejorPrecisionMs: 3000 })
+    const promesa = capturarGps()
     onExito({ coords: { latitude: 19.4, longitude: -99.1, accuracy: 8 } })
-    await vi.advanceTimersByTimeAsync(3000)
+    // Sin avanzar temporizadores: debe resolver de inmediato.
     const resultado = await promesa
 
     expect(resultado.estado_gps).toBe('CON_GPS')
@@ -54,7 +58,19 @@ describe('capturarGps', () => {
     expect(clearWatch).toHaveBeenCalledWith(1)
   })
 
-  it('GPS_IMPRECISO cuando la precisión excede el umbral', async () => {
+  it('ruta veloz: un fix en caché de getCurrentPosition resuelve al instante', async () => {
+    mockGeolocation({
+      watchPosition: () => 1,
+      getCurrentPosition: (ok) => ok({ coords: { latitude: 20, longitude: -100, accuracy: 15 } }),
+    })
+
+    const resultado = await capturarGps()
+
+    expect(resultado.estado_gps).toBe('CON_GPS')
+    expect(resultado.latitud).toBe(20)
+  })
+
+  it('GPS_IMPRECISO: a objetivoMs entrega la mejor lectura aunque exceda el umbral', async () => {
     obtenerParametro.mockResolvedValueOnce(30)
     let onExito
     mockGeolocation({
@@ -64,14 +80,14 @@ describe('capturarGps', () => {
       },
     })
 
-    const promesa = capturarGps({ maxEsperaMejorPrecisionMs: 1000 })
+    const promesa = capturarGps({ objetivoMs: 1000 })
     onExito({ coords: { latitude: 19.4, longitude: -99.1, accuracy: 120 } })
     await vi.advanceTimersByTimeAsync(1000)
 
     expect((await promesa).estado_gps).toBe('GPS_IMPRECISO')
   })
 
-  it('se queda con la lectura de mejor precisión entre varias', async () => {
+  it('se queda con la lectura de mejor precisión entre varias antes del objetivo', async () => {
     obtenerParametro.mockResolvedValueOnce(30)
     let onExito
     mockGeolocation({
@@ -81,11 +97,11 @@ describe('capturarGps', () => {
       },
     })
 
-    const promesa = capturarGps({ maxEsperaMejorPrecisionMs: 1000 })
+    const promesa = capturarGps({ objetivoMs: 1000 })
     onExito({ coords: { latitude: 19.4, longitude: -99.1, accuracy: 200 } })
     await vi.advanceTimersByTimeAsync(200)
+    // Llega una lectura bajo el umbral → resuelve ya con esa (CON_GPS).
     onExito({ coords: { latitude: 19.4, longitude: -99.1, accuracy: 10 } })
-    await vi.advanceTimersByTimeAsync(1000)
 
     const resultado = await promesa
     expect(resultado.precision_gps_m).toBe(10)
@@ -102,19 +118,16 @@ describe('capturarGps', () => {
       },
     })
 
-    const promesa = capturarGps({ maxEsperaMejorPrecisionMs: 1000 })
-    onExito({ coords: { latitude: 19.4, longitude: -99.1, accuracy: 10 } })
+    const promesa = capturarGps({ objetivoMs: 1000 })
+    // Dos lecturas imprecisas (ninguna bajo umbral); se queda con la mejor.
+    onExito({ coords: { latitude: 19.4, longitude: -99.1, accuracy: 90 } })
     await vi.advanceTimersByTimeAsync(200)
     onExito({ coords: { latitude: 19.4, longitude: -99.1, accuracy: 200 } })
     await vi.advanceTimersByTimeAsync(1000)
 
-    expect((await promesa).precision_gps_m).toBe(10)
+    expect((await promesa).precision_gps_m).toBe(90)
   })
 
-  // El código 1 es `PERMISSION_DENIED` en la spec real — a diferencia de
-  // un error genérico, esto sí debe marcarse para que la UI pida activar
-  // el permiso en vez de solo decir "sin señal", y resuelve de inmediato
-  // (no tiene caso seguir esperando).
   it('marca permiso_denegado cuando el navegador niega el permiso', async () => {
     let onError
     mockGeolocation({
@@ -135,27 +148,19 @@ describe('capturarGps', () => {
   it('SIN_GPS si nunca llega ninguna lectura antes del tope', async () => {
     mockGeolocation({ watchPosition: () => 1 })
 
-    const promesa = capturarGps({ timeoutMs: 15000 })
-    await vi.advanceTimersByTimeAsync(15000)
+    const promesa = capturarGps({ timeoutMs: 10000 })
+    await vi.advanceTimersByTimeAsync(10000)
 
     expect((await promesa).estado_gps).toBe('SIN_GPS')
   })
 
-  // Regresión real observada: mientras el navegador tiene pendiente el
-  // diálogo nativo de permiso de ubicación, ni `watchPosition` ni su error
-  // llegan a llamarse — sin un salvavidas por `setTimeout` (que sí corre
-  // siempre, sin depender de que el navegador resuelva el diálogo), la
-  // captura se queda colgada sin límite.
   it('no se cuelga si el navegador nunca llama a ningún callback (permiso pendiente)', async () => {
     mockGeolocation({
-      watchPosition: () => {
-        /* nunca llama a onExito ni a onError */
-        return 1
-      },
+      watchPosition: () => 1,
     })
 
-    const promesa = capturarGps({ timeoutMs: 15000 })
-    await vi.advanceTimersByTimeAsync(20000)
+    const promesa = capturarGps({ timeoutMs: 10000 })
+    await vi.advanceTimersByTimeAsync(12000)
     const resultado = await promesa
 
     expect(resultado.estado_gps).toBe('SIN_GPS')
