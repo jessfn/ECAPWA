@@ -763,25 +763,32 @@ onMounted(async () => {
                         <small>Esta actividad no tiene ubicación registrada.</small>
                       </div>
                     </div>
-                  </div>
 
-                  <div class="actividades__modal-galeria-seccion">
-                    <h3><AuthIcon name="camera" /> Evidencias fotográficas</h3>
-                    <div v-if="!modalDetalle.evidencias.length" class="eca-vacio">
-                      <AuthIcon name="camera" />
-                      <p>Sin fotos.</p>
-                    </div>
-                    <div v-else class="actividades__modal-galeria">
-                      <figure v-for="e in modalDetalle.evidencias" :key="e.uuid" class="actividades__modal-foto">
-                        <img v-if="modalVistasPrevias[e.id]" :src="modalVistasPrevias[e.id]" :alt="e.nombre_archivo" />
-                        <div v-else class="actividades__modal-foto-cargando">Cargando…</div>
-                        <figcaption>
-                          <span>{{ e.nombre_archivo }}</span>
-                          <button type="button" class="eca-btn eca-btn-secundario" @click="descargarEvidencia(e.id, e.nombre_archivo)">
-                            Descargar
-                          </button>
-                        </figcaption>
-                      </figure>
+                    <!-- Columna: evidencias fotográficas -->
+                    <div class="actividades__modal-col actividades__modal-col--fotos">
+                      <div class="actividades__modal-col-cabecera">
+                        <span class="actividades__modal-col-icono actividades__modal-col-icono--fotos"><AuthIcon name="camera" /></span>
+                        <strong>Evidencias</strong>
+                        <span v-if="modalDetalle.evidencias.length" class="actividades__modal-col-conteo">{{ modalDetalle.evidencias.length }}</span>
+                      </div>
+
+                      <div v-if="!modalDetalle.evidencias.length" class="actividades__modal-pendiente">
+                        <AuthIcon name="camera" />
+                        <p>Sin fotos</p>
+                        <small>Esta actividad no tiene evidencias fotográficas.</small>
+                      </div>
+                      <div v-else class="actividades__modal-galeria">
+                        <figure v-for="e in modalDetalle.evidencias" :key="e.uuid" class="actividades__modal-foto">
+                          <img v-if="modalVistasPrevias[e.id]" :src="modalVistasPrevias[e.id]" :alt="e.nombre_archivo" />
+                          <div v-else class="actividades__modal-foto-cargando">Cargando…</div>
+                          <figcaption>
+                            <span>{{ e.nombre_archivo }}</span>
+                            <button type="button" class="eca-btn eca-btn-secundario" @click="descargarEvidencia(e.id, e.nombre_archivo)">
+                              Descargar
+                            </button>
+                          </figcaption>
+                        </figure>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1515,7 +1522,7 @@ select.actividades__control:disabled {
   position: relative;
   width: 100%;
   max-width: 780px;
-  max-height: 88vh;
+  max-height: 90vh;
   overflow-y: auto;
   background: #fff;
   border-radius: 28px;
@@ -1645,10 +1652,14 @@ select.actividades__control:disabled {
   flex-direction: column;
   gap: 0.1rem;
 }
-/* ---- Dos columnas: Información / Ubicación (rediseño) ---- */
+/* ---- Columnas: Información / Ubicación / Evidencias (rediseño) ----
+   Mobile: apiladas. Tablet (>=760px): Información + Ubicación lado a
+   lado, Evidencias abajo a lo ancho. Escritorio (>=1140px, cuando cabe
+   de verdad): las tres columnas lado a lado — pedido explícito para
+   que las fotos se vean sin tener que hacer scroll de más. */
 .actividades__modal-columnas {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 0;
   margin: 0 -1.75rem;
   border-top: 1px solid var(--eca-surface-border);
@@ -1660,15 +1671,50 @@ select.actividades__control:disabled {
   flex-direction: column;
   gap: 0.7rem;
   animation: actividades-col-entra 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  border-bottom: 1px solid var(--eca-surface-border);
+}
+.actividades__modal-col:last-child {
+  border-bottom: none;
 }
 .actividades__modal-col--info {
   background: linear-gradient(180deg, rgba(46, 125, 50, 0.06), transparent 55%);
-  border-right: 1px solid var(--eca-surface-border);
   animation-delay: 0.02s;
 }
 .actividades__modal-col--gps {
   background: linear-gradient(180deg, rgba(102, 126, 234, 0.06), transparent 55%);
   animation-delay: 0.09s;
+}
+.actividades__modal-col--fotos {
+  background: linear-gradient(180deg, rgba(124, 58, 237, 0.06), transparent 55%);
+  animation-delay: 0.16s;
+}
+@media (min-width: 760px) {
+  .actividades__modal-columnas {
+    grid-template-columns: 1fr 1fr;
+  }
+  .actividades__modal-col--info {
+    border-right: 1px solid var(--eca-surface-border);
+  }
+  .actividades__modal-col--fotos {
+    grid-column: 1 / -1;
+    border-right: none;
+  }
+}
+@media (min-width: 1140px) {
+  .actividades__modal {
+    max-width: 1120px;
+  }
+  .actividades__modal-columnas {
+    grid-template-columns: 1fr 1fr 1.2fr;
+  }
+  .actividades__modal-col--gps {
+    border-right: 1px solid var(--eca-surface-border);
+  }
+  .actividades__modal-col--fotos {
+    grid-column: auto;
+    max-height: 26rem;
+    overflow-y: auto;
+  }
 }
 @keyframes actividades-col-entra {
   from {
@@ -1850,20 +1896,23 @@ select.actividades__control:disabled {
   max-height: 16rem;
 }
 
-.actividades__modal-galeria-seccion {
-  margin-top: 1.4rem;
+.actividades__modal-col-icono--fotos {
+  background: linear-gradient(135deg, #a78bfa, #7c3aed);
+  box-shadow: 0 3px 10px rgba(124, 58, 237, 0.32);
 }
-.actividades__modal-galeria-seccion h3 {
+.actividades__modal-col-conteo {
+  margin-left: auto;
+  min-width: 1.3rem;
+  height: 1.3rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--eca-surface-border);
+  color: var(--eca-ink-soft);
+  font-size: 0.68rem;
+  font-weight: 800;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  margin: 0 0 0.9rem;
-  color: var(--eca-purple-700);
-  font-size: 0.95rem;
-}
-.actividades__modal-galeria-seccion h3 svg {
-  width: 15px;
-  height: 15px;
+  justify-content: center;
 }
 .actividades__modal-galeria {
   display: flex;
