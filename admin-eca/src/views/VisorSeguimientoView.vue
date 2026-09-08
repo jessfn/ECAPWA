@@ -10,11 +10,15 @@
      vertical de página). -->
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { RouterLink } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 import { api } from '../services/api'
-import { listarActividades } from '../services/actividadesService'
+import { listarActividades, obtenerActividad, urlVistaPreviaEvidencia } from '../services/actividadesService'
 import { listarEcas } from '../services/ecasService'
 import { listarCatalogo } from '../services/catalogosService'
 import AuthIcon from '../components/auth/AuthIcon.vue'
+
+const auth = useAuthStore()
 
 const cargando = ref(false)
 const error = ref('')
@@ -168,6 +172,76 @@ function ecaNombreDe(a) {
   return a.eca_nombre || (a.eca_id ? `ECA #${a.eca_id}` : '—')
 }
 
+// ---- Modal de detalle al tocar una ubicación (solo actividades: son las
+// únicas con fotos) — mismo patrón de galería/lightbox que Actividades:
+// una foto sola muestra solo la imagen + cerrar; varias traen contador
+// "n / total" y botones anterior/siguiente. ----
+const modalAbierto = ref(false)
+const modalActividad = ref(null) // fila básica (lista) — header inmediato
+const modalDetalle = ref(null) // detalle completo (con evidencias), llega después
+const modalCargando = ref(false)
+const modalError = ref('')
+const modalFotos = ref([]) // [{ id, url }]
+const modalIndice = ref(0)
+
+function limpiarModalFotos() {
+  for (const f of modalFotos.value) {
+    if (f.url) URL.revokeObjectURL(f.url)
+  }
+  modalFotos.value = []
+}
+async function abrirModalActividad(a) {
+  modalAbierto.value = true
+  modalActividad.value = a
+  modalDetalle.value = null
+  modalError.value = ''
+  modalCargando.value = true
+  modalIndice.value = 0
+  limpiarModalFotos()
+  document.body.style.overflow = 'hidden'
+  try {
+    const detalle = await obtenerActividad(a.uuid)
+    modalDetalle.value = detalle
+    const evidencias = detalle.evidencias || []
+    modalFotos.value = evidencias.map((e) => ({ id: e.id, url: null }))
+    await Promise.all(
+      evidencias.map((e, i) =>
+        urlVistaPreviaEvidencia(e.id)
+          .then((url) => {
+            if (modalFotos.value[i]) modalFotos.value[i] = { id: e.id, url }
+          })
+          .catch(() => {}),
+      ),
+    )
+  } catch {
+    modalError.value = 'No se pudo cargar el detalle de esta actividad.'
+  } finally {
+    modalCargando.value = false
+  }
+}
+function cerrarModal() {
+  modalAbierto.value = false
+  modalActividad.value = null
+  modalDetalle.value = null
+  limpiarModalFotos()
+  document.body.style.overflow = ''
+}
+function fotoSiguiente() {
+  if (!modalFotos.value.length) return
+  modalIndice.value = (modalIndice.value + 1) % modalFotos.value.length
+}
+function fotoAnterior() {
+  if (!modalFotos.value.length) return
+  modalIndice.value = (modalIndice.value - 1 + modalFotos.value.length) % modalFotos.value.length
+}
+function onTeclaModal(evento) {
+  if (!modalAbierto.value) return
+  if (evento.key === 'Escape') return cerrarModal()
+  if (modalFotos.value.length < 2) return
+  if (evento.key === 'ArrowRight') fotoSiguiente()
+  if (evento.key === 'ArrowLeft') fotoAnterior()
+}
+
 function limpiarMarcadoresActividades() {
   marcadoresActividades.forEach((m) => m.remove())
   marcadoresActividades = []
@@ -184,18 +258,19 @@ function pintarMarcadores() {
 
   if (capaActividades.value) {
     actividades.value.forEach((a) => {
-      const tecnico = tecnicoDe(a)
       const color = a.estado_gps === 'GPS_IMPRECISO' ? '#d97706' : '#2e7d32'
-      const popup = new window.mapboxgl.Popup({ offset: 14, closeButton: false }).setHTML(`
-        <strong>${tecnico ? `${tecnico.nombre} ${tecnico.apellido_paterno}` : `Técnico #${a.usuario_id}`}</strong><br>
-        ${tipoNombre(a)} · ${new Date(a.fecha_hora).toLocaleDateString('es-MX')}<br>
-        <span style="color:#666">${ecaNombreDe(a)}</span><br>
-        <span style="color:${color};font-weight:700">${ETIQUETAS_GPS[a.estado_gps] || a.estado_gps}</span>
-      `)
-      const marcador = new window.mapboxgl.Marker({ color })
-        .setLngLat([a.longitud, a.latitud])
-        .setPopup(popup)
-        .addTo(mapa)
+      // Sin popup nativo: al tocar la ubicación se abre el modal de detalle
+      // (con fotos) — mucho más útil aquí que un globo de texto, ya que
+      // las actividades sí tienen evidencia fotográfica.
+      const marcador = new window.mapboxgl.Marker({ color }).setLngLat([a.longitud, a.latitud]).addTo(mapa)
+      const el = marcador.getElement()
+      el.style.cursor = 'pointer'
+      el.setAttribute('role', 'button')
+      el.setAttribute('aria-label', 'Ver detalle de la actividad')
+      el.addEventListener('click', (evento) => {
+        evento.stopPropagation()
+        abrirModalActividad(a)
+      })
       marcadoresActividades.push(marcador)
     })
   }
@@ -268,6 +343,7 @@ function alternarCapa(capa) {
 }
 
 onMounted(async () => {
+  window.addEventListener('keydown', onTeclaModal)
   cargando.value = true
   await Promise.all([cargarTecnicos(), cargarTiposActividad(), cargarActividades(), cargarEcas()])
   cargando.value = false
@@ -275,6 +351,9 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onTeclaModal)
+  limpiarModalFotos()
+  document.body.style.overflow = ''
   limpiarMarcadoresActividades()
   limpiarMarcadoresEcas()
   mapa?.remove()
@@ -400,6 +479,99 @@ onBeforeUnmount(() => {
       <p v-if="mapaError" class="eca-alerta-error" role="alert">{{ mapaError }}</p>
       <div ref="mapaContenedor" class="visor__mapa"></div>
     </div>
+
+    <!-- ============ Modal moderno: detalle de la actividad tocada en el
+         mapa, con galería de fotos (contador + anterior/siguiente cuando
+         hay más de una). ============ -->
+    <Teleport to="body">
+      <Transition name="visor-modal-fondo">
+        <div v-if="modalAbierto" class="visor-modal__fondo" @click.self="cerrarModal">
+          <Transition name="visor-modal-tarjeta" appear>
+            <div class="visor-modal" role="dialog" aria-modal="true">
+              <button type="button" class="visor-modal__cerrar" aria-label="Cerrar" @click="cerrarModal">
+                <AuthIcon name="close" />
+              </button>
+
+              <div class="visor-modal__cabecera">
+                <span class="visor-modal__avatar">{{ iniciales(tecnicoDe(modalActividad)) }}</span>
+                <div class="visor-modal__cabecera-texto">
+                  <strong>{{
+                    tecnicoDe(modalActividad)
+                      ? `${tecnicoDe(modalActividad).nombre} ${tecnicoDe(modalActividad).apellido_paterno}`
+                      : `Técnico #${modalActividad?.usuario_id}`
+                  }}</strong>
+                  <span>{{ new Date(modalActividad?.fecha_hora).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' }) }}</span>
+                </div>
+                <span
+                  class="visor-modal__badge-gps"
+                  :class="modalActividad?.estado_gps === 'GPS_IMPRECISO' ? 'visor-modal__badge-gps--ambar' : 'visor-modal__badge-gps--verde'"
+                >
+                  <AuthIcon name="map-pin" /> {{ ETIQUETAS_GPS[modalActividad?.estado_gps] || modalActividad?.estado_gps }}
+                </span>
+              </div>
+
+              <!-- Galería -->
+              <div class="visor-modal__galeria">
+                <p v-if="modalCargando" class="visor-modal__estado">Cargando…</p>
+                <p v-else-if="!modalFotos.length" class="visor-modal__estado">
+                  <AuthIcon name="clock" /> Esta actividad no tiene fotos.
+                </p>
+                <template v-else>
+                  <span v-if="modalFotos.length > 1" class="visor-modal__contador">
+                    {{ modalIndice + 1 }} / {{ modalFotos.length }}
+                  </span>
+                  <button
+                    v-if="modalFotos.length > 1"
+                    type="button"
+                    class="visor-modal__nav visor-modal__nav--prev"
+                    aria-label="Foto anterior"
+                    @click="fotoAnterior"
+                  >
+                    <AuthIcon name="chevron-left" />
+                  </button>
+                  <Transition name="visor-modal-imagen" mode="out-in">
+                    <img
+                      v-if="modalFotos[modalIndice]?.url"
+                      :key="modalFotos[modalIndice].id"
+                      :src="modalFotos[modalIndice].url"
+                      alt="Evidencia de la actividad"
+                      class="visor-modal__img"
+                    />
+                    <p v-else key="cargando-img" class="visor-modal__estado">Cargando imagen…</p>
+                  </Transition>
+                  <button
+                    v-if="modalFotos.length > 1"
+                    type="button"
+                    class="visor-modal__nav visor-modal__nav--next"
+                    aria-label="Foto siguiente"
+                    @click="fotoSiguiente"
+                  >
+                    <AuthIcon name="chevron-right" />
+                  </button>
+                </template>
+              </div>
+
+              <!-- Información -->
+              <div class="visor-modal__info">
+                <p v-if="modalError" class="eca-alerta-error" role="alert">{{ modalError }}</p>
+                <div class="visor-modal__badges">
+                  <span class="eca-badge eca-badge--morado">{{ tipoNombre(modalActividad || {}) }}</span>
+                  <span class="visor-modal__eca"><AuthIcon name="school" /> {{ ecaNombreDe(modalActividad || {}) }}</span>
+                </div>
+                <p class="visor-modal__descripcion">{{ modalDetalle?.descripcion || modalActividad?.descripcion }}</p>
+                <RouterLink
+                  v-if="auth.tienePermiso('vista.actividades') && modalActividad"
+                  :to="{ name: 'actividad-detalle', params: { uuid: modalActividad.uuid } }"
+                  class="visor-modal__vertodo"
+                >
+                  Ver actividad completa <AuthIcon name="chevron-right" />
+                </RouterLink>
+              </div>
+            </div>
+          </Transition>
+        </div>
+      </Transition>
+    </Teleport>
   </section>
 </template>
 
@@ -715,6 +887,288 @@ select.visor__control {
   .visor__control,
   .visor__chip-capa {
     flex: 1 1 100%;
+  }
+}
+
+/* ---- Modal moderno de detalle (con galería) al tocar una ubicación ---- */
+.visor-modal__fondo {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(10, 15, 12, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.visor-modal-fondo-enter-active,
+.visor-modal-fondo-leave-active {
+  transition: opacity 0.2s ease;
+}
+.visor-modal-fondo-enter-from,
+.visor-modal-fondo-leave-to {
+  opacity: 0;
+}
+.visor-modal {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 24px;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.visor-modal-tarjeta-enter-active {
+  transition: opacity 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.visor-modal-tarjeta-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.visor-modal-tarjeta-enter-from {
+  opacity: 0;
+  transform: scale(0.94) translateY(14px);
+}
+.visor-modal-tarjeta-leave-to {
+  opacity: 0;
+  transform: scale(0.97) translateY(8px);
+}
+.visor-modal__cerrar {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  z-index: 2;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--eca-ink);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease;
+}
+.visor-modal__cerrar:hover {
+  transform: rotate(90deg) scale(1.08);
+  background: #fff;
+}
+.visor-modal__cerrar svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.visor-modal__cabecera {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.1rem 3rem 1.1rem 1.25rem;
+  background: linear-gradient(135deg, #2f7a33 0%, #256a2a 55%, #14501c 100%);
+  color: #fff;
+  border-radius: 24px 24px 0 0;
+}
+.visor-modal__avatar {
+  flex-shrink: 0;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+.visor-modal__cabecera-texto {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.visor-modal__cabecera-texto strong {
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.visor-modal__cabecera-texto span {
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+.visor-modal__badge-gps {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.28rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.16);
+  white-space: nowrap;
+}
+.visor-modal__badge-gps svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+.visor-modal__badge-gps--ambar {
+  color: #ffe6ae;
+}
+.visor-modal__badge-gps--verde {
+  color: #d7ffd9;
+}
+
+/* Galería: mismo lenguaje que el visor de fotos de Actividades — imagen
+   centrada, contador arriba, flechas a los lados. */
+.visor-modal__galeria {
+  position: relative;
+  background: #111;
+  min-height: 14rem;
+  max-height: 46vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.visor-modal__estado {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 1.5rem;
+}
+.visor-modal__estado svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+.visor-modal__img {
+  max-width: 100%;
+  max-height: 46vh;
+  object-fit: contain;
+}
+.visor-modal-imagen-enter-active,
+.visor-modal-imagen-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.visor-modal-imagen-enter-from {
+  opacity: 0;
+  transform: scale(0.98);
+}
+.visor-modal-imagen-leave-to {
+  opacity: 0;
+}
+.visor-modal__contador {
+  position: absolute;
+  top: 0.7rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  padding: 0.22rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.visor-modal__nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.visor-modal__nav:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-50%) scale(1.08);
+}
+.visor-modal__nav--prev {
+  left: 0.6rem;
+}
+.visor-modal__nav--next {
+  right: 0.6rem;
+}
+.visor-modal__nav svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.visor-modal__info {
+  padding: 1rem 1.25rem 1.25rem;
+}
+.visor-modal__badges {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.7rem;
+}
+.visor-modal__eca {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--eca-ink-soft);
+}
+.visor-modal__eca svg {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+.visor-modal__descripcion {
+  margin: 0 0 0.9rem;
+  font-size: 0.88rem;
+  color: var(--eca-ink);
+  line-height: 1.5;
+}
+.visor-modal__vertodo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--eca-green-700);
+  text-decoration: none;
+}
+.visor-modal__vertodo svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+.visor-modal__vertodo:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .visor-modal__fondo {
+    padding: 0;
+    align-items: flex-end;
+  }
+  .visor-modal {
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: 22px 22px 0 0;
+  }
+  .visor-modal-tarjeta-enter-from,
+  .visor-modal-tarjeta-leave-to {
+    transform: translateY(100%);
+  }
+  .visor-modal__cabecera {
+    border-radius: 22px 22px 0 0;
   }
 }
 </style>

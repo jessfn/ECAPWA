@@ -2,7 +2,6 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import DefaultLayout from '../layouts/DefaultLayout.vue'
 import LoginView from '../views/LoginView.vue'
-import InicioView from '../views/InicioView.vue'
 import VisorSeguimientoView from '../views/VisorSeguimientoView.vue'
 import EcasView from '../views/EcasView.vue'
 import EcaImportarView from '../views/EcaImportarView.vue'
@@ -24,9 +23,8 @@ const routes = [
     path: '/',
     component: DefaultLayout,
     children: [
-      { path: '', name: 'inicio', component: InicioView, meta: { requierePermiso: 'vista.inicio' } },
       {
-        path: 'visor-seguimiento',
+        path: '',
         name: 'visor-seguimiento',
         component: VisorSeguimientoView,
         meta: { requierePermiso: 'vista.visor_seguimiento' },
@@ -105,12 +103,11 @@ const router = createRouter({
 
 // Mismo orden que el sidebar — el primer `vista.*` que el usuario sí tiene
 // es a donde lo mandamos tras login o cuando pierde acceso a la ruta
-// actual. Antes se asumía `{ name: 'inicio' }` a secas: un usuario creado
-// con un solo permiso distinto a `vista.inicio` quedaba en un bucle
-// infinito (inicio exige `vista.inicio` → lo rebota a inicio → ...), que es
-// justo lo que colgó el panel al loguear la cuenta de prueba.
+// actual. Ya no existe "Inicio": "Visor de Seguimiento" es ahora la ruta
+// raíz y el primer destino de la lista (mismo motivo que antes: nunca
+// asumir un destino fijo que el usuario podría no tener permiso de ver —
+// eso fue lo que causó el bucle infinito de redirección de la vez pasada).
 const ORDEN_VISTAS = [
-  'inicio',
   'visor-seguimiento',
   'ecas',
   'ambitos',
@@ -120,7 +117,7 @@ const ORDEN_VISTAS = [
   'actividades',
   'permisos-administrativos',
 ]
-const PERMISO_DE_RUTA = { inicio: 'vista.inicio', 'visor-seguimiento': 'vista.visor_seguimiento', ecas: 'vista.ecas', ambitos: 'vista.ambitos', asignaciones: 'vista.asignaciones', catalogos: 'vista.catalogos', tecnicos: 'vista.tecnicos', actividades: 'vista.actividades', 'permisos-administrativos': 'vista.permisos_administrativos' }
+const PERMISO_DE_RUTA = { 'visor-seguimiento': 'vista.visor_seguimiento', ecas: 'vista.ecas', ambitos: 'vista.ambitos', asignaciones: 'vista.asignaciones', catalogos: 'vista.catalogos', tecnicos: 'vista.tecnicos', actividades: 'vista.actividades', 'permisos-administrativos': 'vista.permisos_administrativos' }
 
 function primeraRutaAccesible(auth) {
   const nombre = ORDEN_VISTAS.find((n) => auth.tienePermiso(PERMISO_DE_RUTA[n]))

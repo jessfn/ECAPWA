@@ -34,7 +34,6 @@ const BADGE_ESTADO = { ACTIVO: 'eca-badge--verde', SUSPENDIDO: 'eca-badge--ambar
 // catálogo (p. ej. `ecas.gestionar`), que solo tienen sentido si la vista
 // ya está encendida.
 const VISTAS = [
-  { clave: 'vista.inicio', etiqueta: 'Inicio', icono: 'home', modulo: null },
   { clave: 'vista.visor_seguimiento', etiqueta: 'Visor de Seguimiento', icono: 'map-pin', modulo: null },
   { clave: 'vista.ecas', etiqueta: 'ECA', icono: 'school', modulo: 'ecas' },
   { clave: 'vista.ambitos', etiqueta: 'Ámbitos', icono: 'shield', modulo: 'ambitos' },

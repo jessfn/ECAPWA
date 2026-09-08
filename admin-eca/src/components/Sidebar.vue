@@ -17,7 +17,6 @@ const auth = useAuthStore()
 const showLogoutModal = ref(false)
 
 const enlaces = [
-  { nombre: 'inicio', etiqueta: 'Inicio', ruta: { name: 'inicio' }, permiso: 'vista.inicio', icono: 'home' },
   {
     nombre: 'visor-seguimiento',
     etiqueta: 'Visor de Seguimiento',
