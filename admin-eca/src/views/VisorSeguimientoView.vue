@@ -5,20 +5,19 @@
      está trabajando, no para administrar catálogo geográfico (por eso ya
      no lleva los toggles de activar/desactivar estado/municipio que tenía
      Geografía: ese no era el propósito de esta vista).
-     Mismo lenguaje visual que Actividades/Técnicos: header + panel de
-     filtros fusionados, tarjeta de mapa a pantalla completa (sin scroll
-     vertical de página). -->
+     Layout pedido explícito: panel de controles fijo a la IZQUIERDA (mismo
+     acomodo que el Visor de Seguimiento de admin-pwa) + mapa a pantalla
+     completa a la derecha. El detalle de cada ubicación es un panel
+     ACOPLADO dentro del propio mapa (nunca un modal de página completa ni
+     una navegación a otra vista): arranca compacto y se agranda ahí mismo
+     cuando se quiere ver todo. -->
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { RouterLink } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
 import { api } from '../services/api'
 import { listarActividades, obtenerActividad, urlVistaPreviaEvidencia } from '../services/actividadesService'
 import { listarEcas } from '../services/ecasService'
 import { listarCatalogo } from '../services/catalogosService'
 import AuthIcon from '../components/auth/AuthIcon.vue'
-
-const auth = useAuthStore()
 
 const cargando = ref(false)
 const error = ref('')
@@ -172,10 +171,9 @@ function ecaNombreDe(a) {
   return a.eca_nombre || (a.eca_id ? `ECA #${a.eca_id}` : '—')
 }
 
-// ---- Modal de detalle al tocar una ubicación (solo actividades: son las
-// únicas con fotos) — mismo patrón de galería/lightbox que Actividades:
-// una foto sola muestra solo la imagen + cerrar; varias traen contador
-// "n / total" y botones anterior/siguiente. ----
+// ---- Panel de detalle al tocar una ubicación (solo actividades: son las
+// únicas con fotos) — ACOPLADO al mapa, nunca navega a otra vista: arranca
+// compacto y se agranda ahí mismo cuando se quiere ver todo. ----
 const modalAbierto = ref(false)
 const modalActividad = ref(null) // fila básica (lista) — header inmediato
 const modalDetalle = ref(null) // detalle completo (con evidencias), llega después
@@ -183,6 +181,11 @@ const modalCargando = ref(false)
 const modalError = ref('')
 const modalFotos = ref([]) // [{ id, url }]
 const modalIndice = ref(0)
+// Panel acoplado al mapa: arranca compacto (avatar + fecha + miniatura +
+// descripción corta) y se agranda "ahí mismo" (nunca navega a otra vista)
+// cuando el admin quiere ver todo — galería completa con contador y
+// flechas, descripción sin recortar.
+const panelExpandido = ref(false)
 
 function limpiarModalFotos() {
   for (const f of modalFotos.value) {
@@ -197,8 +200,8 @@ async function abrirModalActividad(a) {
   modalError.value = ''
   modalCargando.value = true
   modalIndice.value = 0
+  panelExpandido.value = false
   limpiarModalFotos()
-  document.body.style.overflow = 'hidden'
   try {
     const detalle = await obtenerActividad(a.uuid)
     modalDetalle.value = detalle
@@ -223,8 +226,8 @@ function cerrarModal() {
   modalAbierto.value = false
   modalActividad.value = null
   modalDetalle.value = null
+  panelExpandido.value = false
   limpiarModalFotos()
-  document.body.style.overflow = ''
 }
 function fotoSiguiente() {
   if (!modalFotos.value.length) return
@@ -259,9 +262,9 @@ function pintarMarcadores() {
   if (capaActividades.value) {
     actividades.value.forEach((a) => {
       const color = a.estado_gps === 'GPS_IMPRECISO' ? '#d97706' : '#2e7d32'
-      // Sin popup nativo: al tocar la ubicación se abre el modal de detalle
-      // (con fotos) — mucho más útil aquí que un globo de texto, ya que
-      // las actividades sí tienen evidencia fotográfica.
+      // Sin popup nativo: al tocar la ubicación se abre el panel de detalle
+      // acoplado al mapa (con fotos) — mucho más útil aquí que un globo de
+      // texto, ya que las actividades sí tienen evidencia fotográfica.
       const marcador = new window.mapboxgl.Marker({ color }).setLngLat([a.longitud, a.latitud]).addTo(mapa)
       const el = marcador.getElement()
       el.style.cursor = 'pointer'
@@ -353,7 +356,6 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onTeclaModal)
   limpiarModalFotos()
-  document.body.style.overflow = ''
   limpiarMarcadoresActividades()
   limpiarMarcadoresEcas()
   mapa?.remove()
@@ -381,80 +383,94 @@ onBeforeUnmount(() => {
       </button>
     </div>
 
-    <div class="eca-panel-fusionado">
-      <p v-if="error" class="eca-alerta-error" role="alert">{{ error }}</p>
+    <!-- Cuerpo en dos columnas — mismo acomodo que el Visor de Seguimiento
+         de admin-pwa: panel de controles fijo a la izquierda, mapa
+         ocupando el resto del ancho. -->
+    <div class="visor__cuerpo">
+      <aside class="visor__lateral">
+        <p v-if="error" class="eca-alerta-error" role="alert">{{ error }}</p>
 
-      <div class="visor__stats">
-        <div class="eca-stat-card eca-stat-card--verde">
-          <span class="eca-stat-card__icono"><AuthIcon name="map-pin" /></span>
-          <div><div class="eca-stat-card__valor">{{ stats.ubicaciones }}</div><div class="eca-stat-card__etiqueta">Ubicaciones en mapa</div></div>
-        </div>
-        <div class="eca-stat-card eca-stat-card--morado">
-          <span class="eca-stat-card__icono"><AuthIcon name="user" /></span>
-          <div><div class="eca-stat-card__valor">{{ stats.tecnicos }}</div><div class="eca-stat-card__etiqueta">Técnicos con actividad</div></div>
-        </div>
-        <div class="eca-stat-card eca-stat-card--azul">
-          <span class="eca-stat-card__icono"><AuthIcon name="school" /></span>
-          <div><div class="eca-stat-card__valor">{{ stats.ecas }}</div><div class="eca-stat-card__etiqueta">ECA geolocalizadas</div></div>
-        </div>
-        <div class="eca-stat-card eca-stat-card--ambar">
-          <span class="eca-stat-card__icono"><AuthIcon name="alert" /></span>
-          <div><div class="eca-stat-card__valor">{{ stats.impreciso }}</div><div class="eca-stat-card__etiqueta">GPS impreciso</div></div>
-        </div>
-      </div>
-
-      <div class="visor__filtros">
-        <div class="visor__buscador">
-          <span class="visor__buscador-icono"><AuthIcon name="search" /></span>
-          <input
-            v-model="busquedaTecnico"
-            type="text"
-            placeholder="Buscar técnico por nombre o CURP…"
-            @focus="mostrarSugerencias = true"
-            @blur="() => setTimeout(() => (mostrarSugerencias = false), 150)"
-          />
-          <button
-            v-if="busquedaTecnico"
-            type="button"
-            class="visor__buscador-limpiar"
-            aria-label="Limpiar búsqueda de técnico"
-            @mousedown.prevent="limpiarBusquedaTecnico"
-          >
-            <AuthIcon name="close" />
-          </button>
-
-          <Transition name="visor-sugerencias">
-            <div v-if="mostrarSugerencias && busquedaTecnico && sugerenciasTecnico.length" class="visor__sugerencias">
-              <button
-                v-for="t in sugerenciasTecnico"
-                :key="t.id"
-                type="button"
-                class="visor__sugerencia"
-                @mousedown.prevent="seleccionarTecnico(t)"
-              >
-                <span class="visor__sugerencia-avatar">{{ iniciales(t) }}</span>
-                <span class="visor__sugerencia-texto">
-                  <strong>{{ t.nombre }} {{ t.apellido_paterno }} {{ t.apellido_materno || '' }}</strong>
-                  <small v-if="t.curp">{{ t.curp }}</small>
-                </span>
-              </button>
-            </div>
-          </Transition>
+        <div class="visor__stats">
+          <div class="eca-stat-card eca-stat-card--verde">
+            <span class="eca-stat-card__icono"><AuthIcon name="map-pin" /></span>
+            <div><div class="eca-stat-card__valor">{{ stats.ubicaciones }}</div><div class="eca-stat-card__etiqueta">Ubicaciones</div></div>
+          </div>
+          <div class="eca-stat-card eca-stat-card--morado">
+            <span class="eca-stat-card__icono"><AuthIcon name="user" /></span>
+            <div><div class="eca-stat-card__valor">{{ stats.tecnicos }}</div><div class="eca-stat-card__etiqueta">Técnicos activos</div></div>
+          </div>
+          <div class="eca-stat-card eca-stat-card--azul">
+            <span class="eca-stat-card__icono"><AuthIcon name="school" /></span>
+            <div><div class="eca-stat-card__valor">{{ stats.ecas }}</div><div class="eca-stat-card__etiqueta">ECA geolocalizadas</div></div>
+          </div>
+          <div class="eca-stat-card eca-stat-card--ambar">
+            <span class="eca-stat-card__icono"><AuthIcon name="alert" /></span>
+            <div><div class="eca-stat-card__valor">{{ stats.impreciso }}</div><div class="eca-stat-card__etiqueta">GPS impreciso</div></div>
+          </div>
         </div>
 
-        <div class="visor__selects">
-          <select v-model="tipoActividadId" class="visor__control" @change="aplicarFiltros">
-            <option :value="null">Todos los tipos</option>
-            <option v-for="t in tiposActividad" :key="t.id" :value="t.id">{{ t.nombre }}</option>
-          </select>
-          <div class="visor__fecha visor__control">
-            <span class="visor__fecha-etiqueta">Desde</span>
+        <div class="visor__seccion">
+          <h3 class="visor__seccion-titulo"><AuthIcon name="search" /> Buscar técnico</h3>
+          <div class="visor__buscador">
+            <span class="visor__buscador-icono"><AuthIcon name="search" /></span>
+            <input
+              v-model="busquedaTecnico"
+              type="text"
+              placeholder="Nombre o CURP…"
+              @focus="mostrarSugerencias = true"
+              @blur="() => setTimeout(() => (mostrarSugerencias = false), 150)"
+            />
+            <button
+              v-if="busquedaTecnico"
+              type="button"
+              class="visor__buscador-limpiar"
+              aria-label="Limpiar búsqueda de técnico"
+              @mousedown.prevent="limpiarBusquedaTecnico"
+            >
+              <AuthIcon name="close" />
+            </button>
+
+            <Transition name="visor-sugerencias">
+              <div v-if="mostrarSugerencias && busquedaTecnico && sugerenciasTecnico.length" class="visor__sugerencias">
+                <button
+                  v-for="t in sugerenciasTecnico"
+                  :key="t.id"
+                  type="button"
+                  class="visor__sugerencia"
+                  @mousedown.prevent="seleccionarTecnico(t)"
+                >
+                  <span class="visor__sugerencia-avatar">{{ iniciales(t) }}</span>
+                  <span class="visor__sugerencia-texto">
+                    <strong>{{ t.nombre }} {{ t.apellido_paterno }} {{ t.apellido_materno || '' }}</strong>
+                    <small v-if="t.curp">{{ t.curp }}</small>
+                  </span>
+                </button>
+              </div>
+            </Transition>
+          </div>
+        </div>
+
+        <div class="visor__seccion">
+          <h3 class="visor__seccion-titulo"><AuthIcon name="clock" /> Filtros</h3>
+          <label class="visor__campo">
+            <span>Tipo de actividad</span>
+            <select v-model="tipoActividadId" @change="aplicarFiltros">
+              <option :value="null">Todos los tipos</option>
+              <option v-for="t in tiposActividad" :key="t.id" :value="t.id">{{ t.nombre }}</option>
+            </select>
+          </label>
+          <label class="visor__campo">
+            <span>Desde</span>
             <input v-model="desde" type="date" @change="aplicarFiltros" />
-          </div>
-          <div class="visor__fecha visor__control">
-            <span class="visor__fecha-etiqueta">Hasta</span>
+          </label>
+          <label class="visor__campo">
+            <span>Hasta</span>
             <input v-model="hasta" type="date" @change="aplicarFiltros" />
-          </div>
+          </label>
+        </div>
+
+        <div class="visor__seccion">
+          <h3 class="visor__seccion-titulo"><AuthIcon name="map-pin" /> Capas del mapa</h3>
           <button
             type="button"
             class="visor__chip-capa"
@@ -462,6 +478,7 @@ onBeforeUnmount(() => {
             @click="alternarCapa('actividades')"
           >
             <span class="visor__chip-punto visor__chip-punto--verde"></span> Actividades
+            <span class="visor__chip-conteo">{{ actividades.length }}</span>
           </button>
           <button
             type="button"
@@ -470,31 +487,35 @@ onBeforeUnmount(() => {
             @click="alternarCapa('ecas')"
           >
             <span class="visor__chip-punto visor__chip-punto--azul"></span> ECA
+            <span class="visor__chip-conteo">{{ ecas.length }}</span>
           </button>
         </div>
-      </div>
-    </div>
+      </aside>
 
-    <div class="eca-card visor__mapa-card">
-      <p v-if="mapaError" class="eca-alerta-error" role="alert">{{ mapaError }}</p>
-      <div ref="mapaContenedor" class="visor__mapa"></div>
-    </div>
+      <div class="eca-card visor__mapa-card">
+        <p v-if="mapaError" class="eca-alerta-error" role="alert">{{ mapaError }}</p>
+        <div class="visor__mapa-envoltura">
+          <div ref="mapaContenedor" class="visor__mapa"></div>
 
-    <!-- ============ Modal moderno: detalle de la actividad tocada en el
-         mapa, con galería de fotos (contador + anterior/siguiente cuando
-         hay más de una). ============ -->
-    <Teleport to="body">
-      <Transition name="visor-modal-fondo">
-        <div v-if="modalAbierto" class="visor-modal__fondo" @click.self="cerrarModal">
-          <Transition name="visor-modal-tarjeta" appear>
-            <div class="visor-modal" role="dialog" aria-modal="true">
-              <button type="button" class="visor-modal__cerrar" aria-label="Cerrar" @click="cerrarModal">
+          <!-- Panel de detalle ACOPLADO al mapa (no navega a otra vista):
+               arranca compacto y se agranda ahí mismo cuando se quiere ver
+               todo — mismo espíritu que el Visor de Seguimiento de
+               admin-pwa. -->
+          <Transition name="visor-panel-deslizar">
+            <div
+              v-if="modalAbierto"
+              class="visor-panel"
+              :class="{ 'visor-panel--expandido': panelExpandido }"
+              role="dialog"
+              aria-modal="false"
+            >
+              <button type="button" class="visor-panel__cerrar" aria-label="Cerrar" @click="cerrarModal">
                 <AuthIcon name="close" />
               </button>
 
-              <div class="visor-modal__cabecera">
-                <span class="visor-modal__avatar">{{ iniciales(tecnicoDe(modalActividad)) }}</span>
-                <div class="visor-modal__cabecera-texto">
+              <div class="visor-panel__cabecera">
+                <span class="visor-panel__avatar">{{ iniciales(tecnicoDe(modalActividad)) }}</span>
+                <div class="visor-panel__cabecera-texto">
                   <strong>{{
                     tecnicoDe(modalActividad)
                       ? `${tecnicoDe(modalActividad).nombre} ${tecnicoDe(modalActividad).apellido_paterno}`
@@ -502,163 +523,234 @@ onBeforeUnmount(() => {
                   }}</strong>
                   <span>{{ new Date(modalActividad?.fecha_hora).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' }) }}</span>
                 </div>
+              </div>
+
+              <div class="visor-panel__badges">
                 <span
-                  class="visor-modal__badge-gps"
-                  :class="modalActividad?.estado_gps === 'GPS_IMPRECISO' ? 'visor-modal__badge-gps--ambar' : 'visor-modal__badge-gps--verde'"
+                  class="visor-panel__badge-gps"
+                  :class="modalActividad?.estado_gps === 'GPS_IMPRECISO' ? 'visor-panel__badge-gps--ambar' : 'visor-panel__badge-gps--verde'"
                 >
                   <AuthIcon name="map-pin" /> {{ ETIQUETAS_GPS[modalActividad?.estado_gps] || modalActividad?.estado_gps }}
                 </span>
+                <span class="eca-badge eca-badge--morado">{{ tipoNombre(modalActividad || {}) }}</span>
               </div>
+              <p class="visor-panel__eca"><AuthIcon name="school" /> {{ ecaNombreDe(modalActividad || {}) }}</p>
+              <p v-if="modalError" class="eca-alerta-error" role="alert">{{ modalError }}</p>
 
-              <!-- Galería -->
-              <div class="visor-modal__galeria">
-                <p v-if="modalCargando" class="visor-modal__estado">Cargando…</p>
-                <p v-else-if="!modalFotos.length" class="visor-modal__estado">
-                  <AuthIcon name="clock" /> Esta actividad no tiene fotos.
-                </p>
-                <template v-else>
-                  <span v-if="modalFotos.length > 1" class="visor-modal__contador">
-                    {{ modalIndice + 1 }} / {{ modalFotos.length }}
-                  </span>
-                  <button
-                    v-if="modalFotos.length > 1"
-                    type="button"
-                    class="visor-modal__nav visor-modal__nav--prev"
-                    aria-label="Foto anterior"
-                    @click="fotoAnterior"
-                  >
-                    <AuthIcon name="chevron-left" />
-                  </button>
-                  <Transition name="visor-modal-imagen" mode="out-in">
-                    <img
-                      v-if="modalFotos[modalIndice]?.url"
-                      :key="modalFotos[modalIndice].id"
-                      :src="modalFotos[modalIndice].url"
-                      alt="Evidencia de la actividad"
-                      class="visor-modal__img"
-                    />
-                    <p v-else key="cargando-img" class="visor-modal__estado">Cargando imagen…</p>
-                  </Transition>
-                  <button
-                    v-if="modalFotos.length > 1"
-                    type="button"
-                    class="visor-modal__nav visor-modal__nav--next"
-                    aria-label="Foto siguiente"
-                    @click="fotoSiguiente"
-                  >
-                    <AuthIcon name="chevron-right" />
-                  </button>
-                </template>
-              </div>
-
-              <!-- Información -->
-              <div class="visor-modal__info">
-                <p v-if="modalError" class="eca-alerta-error" role="alert">{{ modalError }}</p>
-                <div class="visor-modal__badges">
-                  <span class="eca-badge eca-badge--morado">{{ tipoNombre(modalActividad || {}) }}</span>
-                  <span class="visor-modal__eca"><AuthIcon name="school" /> {{ ecaNombreDe(modalActividad || {}) }}</span>
-                </div>
-                <p class="visor-modal__descripcion">{{ modalDetalle?.descripcion || modalActividad?.descripcion }}</p>
-                <RouterLink
-                  v-if="auth.tienePermiso('vista.actividades') && modalActividad"
-                  :to="{ name: 'actividad-detalle', params: { uuid: modalActividad.uuid } }"
-                  class="visor-modal__vertodo"
+              <!-- Compacto: miniatura + descripción recortada -->
+              <template v-if="!panelExpandido">
+                <button
+                  v-if="modalCargando || modalFotos.length"
+                  type="button"
+                  class="visor-panel__miniatura"
+                  :disabled="modalCargando"
+                  @click="panelExpandido = true"
                 >
-                  Ver actividad completa <AuthIcon name="chevron-right" />
-                </RouterLink>
-              </div>
+                  <span v-if="modalCargando" class="visor-panel__miniatura-cargando">Cargando…</span>
+                  <template v-else-if="modalFotos.length">
+                    <img v-if="modalFotos[0]?.url" :src="modalFotos[0].url" alt="Evidencia" />
+                    <span v-else class="visor-panel__miniatura-cargando">Cargando…</span>
+                    <span v-if="modalFotos.length > 1" class="visor-panel__miniatura-conteo">+{{ modalFotos.length - 1 }}</span>
+                  </template>
+                </button>
+                <p v-if="!modalCargando && !modalFotos.length" class="visor-panel__sinfotos">
+                  <AuthIcon name="clock" /> Sin fotos.
+                </p>
+                <p class="visor-panel__descripcion visor-panel__descripcion--corta">
+                  {{ modalDetalle?.descripcion || modalActividad?.descripcion }}
+                </p>
+                <button type="button" class="visor-panel__vermas" @click="panelExpandido = true">
+                  Ver todo <AuthIcon name="chevron-right" />
+                </button>
+              </template>
+
+              <!-- Expandido: galería completa + descripción entera, sigue
+                   dentro del mapa (nunca cambia de vista). -->
+              <template v-else>
+                <button type="button" class="visor-panel__vermenos" @click="panelExpandido = false">
+                  <AuthIcon name="chevron-left" /> Ver menos
+                </button>
+
+                <div class="visor-panel__galeria">
+                  <p v-if="modalCargando" class="visor-panel__estado">Cargando…</p>
+                  <p v-else-if="!modalFotos.length" class="visor-panel__estado">
+                    <AuthIcon name="clock" /> Esta actividad no tiene fotos.
+                  </p>
+                  <template v-else>
+                    <span v-if="modalFotos.length > 1" class="visor-panel__contador">
+                      {{ modalIndice + 1 }} / {{ modalFotos.length }}
+                    </span>
+                    <button
+                      v-if="modalFotos.length > 1"
+                      type="button"
+                      class="visor-panel__nav visor-panel__nav--prev"
+                      aria-label="Foto anterior"
+                      @click="fotoAnterior"
+                    >
+                      <AuthIcon name="chevron-left" />
+                    </button>
+                    <Transition name="visor-panel-imagen" mode="out-in">
+                      <img
+                        v-if="modalFotos[modalIndice]?.url"
+                        :key="modalFotos[modalIndice].id"
+                        :src="modalFotos[modalIndice].url"
+                        alt="Evidencia de la actividad"
+                        class="visor-panel__img"
+                      />
+                      <p v-else key="cargando-img" class="visor-panel__estado">Cargando imagen…</p>
+                    </Transition>
+                    <button
+                      v-if="modalFotos.length > 1"
+                      type="button"
+                      class="visor-panel__nav visor-panel__nav--next"
+                      aria-label="Foto siguiente"
+                      @click="fotoSiguiente"
+                    >
+                      <AuthIcon name="chevron-right" />
+                    </button>
+                  </template>
+                </div>
+
+                <p class="visor-panel__descripcion">{{ modalDetalle?.descripcion || modalActividad?.descripcion }}</p>
+              </template>
             </div>
           </Transition>
         </div>
-      </Transition>
-    </Teleport>
+      </div>
+    </div>
   </section>
 </template>
 
 <style scoped>
 /* Layout de alto completo — mismo patrón que Actividades/Técnicos: el
-   mapa llena el espacio restante bajo header + filtros, sin scroll
-   vertical de página. */
+   cuerpo llena el espacio restante bajo el header, sin scroll vertical de
+   página. Dos columnas: panel de controles fijo a la izquierda + mapa. */
 .visor-vista {
   height: calc(100dvh - 1rem);
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
-.visor-vista > .eca-page-header,
-.visor-vista > .eca-panel-fusionado {
+.visor-vista > .eca-page-header {
   flex-shrink: 0;
 }
-.visor-vista > .visor__mapa-card {
+.visor__cuerpo {
   flex: 1;
   min-height: 0;
   display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  overflow: hidden;
+}
+
+/* ---- Panel lateral (izquierda) ---- */
+.visor__lateral {
+  flex-shrink: 0;
+  width: 17.5rem;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--eca-surface-border);
+  border-radius: var(--eca-r-lg);
+  box-shadow: var(--eca-shadow-card);
+  padding: 0.85rem;
+  display: flex;
   flex-direction: column;
-  margin-bottom: 0;
-  padding: 0.6rem;
-  overflow: hidden;
+  gap: 0.9rem;
 }
-.visor__mapa {
-  flex: 1;
-  min-height: 0;
-  border-radius: var(--eca-r-md);
-  overflow: hidden;
+.visor__lateral::-webkit-scrollbar {
+  width: 6px;
 }
-:deep(.mapboxgl-popup-content) {
-  font-family: inherit;
-  font-size: 0.8rem;
-  line-height: 1.4;
-  padding: 0.6rem 0.75rem;
+.visor__lateral::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 10px;
 }
 
 .visor__stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.55rem;
-  margin-bottom: 0.65rem;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
 }
 .visor__stats .eca-stat-card {
   min-width: 0;
-  padding: 0.45rem 0.65rem;
-  gap: 0.5rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  padding: 0.55rem 0.6rem;
 }
 .visor__stats .eca-stat-card :deep(.eca-stat-card__icono) {
-  width: 1.7rem;
-  height: 1.7rem;
+  width: 1.6rem;
+  height: 1.6rem;
 }
 .visor__stats .eca-stat-card :deep(.eca-stat-card__icono svg) {
-  width: 0.85rem;
-  height: 0.85rem;
+  width: 0.8rem;
+  height: 0.8rem;
 }
 .visor__stats .eca-stat-card :deep(.eca-stat-card__valor) {
-  font-size: 0.98rem;
+  font-size: 1.05rem;
 }
 .visor__stats .eca-stat-card :deep(.eca-stat-card__etiqueta) {
-  font-size: 0.66rem;
-}
-@media (max-width: 820px) {
-  .visor__stats {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-@media (max-width: 460px) {
-  .visor__stats {
-    grid-template-columns: 1fr;
-  }
+  font-size: 0.64rem;
+  line-height: 1.2;
 }
 
-.visor__filtros {
+.visor__seccion {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--eca-surface-border);
+}
+.visor__seccion-titulo {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--eca-green-700);
+}
+.visor__seccion-titulo svg {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+.visor__campo {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.28rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--eca-ink-soft);
+  margin-bottom: 0.55rem;
 }
+.visor__campo:last-child {
+  margin-bottom: 0;
+}
+.visor__campo select,
+.visor__campo input {
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--eca-r-sm);
+  border: 1px solid #cfe3d5;
+  background: var(--eca-surface);
+  font-family: inherit;
+  font-size: 0.8rem;
+  color: var(--eca-ink);
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+.visor__campo select:focus,
+.visor__campo input:focus {
+  outline: none;
+  border-color: var(--eca-green-500);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12);
+}
+
 .visor__buscador {
   position: relative;
   width: 100%;
 }
 .visor__buscador-icono {
   position: absolute;
-  left: 0.75rem;
+  left: 0.65rem;
   top: 50%;
   transform: translateY(-50%);
   color: var(--eca-ink-soft);
@@ -666,32 +758,33 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 .visor__buscador-icono svg {
-  width: 0.9rem;
-  height: 0.9rem;
+  width: 0.85rem;
+  height: 0.85rem;
 }
 .visor__buscador input {
   width: 100%;
-  padding: 0.42rem 2.2rem;
+  padding: 0.42rem 2rem;
   border-radius: 999px;
   border: 1.5px solid #cfe3d5;
-  background: #fff;
+  background: var(--eca-surface);
   font-family: inherit;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   box-sizing: border-box;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 .visor__buscador input:focus {
   outline: none;
   border-color: var(--eca-green-500);
-  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.14);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.14);
 }
 .visor__buscador-limpiar {
   position: absolute;
-  right: 0.5rem;
+  right: 0.4rem;
   top: 50%;
   transform: translateY(-50%);
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.35rem;
+  height: 1.35rem;
   border-radius: 50%;
   border: none;
   background: var(--eca-surface-border);
@@ -707,21 +800,21 @@ onBeforeUnmount(() => {
   transform: translateY(-50%) scale(1.08);
 }
 .visor__buscador-limpiar svg {
-  width: 0.7rem;
-  height: 0.7rem;
+  width: 0.62rem;
+  height: 0.62rem;
 }
 .visor__sugerencias {
   position: absolute;
   z-index: 20;
-  top: calc(100% + 0.4rem);
+  top: calc(100% + 0.35rem);
   left: 0;
   right: 0;
   background: #fff;
   border: 1px solid var(--eca-surface-border);
   border-radius: var(--eca-r-md);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
   overflow: hidden;
-  max-height: 18rem;
+  max-height: 16rem;
   overflow-y: auto;
 }
 .visor-sugerencias-enter-active,
@@ -737,8 +830,8 @@ onBeforeUnmount(() => {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.55rem 0.85rem;
+  gap: 0.55rem;
+  padding: 0.5rem 0.7rem;
   border: none;
   background: none;
   text-align: left;
@@ -753,12 +846,12 @@ onBeforeUnmount(() => {
 }
 .visor__sugerencia-avatar {
   flex-shrink: 0;
-  width: 1.9rem;
-  height: 1.9rem;
+  width: 1.7rem;
+  height: 1.7rem;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--eca-green-500), var(--eca-green-700));
   color: #fff;
-  font-size: 0.7rem;
+  font-size: 0.64rem;
   font-weight: 800;
   display: flex;
   align-items: center;
@@ -771,97 +864,40 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 .visor__sugerencia-texto strong {
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .visor__sugerencia-texto small {
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   color: var(--eca-ink-soft);
-}
-
-.visor__selects {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  gap: 0.5rem;
-}
-.visor__control {
-  flex: 1 1 0;
-  min-width: 8rem;
-  height: 2.05rem;
-  box-sizing: border-box;
-}
-select.visor__control {
-  padding: 0 0.7rem;
-  border-radius: var(--eca-r-sm);
-  border: 1px solid #cfe3d5;
-  background: #fff;
-  font-size: 0.82rem;
-  color: var(--eca-ink);
-  cursor: pointer;
-}
-.visor__fecha {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  border-radius: var(--eca-r-sm);
-  border: 1px solid #cfe3d5;
-  background: #fff;
-}
-.visor__fecha:focus-within {
-  border-color: var(--eca-green-500);
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12);
-}
-.visor__fecha-etiqueta {
-  position: absolute;
-  top: 0.28rem;
-  left: 0.7rem;
-  font-size: 0.6rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--eca-ink-soft);
-  pointer-events: none;
-}
-.visor__fecha input {
-  width: 100%;
-  height: 100%;
-  border: none;
-  background: none;
-  padding: 0.72rem 0.6rem 0.15rem;
-  font-family: inherit;
-  font-size: 0.76rem;
-  color: var(--eca-ink);
-  box-sizing: border-box;
-}
-.visor__fecha input:focus {
-  outline: none;
 }
 
 .visor__chip-capa {
-  flex: 1 1 0;
-  min-width: 8rem;
-  height: 2.05rem;
+  width: 100%;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  padding: 0 0.8rem;
+  gap: 0.5rem;
+  padding: 0.5rem 0.65rem;
   border-radius: var(--eca-r-sm);
   border: 1px solid #cfe3d5;
-  background: #fff;
+  background: var(--eca-surface);
   color: var(--eca-ink-soft);
   font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
-  opacity: 0.55;
+  opacity: 0.6;
+  margin-bottom: 0.45rem;
+}
+.visor__chip-capa:last-child {
+  margin-bottom: 0;
 }
 .visor__chip-capa--activo {
   opacity: 1;
   color: var(--eca-ink);
-  background: var(--eca-surface);
+  background: #fff;
   border-color: var(--eca-green-500);
 }
 .visor__chip-punto {
@@ -876,299 +912,383 @@ select.visor__control {
 .visor__chip-punto--azul {
   background: #1d4ed8;
 }
-
-@media (max-width: 720px) {
-  .visor__control,
-  .visor__chip-capa {
-    flex: 1 1 calc(50% - 0.25rem);
-  }
-}
-@media (max-width: 460px) {
-  .visor__control,
-  .visor__chip-capa {
-    flex: 1 1 100%;
-  }
+.visor__chip-conteo {
+  margin-left: auto;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--eca-ink-faint, #9aa1af);
 }
 
-/* ---- Modal moderno de detalle (con galería) al tocar una ubicación ---- */
-.visor-modal__fondo {
-  position: fixed;
-  inset: 0;
-  z-index: 3000;
+/* ---- Mapa (columna derecha) ---- */
+.visor__mapa-card {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1.25rem;
-  background: rgba(10, 15, 12, 0.6);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  flex-direction: column;
+  margin-bottom: 0;
+  padding: 0.6rem;
+  overflow: hidden;
 }
-.visor-modal-fondo-enter-active,
-.visor-modal-fondo-leave-active {
-  transition: opacity 0.2s ease;
-}
-.visor-modal-fondo-enter-from,
-.visor-modal-fondo-leave-to {
-  opacity: 0;
-}
-.visor-modal {
+.visor__mapa-envoltura {
   position: relative;
-  width: 100%;
-  max-width: 560px;
-  max-height: 90vh;
-  overflow-y: auto;
-  background: #fff;
-  border-radius: 24px;
-  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.1);
+  flex: 1;
+  min-height: 0;
+  border-radius: var(--eca-r-md);
+  overflow: hidden;
 }
-.visor-modal-tarjeta-enter-active {
-  transition: opacity 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.visor-modal-tarjeta-leave-active {
-  transition: opacity 0.18s ease, transform 0.18s ease;
-}
-.visor-modal-tarjeta-enter-from {
-  opacity: 0;
-  transform: scale(0.94) translateY(14px);
-}
-.visor-modal-tarjeta-leave-to {
-  opacity: 0;
-  transform: scale(0.97) translateY(8px);
-}
-.visor-modal__cerrar {
+.visor__mapa {
   position: absolute;
-  top: 0.85rem;
-  right: 0.85rem;
+  inset: 0;
+}
+:deep(.mapboxgl-popup-content) {
+  font-family: inherit;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  padding: 0.6rem 0.75rem;
+}
+
+@media (max-width: 900px) {
+  .visor__cuerpo {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .visor__lateral {
+    width: 100%;
+    max-height: 40vh;
+  }
+  .visor__mapa-card {
+    min-height: 60vh;
+  }
+}
+
+/* ---- Panel de detalle ACOPLADO al mapa: flota sobre la esquina, arranca
+   compacto y se agranda ahí mismo — nunca cubre toda la pantalla ni sale
+   del área del mapa. Mismo espíritu que el panel lateral del Visor de
+   Seguimiento de admin-pwa. ---- */
+.visor-panel {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.7rem;
+  bottom: 0.7rem;
+  z-index: 50;
+  width: 18rem;
+  max-width: calc(100% - 1.4rem);
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 16px;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  overflow-y: auto;
+  padding: 0.9rem 0.9rem 1rem;
+  transition: width 0.32s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+.visor-panel--expandido {
+  width: 24rem;
+}
+.visor-panel-deslizar-enter-active,
+.visor-panel-deslizar-leave-active {
+  transition: opacity 0.22s ease, transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.visor-panel-deslizar-enter-from,
+.visor-panel-deslizar-leave-to {
+  opacity: 0;
+  transform: translateX(16px);
+}
+@media (max-width: 640px) {
+  .visor-panel {
+    left: 0.6rem;
+    right: 0.6rem;
+    top: auto;
+    bottom: 0.6rem;
+    max-height: 70%;
+    width: auto !important;
+    max-width: none;
+  }
+}
+
+.visor-panel__cerrar {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
   z-index: 2;
-  width: 2rem;
-  height: 2rem;
+  width: 1.7rem;
+  height: 1.7rem;
   border-radius: 50%;
   border: none;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--eca-surface);
   color: var(--eca-ink);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease;
 }
-.visor-modal__cerrar:hover {
-  transform: rotate(90deg) scale(1.08);
-  background: #fff;
+.visor-panel__cerrar:hover {
+  transform: rotate(90deg);
+  background: #e2e2e2;
 }
-.visor-modal__cerrar svg {
-  width: 0.85rem;
-  height: 0.85rem;
+.visor-panel__cerrar svg {
+  width: 0.7rem;
+  height: 0.7rem;
 }
 
-.visor-modal__cabecera {
+.visor-panel__cabecera {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 1.1rem 3rem 1.1rem 1.25rem;
-  background: linear-gradient(135deg, #2f7a33 0%, #256a2a 55%, #14501c 100%);
-  color: #fff;
-  border-radius: 24px 24px 0 0;
+  gap: 0.55rem;
+  padding-right: 1.8rem;
+  margin-bottom: 0.6rem;
 }
-.visor-modal__avatar {
+.visor-panel__avatar {
   flex-shrink: 0;
-  width: 2.6rem;
-  height: 2.6rem;
+  width: 2.1rem;
+  height: 2.1rem;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.18);
-  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  background: linear-gradient(135deg, var(--eca-green-500), var(--eca-green-700));
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.85rem;
+  font-size: 0.68rem;
   font-weight: 800;
 }
-.visor-modal__cabecera-texto {
+.visor-panel__cabecera-texto {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
 }
-.visor-modal__cabecera-texto strong {
-  font-size: 0.95rem;
+.visor-panel__cabecera-texto strong {
+  font-size: 0.84rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.visor-modal__cabecera-texto span {
-  font-size: 0.74rem;
-  color: rgba(255, 255, 255, 0.8);
+.visor-panel__cabecera-texto span {
+  font-size: 0.68rem;
+  color: var(--eca-ink-soft);
 }
-.visor-modal__badge-gps {
-  flex-shrink: 0;
+
+.visor-panel__badges {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+.visor-panel__badge-gps {
+  display: flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.64rem;
+  font-weight: 800;
+}
+.visor-panel__badge-gps svg {
+  width: 0.62rem;
+  height: 0.62rem;
+}
+.visor-panel__badge-gps--verde {
+  background: #dcfce7;
+  color: var(--eca-green-700);
+}
+.visor-panel__badge-gps--ambar {
+  background: #fef3c7;
+  color: #92400e;
+}
+.visor-panel__eca {
   display: flex;
   align-items: center;
   gap: 0.3rem;
-  padding: 0.28rem 0.6rem;
-  border-radius: 999px;
-  font-size: 0.68rem;
-  font-weight: 800;
-  background: rgba(255, 255, 255, 0.16);
-  white-space: nowrap;
+  margin: 0 0 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--eca-ink-soft);
 }
-.visor-modal__badge-gps svg {
-  width: 0.75rem;
-  height: 0.75rem;
-}
-.visor-modal__badge-gps--ambar {
-  color: #ffe6ae;
-}
-.visor-modal__badge-gps--verde {
-  color: #d7ffd9;
+.visor-panel__eca svg {
+  width: 0.7rem;
+  height: 0.7rem;
 }
 
-/* Galería: mismo lenguaje que el visor de fotos de Actividades — imagen
-   centrada, contador arriba, flechas a los lados. */
-.visor-modal__galeria {
+/* Compacto */
+.visor-panel__miniatura {
   position: relative;
-  background: #111;
-  min-height: 14rem;
-  max-height: 46vh;
+  display: block;
+  width: 100%;
+  height: 6.5rem;
+  border: none;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--eca-surface);
+  cursor: pointer;
+  margin-bottom: 0.55rem;
+  padding: 0;
+}
+.visor-panel__miniatura img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.visor-panel__miniatura-cargando {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 0.72rem;
+  color: var(--eca-ink-soft);
 }
-.visor-modal__estado {
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 0.85rem;
+.visor-panel__miniatura-conteo {
+  position: absolute;
+  bottom: 0.4rem;
+  right: 0.4rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+.visor-panel__sinfotos {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 1.5rem;
+  gap: 0.35rem;
+  margin: 0 0 0.55rem;
+  font-size: 0.74rem;
+  color: var(--eca-ink-soft);
 }
-.visor-modal__estado svg {
-  width: 0.9rem;
-  height: 0.9rem;
+.visor-panel__sinfotos svg {
+  width: 0.75rem;
+  height: 0.75rem;
 }
-.visor-modal__img {
+.visor-panel__descripcion {
+  margin: 0 0 0.6rem;
+  font-size: 0.78rem;
+  color: var(--eca-ink);
+  line-height: 1.5;
+}
+.visor-panel__descripcion--corta {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.visor-panel__vermas,
+.visor-panel__vermenos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  width: 100%;
+  padding: 0.42rem;
+  border-radius: var(--eca-r-sm);
+  border: 1px solid var(--eca-green-500);
+  background: none;
+  color: var(--eca-green-700);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.visor-panel__vermas:hover,
+.visor-panel__vermenos:hover {
+  background: #f0fdf4;
+}
+.visor-panel__vermas svg,
+.visor-panel__vermenos svg {
+  width: 0.65rem;
+  height: 0.65rem;
+}
+.visor-panel__vermenos {
+  margin-bottom: 0.6rem;
+  border-color: var(--eca-surface-border);
+  color: var(--eca-ink-soft);
+}
+
+/* Expandido: galería */
+.visor-panel__galeria {
+  position: relative;
+  background: #111;
+  height: 12rem;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.6rem;
+}
+.visor-panel__estado {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.76rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 1rem;
+  text-align: center;
+}
+.visor-panel__estado svg {
+  width: 0.75rem;
+  height: 0.75rem;
+  flex-shrink: 0;
+}
+.visor-panel__img {
   max-width: 100%;
-  max-height: 46vh;
+  max-height: 100%;
   object-fit: contain;
 }
-.visor-modal-imagen-enter-active,
-.visor-modal-imagen-leave-active {
-  transition: opacity 0.18s ease, transform 0.18s ease;
+.visor-panel-imagen-enter-active,
+.visor-panel-imagen-leave-active {
+  transition: opacity 0.16s ease;
 }
-.visor-modal-imagen-enter-from {
-  opacity: 0;
-  transform: scale(0.98);
-}
-.visor-modal-imagen-leave-to {
+.visor-panel-imagen-enter-from,
+.visor-panel-imagen-leave-to {
   opacity: 0;
 }
-.visor-modal__contador {
+.visor-panel__contador {
   position: absolute;
-  top: 0.7rem;
+  top: 0.5rem;
   left: 50%;
   transform: translateX(-50%);
   z-index: 2;
-  padding: 0.22rem 0.7rem;
+  padding: 0.18rem 0.55rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.18);
   color: #fff;
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   font-weight: 700;
 }
-.visor-modal__nav {
+.visor-panel__nav {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
   z-index: 2;
-  width: 2.2rem;
-  height: 2.2rem;
+  width: 1.8rem;
+  height: 1.8rem;
   border-radius: 50%;
   border: none;
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.18);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.15s ease, transform 0.15s ease;
+  transition: background 0.15s ease;
 }
-.visor-modal__nav:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: translateY(-50%) scale(1.08);
+.visor-panel__nav:hover {
+  background: rgba(255, 255, 255, 0.32);
 }
-.visor-modal__nav--prev {
-  left: 0.6rem;
+.visor-panel__nav--prev {
+  left: 0.4rem;
 }
-.visor-modal__nav--next {
-  right: 0.6rem;
+.visor-panel__nav--next {
+  right: 0.4rem;
 }
-.visor-modal__nav svg {
-  width: 1rem;
-  height: 1rem;
-}
-
-.visor-modal__info {
-  padding: 1rem 1.25rem 1.25rem;
-}
-.visor-modal__badges {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 0.7rem;
-}
-.visor-modal__eca {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--eca-ink-soft);
-}
-.visor-modal__eca svg {
+.visor-panel__nav svg {
   width: 0.8rem;
   height: 0.8rem;
-}
-.visor-modal__descripcion {
-  margin: 0 0 0.9rem;
-  font-size: 0.88rem;
-  color: var(--eca-ink);
-  line-height: 1.5;
-}
-.visor-modal__vertodo {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--eca-green-700);
-  text-decoration: none;
-}
-.visor-modal__vertodo svg {
-  width: 0.75rem;
-  height: 0.75rem;
-}
-.visor-modal__vertodo:hover {
-  text-decoration: underline;
-}
-
-@media (max-width: 640px) {
-  .visor-modal__fondo {
-    padding: 0;
-    align-items: flex-end;
-  }
-  .visor-modal {
-    max-width: 100%;
-    max-height: 92vh;
-    border-radius: 22px 22px 0 0;
-  }
-  .visor-modal-tarjeta-enter-from,
-  .visor-modal-tarjeta-leave-to {
-    transform: translateY(100%);
-  }
-  .visor-modal__cabecera {
-    border-radius: 22px 22px 0 0;
-  }
 }
 </style>
