@@ -19,10 +19,19 @@ import {
   urlVistaPreviaEvidencia,
   obtenerActividad,
   descargarEvidencia,
+  eliminarActividad,
 } from '../services/actividadesService'
 import { listarEcas, obtenerEca } from '../services/ecasService'
 import { api } from '../services/api'
+import { useAuthStore } from '../stores/auth'
 import AuthIcon from '../components/auth/AuthIcon.vue'
+
+const auth = useAuthStore()
+// Reactivo (a diferencia de `const x = auth.tienePermiso(...)` sin
+// `computed`): si un admin le quita/da el permiso en caliente mientras esta
+// vista sigue montada, el botón aparece/desaparece solo — no se queda
+// pegado a los permisos que había al entrar.
+const puedeEliminar = computed(() => auth.tienePermiso('actividades.eliminar'))
 
 const tecnicos = ref([])
 const tecnicosPorId = computed(() => new Map(tecnicos.value.map((t) => [t.id, t])))
@@ -261,6 +270,56 @@ function cerrarDetalle() {
   document.body.style.overflow = ''
 }
 
+// ---- Eliminar actividad (admin, permiso `actividades.eliminar`) — modal
+// de confirmación informativo, nunca un `confirm()` del navegador: muestra
+// quién, cuándo y qué se va a borrar para que el admin no elimine a
+// ciegas. Borrado lógico en el backend (`eliminado_en`), así que un error
+// humano siempre es reversible a mano en la base de datos. ----
+const confirmarEliminarAbierto = ref(false)
+const actividadAEliminar = ref(null)
+const eliminando = ref(false)
+const errorEliminar = ref('')
+
+function abrirConfirmarEliminar(actividad) {
+  actividadAEliminar.value = actividad
+  errorEliminar.value = ''
+  confirmarEliminarAbierto.value = true
+}
+
+function cerrarConfirmarEliminar() {
+  if (eliminando.value) return // no cerrar a medio borrado
+  confirmarEliminarAbierto.value = false
+  actividadAEliminar.value = null
+  errorEliminar.value = ''
+}
+
+async function confirmarEliminar() {
+  if (!actividadAEliminar.value) return
+  eliminando.value = true
+  errorEliminar.value = ''
+  try {
+    await eliminarActividad(actividadAEliminar.value.uuid)
+    // Si el detalle abierto era justo el que se borró, se cierra también.
+    if (modalUuid.value === actividadAEliminar.value.uuid) cerrarDetalle()
+    // Si era la última fila visible de una página > 1, retrocede una
+    // página antes de recargar — si no, quedaría viendo una página vacía.
+    if (actividades.value.length === 1 && page.value > 1) page.value -= 1
+    confirmarEliminarAbierto.value = false
+    actividadAEliminar.value = null
+    await cargar()
+  } catch (e) {
+    const codigo = e?.response?.status
+    errorEliminar.value =
+      codigo === 403
+        ? 'No tienes permiso para eliminar actividades.'
+        : codigo === 404
+          ? 'Esta actividad ya no existe (puede que alguien más ya la haya eliminado).'
+          : 'No se pudo eliminar la actividad. Intenta de nuevo.'
+  } finally {
+    eliminando.value = false
+  }
+}
+
 // ---- Mapa Mapbox del detalle: en vez de mostrar las coordenadas en
 // crudo, un botón que despliega el mapa dentro del propio modal (sin
 // apilar un segundo modal encima) — mismo estilo/patrón que el mapa de
@@ -414,6 +473,7 @@ function fotoAnterior() {
 
 function onTeclaEscape(evento) {
   if (evento.key === 'Escape') {
+    if (confirmarEliminarAbierto.value) return cerrarConfirmarEliminar()
     if (visorAbierto.value) return cerrarVisor()
     if (modalUuid.value) return cerrarDetalle()
   }
@@ -654,6 +714,15 @@ onMounted(async () => {
                   >
                     <AuthIcon name="clipboard" />
                   </button>
+                  <button
+                    v-if="puedeEliminar"
+                    type="button"
+                    class="actividades__accion actividades__accion--eliminar"
+                    title="Eliminar actividad"
+                    @click="abrirConfirmarEliminar(a)"
+                  >
+                    <AuthIcon name="trash" />
+                  </button>
                 </div>
               </td>
             </tr>
@@ -836,6 +905,70 @@ onMounted(async () => {
                   </div>
                 </div>
               </template>
+            </div>
+          </Transition>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- ============ Modal: confirmar eliminación (admin) ============ -->
+    <Teleport to="body">
+      <Transition name="actividades-fondo">
+        <div v-if="confirmarEliminarAbierto" class="actividades__confirmar-fondo" @click.self="cerrarConfirmarEliminar">
+          <Transition name="actividades-confirmar-tarjeta" appear>
+            <div v-if="actividadAEliminar" class="actividades__confirmar" role="alertdialog" aria-modal="true">
+              <div class="actividades__confirmar-cabecera">
+                <span class="actividades__confirmar-icono"><AuthIcon name="trash" /></span>
+                <div>
+                  <h2>Eliminar actividad</h2>
+                  <p>Esta acción no se puede deshacer desde el panel.</p>
+                </div>
+              </div>
+
+              <div class="actividades__confirmar-cuerpo">
+                <p class="actividades__confirmar-pregunta">¿Seguro que quieres eliminar este registro?</p>
+
+                <div class="actividades__confirmar-resumen">
+                  <div class="actividades__confirmar-fila">
+                    <span class="eca-avatar">{{ iniciales(tecnicoDe(actividadAEliminar)) }}</span>
+                    <div>
+                      <strong>
+                        {{
+                          tecnicoDe(actividadAEliminar)
+                            ? `${tecnicoDe(actividadAEliminar).nombre} ${tecnicoDe(actividadAEliminar).apellido_paterno}`
+                            : `Técnico #${actividadAEliminar.usuario_id}`
+                        }}
+                      </strong>
+                      <span>{{ new Date(actividadAEliminar.fecha_hora).toLocaleString('es-MX') }}</span>
+                    </div>
+                  </div>
+                  <div class="actividades__confirmar-dato">
+                    <span class="actividades__confirmar-dato-etiqueta">Tipo</span>
+                    <span>{{ tipoInfo(actividadAEliminar).nombre }}</span>
+                  </div>
+                  <div class="actividades__confirmar-dato">
+                    <span class="actividades__confirmar-dato-etiqueta">ECA</span>
+                    <span>{{ ecaNombre(actividadAEliminar) }}</span>
+                  </div>
+                  <div class="actividades__confirmar-dato">
+                    <span class="actividades__confirmar-dato-etiqueta">Descripción</span>
+                    <span class="actividades__confirmar-descripcion">{{ actividadAEliminar.descripcion }}</span>
+                  </div>
+                </div>
+
+                <p v-if="errorEliminar" class="eca-alerta-error" role="alert">{{ errorEliminar }}</p>
+
+                <div class="actividades__confirmar-acciones">
+                  <button type="button" class="eca-btn eca-btn-secundario" :disabled="eliminando" @click="cerrarConfirmarEliminar">
+                    Cancelar
+                  </button>
+                  <button type="button" class="actividades__confirmar-btn-eliminar" :disabled="eliminando" @click="confirmarEliminar">
+                    <span v-if="eliminando" class="actividades__modal-spinner actividades__modal-spinner--chico"></span>
+                    <AuthIcon v-else name="trash" />
+                    {{ eliminando ? 'Eliminando…' : 'Sí, eliminar' }}
+                  </button>
+                </div>
+              </div>
             </div>
           </Transition>
         </div>
@@ -1530,6 +1663,12 @@ select.actividades__control:disabled {
 .actividades__accion--ver {
   background: linear-gradient(135deg, #2f7a33, #14501c);
 }
+.actividades__accion--eliminar {
+  background: linear-gradient(135deg, #7f1d1d, #450a0a);
+}
+.actividades__accion--eliminar:hover {
+  box-shadow: 0 6px 16px rgba(127, 29, 29, 0.4);
+}
 
 @media (max-width: 640px) {
   .actividades__tabla-contenedor {
@@ -1591,6 +1730,211 @@ select.actividades__control:disabled {
 .actividades-modal-leave-to {
   opacity: 0;
   transform: scale(0.96) translateY(10px);
+}
+
+/* ---- Modal de confirmación: eliminar actividad (admin) ---- */
+.actividades__confirmar-fondo {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(20, 10, 10, 0.5);
+  backdrop-filter: blur(8px) saturate(1.3);
+  -webkit-backdrop-filter: blur(8px) saturate(1.3);
+}
+.actividades__confirmar {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 22px;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.4);
+}
+.actividades-confirmar-tarjeta-enter-active {
+  transition: opacity 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.actividades-confirmar-tarjeta-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.actividades-confirmar-tarjeta-enter-from {
+  opacity: 0;
+  transform: scale(0.9) translateY(16px);
+}
+.actividades-confirmar-tarjeta-leave-to {
+  opacity: 0;
+  transform: scale(0.95) translateY(10px);
+}
+.actividades__confirmar-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1.5rem 1.75rem;
+  background: linear-gradient(135deg, #b91c1c 0%, #7f1d1d 60%, #450a0a 100%);
+  color: #fff;
+  border-radius: 22px 22px 0 0;
+}
+.actividades__confirmar-icono {
+  flex-shrink: 0;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: actividades-confirmar-tambaleo 0.5s ease 0.15s both;
+}
+@keyframes actividades-confirmar-tambaleo {
+  0% {
+    transform: rotate(0deg) scale(0.6);
+    opacity: 0;
+  }
+  50% {
+    transform: rotate(-8deg) scale(1.08);
+  }
+  100% {
+    transform: rotate(0deg) scale(1);
+    opacity: 1;
+  }
+}
+.actividades__confirmar-cabecera h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+.actividades__confirmar-cabecera p {
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+.actividades__confirmar-cuerpo {
+  padding: 1.5rem 1.75rem 1.75rem;
+}
+.actividades__confirmar-pregunta {
+  margin: 0 0 1rem;
+  font-size: 0.92rem;
+  color: var(--eca-ink);
+  font-weight: 600;
+}
+.actividades__confirmar-resumen {
+  background: var(--eca-surface);
+  border: 1px solid var(--eca-surface-border);
+  border-radius: var(--eca-r-md);
+  padding: 0.9rem 1rem;
+  margin-bottom: 1rem;
+}
+.actividades__confirmar-fila {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid var(--eca-surface-border);
+}
+.actividades__confirmar-fila div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.actividades__confirmar-fila strong {
+  font-size: 0.88rem;
+}
+.actividades__confirmar-fila span {
+  font-size: 0.76rem;
+  color: var(--eca-ink-soft);
+}
+.actividades__confirmar-dato {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px dashed var(--eca-surface-border);
+  font-size: 0.85rem;
+}
+.actividades__confirmar-dato:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+.actividades__confirmar-dato-etiqueta {
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--eca-ink-soft);
+}
+.actividades__confirmar-descripcion {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+.actividades__confirmar-acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+.actividades__confirmar-btn-eliminar {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1.1rem;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #b91c1c, #7f1d1d);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(127, 29, 29, 0.35);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, opacity 0.2s ease;
+}
+.actividades__confirmar-btn-eliminar:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(127, 29, 29, 0.45);
+}
+.actividades__confirmar-btn-eliminar:disabled {
+  opacity: 0.75;
+  cursor: default;
+  transform: none;
+}
+.actividades__confirmar-btn-eliminar svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+.actividades__modal-spinner--chico {
+  width: 0.95rem;
+  height: 0.95rem;
+  border-width: 2px;
+  border-color: rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+}
+@media (max-width: 640px) {
+  .actividades__confirmar-fondo {
+    padding: 0;
+    align-items: flex-end;
+  }
+  .actividades__confirmar {
+    max-width: 100%;
+    border-radius: 22px 22px 0 0;
+  }
+  .actividades-confirmar-tarjeta-enter-from,
+  .actividades-confirmar-tarjeta-leave-to {
+    transform: translateY(100%);
+  }
+  .actividades__confirmar-cabecera {
+    border-radius: 22px 22px 0 0;
+  }
 }
 
 .actividades__modal-cerrar {

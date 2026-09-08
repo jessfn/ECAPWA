@@ -39,6 +39,10 @@ export async function obtenerActividad(uuid) {
   return data
 }
 
+export async function eliminarActividad(uuid) {
+  await api.delete(`/actividades/${uuid}`)
+}
+
 function descargarBlob(blob, nombreArchivo) {
   const url = URL.createObjectURL(blob)
   const enlace = document.createElement('a')

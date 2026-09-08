@@ -95,6 +95,9 @@ class RepoActividadesEnMemoria:
         self.filas.append(actividad)
         return actividad
 
+    def eliminar(self, _db, actividad: Actividad) -> None:
+        actividad.eliminado_en = datetime(2026, 3, 5, 10, tzinfo=timezone.utc)
+
 
 @pytest.fixture
 def repo_actividades(monkeypatch: pytest.MonkeyPatch):
@@ -102,6 +105,7 @@ def repo_actividades(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(actividades_service.repo_actividades, "obtener_por_uuid", repo.obtener_por_uuid)
     monkeypatch.setattr(actividades_service.repo_actividades, "buscar_equivalente_reciente", repo.buscar_equivalente_reciente)
     monkeypatch.setattr(actividades_service.repo_actividades, "crear", repo.crear)
+    monkeypatch.setattr(actividades_service.repo_actividades, "eliminar", repo.eliminar)
     return repo
 
 
@@ -387,3 +391,36 @@ def test_crear_actividad_con_lat_sin_lon_es_error(db: DBFalsa, repo_actividades,
         actividades_service.crear(
             db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, **datos
         )
+
+
+# --- Eliminar (admin, permiso `actividades.eliminar`) -----------------------
+
+
+def test_eliminar_actividad_marca_eliminado_en(db: DBFalsa, repo_actividades, repo_jornadas, actor: Usuario) -> None:
+    tipo = _tipo()
+    db.registrar(TipoActividad, tipo.id, tipo)
+    actividad = actividades_service.crear(
+        db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, **DATOS_BASE
+    )
+    assert actividad.eliminado_en is None
+
+    actividades_service.eliminar(db, uuid=actividad.uuid, actor=actor)
+
+    assert actividad.eliminado_en is not None
+
+
+def test_eliminar_actividad_desconocida_es_error(db: DBFalsa, repo_actividades, actor: Usuario) -> None:
+    with pytest.raises(actividades_service.ActividadNoEncontradaError):
+        actividades_service.eliminar(db, uuid=uuid_lib.uuid4(), actor=actor)
+
+
+def test_eliminar_actividad_ya_eliminada_es_error(db: DBFalsa, repo_actividades, repo_jornadas, actor: Usuario) -> None:
+    tipo = _tipo()
+    db.registrar(TipoActividad, tipo.id, tipo)
+    actividad = actividades_service.crear(
+        db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, **DATOS_BASE
+    )
+    actividades_service.eliminar(db, uuid=actividad.uuid, actor=actor)
+
+    with pytest.raises(actividades_service.ActividadNoEncontradaError):
+        actividades_service.eliminar(db, uuid=actividad.uuid, actor=actor)

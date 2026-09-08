@@ -44,6 +44,10 @@ class GpsInvalidoError(ValueError):
     pass
 
 
+class ActividadNoEncontradaError(Exception):
+    pass
+
+
 def _validar_gps(gps: GpsPeticion) -> None:
     if (gps.latitud is None) != (gps.longitud is None):
         raise GpsInvalidoError("latitud y longitud deben venir juntas o ninguna.")
@@ -245,6 +249,28 @@ def listar_todas(
         page=page,
         page_size=page_size,
     )
+
+
+def eliminar(db: Session, *, uuid: uuid_lib.UUID, actor: Usuario) -> None:
+    """Borrado lógico (admin, permiso `actividades.eliminar`) — nunca borra
+    la fila física, mismo criterio que el resto del RBAC del proyecto
+    (deactivar/marcar, nunca DELETE físico)."""
+    actividad = repo_actividades.obtener_por_uuid(db, uuid)
+    if actividad is None or actividad.eliminado_en is not None:
+        raise ActividadNoEncontradaError(f"Actividad desconocida: {uuid}")
+
+    repo_actividades.eliminar(db, actividad)
+
+    registrar_evento(
+        db,
+        accion="actividad.eliminar",
+        modulo="actividades",
+        actor_usuario_id=actor.id,
+        entidad_tipo="actividad",
+        entidad_id=actividad.id,
+        entidad_uuid=actividad.uuid,
+    )
+    db.commit()
 
 
 def exportar_csv(

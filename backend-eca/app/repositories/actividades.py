@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import uuid as uuid_lib
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -57,6 +57,16 @@ def crear(db: Session, actividad: Actividad) -> Actividad:
     db.add(actividad)
     db.flush()
     return actividad
+
+
+def eliminar(db: Session, actividad: Actividad) -> None:
+    """Borrado lógico (mismo patrón que `Jornada.eliminado_en`) — nunca se
+    borra la fila, así que un borrado por error siempre es reversible a
+    mano en la base de datos. Ya excluida de `_consulta_filtrada` y de
+    `buscar_equivalente_reciente`, así que desaparece de inmediato del
+    historial y de los filtros de "actividad equivalente reciente"."""
+    actividad.eliminado_en = datetime.now(timezone.utc)
+    db.flush()
 
 
 def _paginar(consulta, *, db: Session, page: int, page_size: int) -> tuple[list[Actividad], int]:

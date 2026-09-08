@@ -246,3 +246,15 @@ def obtener_actividad(
     datos = ActividadPublica.model_validate(actividad).model_dump()
     datos["evidencias"] = [EvidenciaPublica.model_validate(e) for e in evidencias]
     return ActividadDetallePublica(**datos)
+
+
+@router.delete("/{uuid}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
+def eliminar_actividad(
+    uuid: uuid_lib.UUID,
+    db: Session = Depends(get_db),
+    actor: Usuario = Depends(require_permission("actividades.eliminar")),
+) -> None:
+    try:
+        actividades_service.eliminar(db, uuid=uuid, actor=actor)
+    except actividades_service.ActividadNoEncontradaError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Actividad no encontrada.") from exc
