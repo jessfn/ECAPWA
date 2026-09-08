@@ -220,8 +220,47 @@ function iniciarMapaModal(j) {
   })
 }
 
+// ---- Modal de detalles: información completa en dos columnas (entrada/salida) ----
+const detalleAbierto = ref(false)
+const jornadaDetalle = ref(null)
+
+function abrirDetalle(j) {
+  jornadaDetalle.value = j
+  detalleAbierto.value = true
+}
+function cerrarDetalle() {
+  detalleAbierto.value = false
+  jornadaDetalle.value = null
+}
+function verMapaDesdeDetalle() {
+  const j = jornadaDetalle.value
+  cerrarDetalle()
+  abrirModal(j)
+}
+function formatearFechaHora(iso) {
+  if (!iso) return null
+  return new Date(iso).toLocaleString('es-MX', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+function coordenadasDe(lat, lng) {
+  if (lat == null || lng == null) return null
+  return `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+}
+function precisionGpsDe(estado, metros) {
+  if (!estado) return null
+  const base = estado === 'CON_GPS' ? 'Ubicación precisa' : 'Ubicación aproximada'
+  return metros != null ? `${base} (±${Math.round(metros)} m)` : base
+}
+
 function onTeclaEscape(evento) {
-  if (evento.key === 'Escape' && modalAbierto.value) cerrarModal()
+  if (evento.key !== 'Escape') return
+  if (detalleAbierto.value) cerrarDetalle()
+  else if (modalAbierto.value) cerrarModal()
 }
 
 onMounted(async () => {
@@ -384,9 +423,14 @@ onBeforeUnmount(() => {
                 <span class="eca-badge" :class="BADGE_ESTADO[j.estado]">{{ ETIQUETAS_ESTADO[j.estado] || j.estado }}</span>
               </td>
               <td>
-                <button type="button" class="asistencia__accion" title="Ver ubicación" @click="abrirModal(j)">
-                  <AuthIcon name="map-pin" />
-                </button>
+                <div class="asistencia__acciones">
+                  <button type="button" class="asistencia__accion asistencia__accion--detalle" title="Ver detalles" @click="abrirDetalle(j)">
+                    <AuthIcon name="clipboard" />
+                  </button>
+                  <button type="button" class="asistencia__accion" title="Ver ubicación" @click="abrirModal(j)">
+                    <AuthIcon name="map-pin" />
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -482,6 +526,127 @@ onBeforeUnmount(() => {
                   <p v-if="jornadaSeleccionada.nota_fin"><strong>Nota de salida:</strong> {{ jornadaSeleccionada.nota_fin }}</p>
                 </div>
               </div>
+            </div>
+          </Transition>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- ============ Modal: detalles completos en dos columnas ============ -->
+    <Teleport to="body">
+      <Transition name="asistencia-modal-fondo">
+        <div v-if="detalleAbierto" class="asistencia-modal__fondo" @click.self="cerrarDetalle">
+          <Transition name="asistencia-modal-tarjeta" appear>
+            <div v-if="jornadaDetalle" class="asistencia-detalle" role="dialog" aria-modal="true">
+              <button type="button" class="asistencia-modal__cerrar" aria-label="Cerrar" @click="cerrarDetalle">
+                <AuthIcon name="close" />
+              </button>
+
+              <div class="asistencia-detalle__cabecera">
+                <span class="asistencia-modal__avatar">{{ iniciales(tecnicoDe(jornadaDetalle)) }}</span>
+                <div class="asistencia-modal__cabecera-texto">
+                  <strong>
+                    {{
+                      tecnicoDe(jornadaDetalle)
+                        ? `${tecnicoDe(jornadaDetalle).nombre} ${tecnicoDe(jornadaDetalle).apellido_paterno}`
+                        : `Técnico #${jornadaDetalle.usuario_id}`
+                    }}
+                  </strong>
+                  <span>{{ formatearFecha(jornadaDetalle.fecha) }} · {{ duracion(jornadaDetalle) }}</span>
+                </div>
+                <span class="eca-badge" :class="BADGE_ESTADO[jornadaDetalle.estado]">
+                  {{ ETIQUETAS_ESTADO[jornadaDetalle.estado] }}
+                </span>
+              </div>
+
+              <div class="asistencia-detalle__columnas">
+                <!-- Columna Entrada -->
+                <div class="asistencia-detalle__col asistencia-detalle__col--entrada">
+                  <div class="asistencia-detalle__col-cabecera">
+                    <span class="asistencia-detalle__col-icono"><AuthIcon name="arrow-right" /></span>
+                    <strong>Entrada</strong>
+                  </div>
+
+                  <template v-if="jornadaDetalle.inicio_en">
+                    <div class="asistencia-detalle__hora">{{ formatearHora(jornadaDetalle.inicio_en) }}</div>
+                    <div class="asistencia-detalle__dato">
+                      <span class="asistencia-detalle__dato-etiqueta">Fecha y hora</span>
+                      <span class="asistencia-detalle__dato-valor">{{ formatearFechaHora(jornadaDetalle.inicio_en) }}</span>
+                    </div>
+                    <div class="asistencia-detalle__dato">
+                      <span class="asistencia-detalle__dato-etiqueta">Ubicación GPS</span>
+                      <span
+                        v-if="precisionGpsDe(jornadaDetalle.estado_gps_inicio, jornadaDetalle.precision_gps_inicio_m)"
+                        class="asistencia-detalle__dato-valor"
+                      >
+                        {{ precisionGpsDe(jornadaDetalle.estado_gps_inicio, jornadaDetalle.precision_gps_inicio_m) }}
+                      </span>
+                      <span v-else class="asistencia-detalle__vacio">Sin ubicación registrada</span>
+                    </div>
+                    <div v-if="coordenadasDe(jornadaDetalle.latitud_inicio, jornadaDetalle.longitud_inicio)" class="asistencia-detalle__dato">
+                      <span class="asistencia-detalle__dato-etiqueta">Coordenadas</span>
+                      <span class="asistencia-detalle__dato-valor asistencia-detalle__coordenadas">
+                        {{ coordenadasDe(jornadaDetalle.latitud_inicio, jornadaDetalle.longitud_inicio) }}
+                      </span>
+                    </div>
+                    <div class="asistencia-detalle__dato">
+                      <span class="asistencia-detalle__dato-etiqueta">Nota</span>
+                      <span v-if="jornadaDetalle.nota" class="asistencia-detalle__dato-valor">{{ jornadaDetalle.nota }}</span>
+                      <span v-else class="asistencia-detalle__vacio">Aún no hay un mensaje</span>
+                    </div>
+                  </template>
+                  <div v-else class="asistencia-detalle__pendiente">
+                    <AuthIcon name="clock" />
+                    <p>Aún no hay un mensaje</p>
+                  </div>
+                </div>
+
+                <!-- Columna Salida -->
+                <div class="asistencia-detalle__col asistencia-detalle__col--salida">
+                  <div class="asistencia-detalle__col-cabecera">
+                    <span class="asistencia-detalle__col-icono"><AuthIcon name="arrow-left" /></span>
+                    <strong>Salida</strong>
+                  </div>
+
+                  <template v-if="jornadaDetalle.fin_en">
+                    <div class="asistencia-detalle__hora">{{ formatearHora(jornadaDetalle.fin_en) }}</div>
+                    <div class="asistencia-detalle__dato">
+                      <span class="asistencia-detalle__dato-etiqueta">Fecha y hora</span>
+                      <span class="asistencia-detalle__dato-valor">{{ formatearFechaHora(jornadaDetalle.fin_en) }}</span>
+                    </div>
+                    <div class="asistencia-detalle__dato">
+                      <span class="asistencia-detalle__dato-etiqueta">Ubicación GPS</span>
+                      <span
+                        v-if="precisionGpsDe(jornadaDetalle.estado_gps_fin, jornadaDetalle.precision_gps_fin_m)"
+                        class="asistencia-detalle__dato-valor"
+                      >
+                        {{ precisionGpsDe(jornadaDetalle.estado_gps_fin, jornadaDetalle.precision_gps_fin_m) }}
+                      </span>
+                      <span v-else class="asistencia-detalle__vacio">Sin ubicación registrada</span>
+                    </div>
+                    <div v-if="coordenadasDe(jornadaDetalle.latitud_fin, jornadaDetalle.longitud_fin)" class="asistencia-detalle__dato">
+                      <span class="asistencia-detalle__dato-etiqueta">Coordenadas</span>
+                      <span class="asistencia-detalle__dato-valor asistencia-detalle__coordenadas">
+                        {{ coordenadasDe(jornadaDetalle.latitud_fin, jornadaDetalle.longitud_fin) }}
+                      </span>
+                    </div>
+                    <div class="asistencia-detalle__dato">
+                      <span class="asistencia-detalle__dato-etiqueta">Nota</span>
+                      <span v-if="jornadaDetalle.nota_fin" class="asistencia-detalle__dato-valor">{{ jornadaDetalle.nota_fin }}</span>
+                      <span v-else class="asistencia-detalle__vacio">Aún no hay un mensaje</span>
+                    </div>
+                  </template>
+                  <div v-else class="asistencia-detalle__pendiente">
+                    <AuthIcon name="clock" />
+                    <p>Aún no hay un mensaje</p>
+                    <small>La salida todavía no se ha registrado.</small>
+                  </div>
+                </div>
+              </div>
+
+              <button type="button" class="asistencia-detalle__ver-mapa" @click="verMapaDesdeDetalle">
+                <AuthIcon name="map-pin" /> Ver ubicación en el mapa
+              </button>
             </div>
           </Transition>
         </div>
@@ -795,6 +960,11 @@ select.asistencia__control {
   color: var(--eca-ink-faint, #9aa1af);
   font-style: italic;
 }
+.asistencia__acciones {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
 .asistencia__accion {
   width: 2.1rem;
   height: 2.1rem;
@@ -815,6 +985,223 @@ select.asistencia__control {
 .asistencia__accion svg {
   width: 0.95rem;
   height: 0.95rem;
+}
+.asistencia__accion--detalle {
+  background: linear-gradient(135deg, #2f7a33, #14501c);
+}
+
+/* ---- Modal de detalles: dos columnas entrada/salida ---- */
+.asistencia-detalle {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 24px;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.35);
+}
+.asistencia-detalle__cabecera {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.25rem 3rem 1.25rem 1.5rem;
+  background: linear-gradient(135deg, #2f7a33 0%, #256a2a 55%, #14501c 100%);
+  color: #fff;
+  border-radius: 24px 24px 0 0;
+}
+.asistencia-detalle__columnas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+.asistencia-detalle__col {
+  padding: 1.25rem 1.35rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  animation: asistencia-detalle-entra 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.asistencia-detalle__col--entrada {
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.07), transparent 55%);
+  border-right: 1px solid var(--eca-surface-border);
+  animation-delay: 0.02s;
+}
+.asistencia-detalle__col--salida {
+  background: linear-gradient(180deg, rgba(220, 38, 38, 0.07), transparent 55%);
+  animation-delay: 0.09s;
+}
+@keyframes asistencia-detalle-entra {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.asistencia-detalle__col-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 2px solid var(--eca-surface-border);
+}
+.asistencia-detalle__col-cabecera strong {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.asistencia-detalle__col-icono {
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+}
+.asistencia-detalle__col-icono svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+.asistencia-detalle__col--entrada .asistencia-detalle__col-icono {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  box-shadow: 0 3px 10px rgba(37, 99, 235, 0.35);
+}
+.asistencia-detalle__col--entrada .asistencia-detalle__col-cabecera strong {
+  color: #1d4ed8;
+}
+.asistencia-detalle__col--salida .asistencia-detalle__col-icono {
+  background: linear-gradient(135deg, #f87171, #b91c1c);
+  box-shadow: 0 3px 10px rgba(220, 38, 38, 0.35);
+}
+.asistencia-detalle__col--salida .asistencia-detalle__col-cabecera strong {
+  color: #b91c1c;
+}
+.asistencia-detalle__hora {
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: var(--eca-ink);
+  line-height: 1.1;
+}
+.asistencia-detalle__dato {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px dashed var(--eca-surface-border);
+}
+.asistencia-detalle__dato:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.asistencia-detalle__dato-etiqueta {
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--eca-ink-soft);
+}
+.asistencia-detalle__dato-valor {
+  font-size: 0.86rem;
+  color: var(--eca-ink);
+  font-weight: 600;
+  word-break: break-word;
+}
+.asistencia-detalle__coordenadas {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--eca-ink-soft);
+}
+.asistencia-detalle__vacio {
+  font-size: 0.82rem;
+  font-style: italic;
+  color: var(--eca-ink-faint, #9aa1af);
+}
+.asistencia-detalle__pendiente {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 1.5rem 0.5rem;
+  color: var(--eca-ink-faint, #9aa1af);
+  text-align: center;
+}
+.asistencia-detalle__pendiente svg {
+  width: 1.6rem;
+  height: 1.6rem;
+  opacity: 0.6;
+  animation: asistencia-detalle-pulso 1.8s ease-in-out infinite;
+}
+@keyframes asistencia-detalle-pulso {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.12);
+  }
+}
+.asistencia-detalle__pendiente p {
+  margin: 0;
+  font-weight: 700;
+  font-style: italic;
+  font-size: 0.88rem;
+}
+.asistencia-detalle__pendiente small {
+  font-size: 0.74rem;
+}
+.asistencia-detalle__ver-mapa {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: calc(100% - 3rem);
+  margin: 0 1.5rem 1.5rem;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--eca-purple-600), var(--eca-purple-500));
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(118, 75, 162, 0.3);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+}
+.asistencia-detalle__ver-mapa:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(118, 75, 162, 0.4);
+}
+.asistencia-detalle__ver-mapa svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+@media (max-width: 640px) {
+  .asistencia-detalle {
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: 22px 22px 0 0;
+  }
+  .asistencia-detalle__cabecera {
+    border-radius: 22px 22px 0 0;
+  }
+  .asistencia-detalle__columnas {
+    grid-template-columns: 1fr;
+  }
+  .asistencia-detalle__col--entrada {
+    border-right: none;
+    border-bottom: 1px solid var(--eca-surface-border);
+  }
 }
 
 /* ---- Modal de detalle ---- */
