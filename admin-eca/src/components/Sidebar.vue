@@ -19,11 +19,11 @@ const showLogoutModal = ref(false)
 const enlaces = [
   { nombre: 'inicio', etiqueta: 'Inicio', ruta: { name: 'inicio' }, permiso: 'vista.inicio', icono: 'home' },
   {
-    nombre: 'geografia',
-    etiqueta: 'Geografía',
-    ruta: { name: 'geografia' },
-    permiso: 'vista.geografia',
-    icono: 'map',
+    nombre: 'visor-seguimiento',
+    etiqueta: 'Visor de Seguimiento',
+    ruta: { name: 'visor-seguimiento' },
+    permiso: 'vista.visor_seguimiento',
+    icono: 'map-pin',
   },
   { nombre: 'ecas', etiqueta: 'ECA', ruta: { name: 'ecas' }, permiso: 'vista.ecas', icono: 'school' },
   {
@@ -60,13 +60,6 @@ const enlaces = [
     ruta: { name: 'actividades' },
     permiso: 'vista.actividades',
     icono: 'clock',
-  },
-  {
-    nombre: 'solicitudes-acceso',
-    etiqueta: 'Solicitudes de acceso',
-    ruta: { name: 'solicitudes-acceso' },
-    permiso: 'vista.solicitudes_acceso',
-    icono: 'user-plus',
   },
   {
     nombre: 'permisos-administrativos',

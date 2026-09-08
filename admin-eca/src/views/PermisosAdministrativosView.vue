@@ -35,14 +35,13 @@ const BADGE_ESTADO = { ACTIVO: 'eca-badge--verde', SUSPENDIDO: 'eca-badge--ambar
 // ya está encendida.
 const VISTAS = [
   { clave: 'vista.inicio', etiqueta: 'Inicio', icono: 'home', modulo: null },
-  { clave: 'vista.geografia', etiqueta: 'Geografía', icono: 'map', modulo: 'geo' },
+  { clave: 'vista.visor_seguimiento', etiqueta: 'Visor de Seguimiento', icono: 'map-pin', modulo: null },
   { clave: 'vista.ecas', etiqueta: 'ECA', icono: 'school', modulo: 'ecas' },
   { clave: 'vista.ambitos', etiqueta: 'Ámbitos', icono: 'shield', modulo: 'ambitos' },
   { clave: 'vista.asignaciones', etiqueta: 'Asignaciones', icono: 'check-circle', modulo: 'asignaciones' },
   { clave: 'vista.catalogos', etiqueta: 'Catálogos', icono: 'book', modulo: 'catalogos' },
   { clave: 'vista.tecnicos', etiqueta: 'Técnicos', icono: 'user', modulo: 'usuarios' },
   { clave: 'vista.actividades', etiqueta: 'Actividades', icono: 'clock', modulo: 'actividades' },
-  { clave: 'vista.solicitudes_acceso', etiqueta: 'Solicitudes de acceso', icono: 'user-plus', modulo: null },
   { clave: 'vista.permisos_administrativos', etiqueta: 'Permisos administrativos', icono: 'shield-check', modulo: null },
 ]
 

@@ -3,7 +3,7 @@ import { useAuthStore } from '../stores/auth'
 import DefaultLayout from '../layouts/DefaultLayout.vue'
 import LoginView from '../views/LoginView.vue'
 import InicioView from '../views/InicioView.vue'
-import GeografiaView from '../views/GeografiaView.vue'
+import VisorSeguimientoView from '../views/VisorSeguimientoView.vue'
 import EcasView from '../views/EcasView.vue'
 import EcaImportarView from '../views/EcaImportarView.vue'
 import AmbitosView from '../views/AmbitosView.vue'
@@ -11,7 +11,6 @@ import AsignacionesView from '../views/AsignacionesView.vue'
 import CatalogosView from '../views/CatalogosView.vue'
 import ActividadesView from '../views/ActividadesView.vue'
 import ActividadDetalleView from '../views/ActividadDetalleView.vue'
-import SolicitudesAccesoView from '../views/SolicitudesAccesoView.vue'
 import TecnicosView from '../views/TecnicosView.vue'
 import PermisosAdministrativosView from '../views/PermisosAdministrativosView.vue'
 
@@ -27,10 +26,10 @@ const routes = [
     children: [
       { path: '', name: 'inicio', component: InicioView, meta: { requierePermiso: 'vista.inicio' } },
       {
-        path: 'geografia',
-        name: 'geografia',
-        component: GeografiaView,
-        meta: { requierePermiso: 'vista.geografia' },
+        path: 'visor-seguimiento',
+        name: 'visor-seguimiento',
+        component: VisorSeguimientoView,
+        meta: { requierePermiso: 'vista.visor_seguimiento' },
       },
       { path: 'ecas', name: 'ecas', component: EcasView, meta: { requierePermiso: 'vista.ecas' } },
       {
@@ -76,12 +75,6 @@ const routes = [
         meta: { requierePermiso: 'vista.actividades' },
       },
       {
-        path: 'solicitudes-acceso',
-        name: 'solicitudes-acceso',
-        component: SolicitudesAccesoView,
-        meta: { requierePermiso: 'vista.solicitudes_acceso' },
-      },
-      {
         path: 'permisos-administrativos',
         name: 'permisos-administrativos',
         component: PermisosAdministrativosView,
@@ -118,17 +111,16 @@ const router = createRouter({
 // justo lo que colgó el panel al loguear la cuenta de prueba.
 const ORDEN_VISTAS = [
   'inicio',
-  'geografia',
+  'visor-seguimiento',
   'ecas',
   'ambitos',
   'asignaciones',
   'catalogos',
   'tecnicos',
   'actividades',
-  'solicitudes-acceso',
   'permisos-administrativos',
 ]
-const PERMISO_DE_RUTA = { inicio: 'vista.inicio', geografia: 'vista.geografia', ecas: 'vista.ecas', ambitos: 'vista.ambitos', asignaciones: 'vista.asignaciones', catalogos: 'vista.catalogos', tecnicos: 'vista.tecnicos', actividades: 'vista.actividades', 'solicitudes-acceso': 'vista.solicitudes_acceso', 'permisos-administrativos': 'vista.permisos_administrativos' }
+const PERMISO_DE_RUTA = { inicio: 'vista.inicio', 'visor-seguimiento': 'vista.visor_seguimiento', ecas: 'vista.ecas', ambitos: 'vista.ambitos', asignaciones: 'vista.asignaciones', catalogos: 'vista.catalogos', tecnicos: 'vista.tecnicos', actividades: 'vista.actividades', 'permisos-administrativos': 'vista.permisos_administrativos' }
 
 function primeraRutaAccesible(auth) {
   const nombre = ORDEN_VISTAS.find((n) => auth.tienePermiso(PERMISO_DE_RUTA[n]))

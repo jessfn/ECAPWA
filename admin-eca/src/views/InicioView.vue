@@ -15,7 +15,7 @@ import AuthIcon from '../components/auth/AuthIcon.vue'
 const auth = useAuthStore()
 
 const cargando = ref(true)
-const stats = ref({ tecnicos: null, activos: null, ecas: null, actividades: null, solicitudes: null })
+const stats = ref({ tecnicos: null, activos: null, ecas: null, actividades: null })
 const actividadesRecientes = ref([])
 const tecnicosPorId = ref(new Map())
 
@@ -23,11 +23,10 @@ const ENLACES = [
   { nombre: 'tecnicos', etiqueta: 'Técnicos', icono: 'user', permiso: 'usuarios.gestionar', color: 'morado' },
   { nombre: 'actividades', etiqueta: 'Actividades', icono: 'clock', permiso: 'actividades.ver_todas', color: 'verde' },
   { nombre: 'ecas', etiqueta: 'ECA', icono: 'school', permiso: 'ecas.ver', color: 'azul' },
-  { nombre: 'geografia', etiqueta: 'Geografía', icono: 'map', permiso: null, color: 'ambar' },
+  { nombre: 'visor-seguimiento', etiqueta: 'Visor de Seguimiento', icono: 'map-pin', permiso: 'vista.visor_seguimiento', color: 'ambar' },
   { nombre: 'catalogos', etiqueta: 'Catálogos', icono: 'book', permiso: null, color: 'morado' },
   { nombre: 'ambitos', etiqueta: 'Ámbitos', icono: 'shield', permiso: 'ambitos.gestionar', color: 'verde' },
   { nombre: 'asignaciones', etiqueta: 'Asignaciones', icono: 'check-circle', permiso: 'asignaciones.gestionar', color: 'azul' },
-  { nombre: 'solicitudes-acceso', etiqueta: 'Solicitudes', icono: 'user-plus', permiso: 'usuarios.gestionar', color: 'ambar' },
 ]
 const enlacesVisibles = computed(() => ENLACES.filter((e) => !e.permiso || auth.tienePermiso(e.permiso)))
 
@@ -120,19 +119,8 @@ async function cargarActividades() {
   }
 }
 
-async function cargarSolicitudes() {
-  if (!auth.tienePermiso('usuarios.gestionar')) return
-  try {
-    const { data } = await api.get('/solicitudes-acceso', { params: { estado: 'pendiente' } })
-    stats.value.solicitudes = data.length
-    animarContador('solicitudes', data.length)
-  } catch {
-    // silencioso
-  }
-}
-
 onMounted(async () => {
-  await Promise.all([cargarTecnicos(), cargarEcas(), cargarActividades(), cargarSolicitudes()])
+  await Promise.all([cargarTecnicos(), cargarEcas(), cargarActividades()])
   cargando.value = false
 })
 </script>
@@ -197,19 +185,6 @@ onMounted(async () => {
         <span class="dash-stat__pie"><AuthIcon name="map-pin" /> en el país</span>
       </RouterLink>
 
-      <RouterLink
-        v-if="stats.solicitudes !== null"
-        :to="{ name: 'solicitudes-acceso' }"
-        class="dash-stat dash-stat--ambar eca-entrar"
-        style="--eca-delay: 0.2s"
-      >
-        <span class="dash-stat__icono"><AuthIcon name="user-plus" /></span>
-        <span class="dash-stat__valor">{{ contadores.solicitudes ?? 0 }}</span>
-        <span class="dash-stat__etiqueta">Solicitudes pendientes</span>
-        <span class="dash-stat__pie">
-          {{ stats.solicitudes > 0 ? 'requieren revisión' : 'todo al día' }}
-        </span>
-      </RouterLink>
     </div>
 
     <div class="dash-columnas">

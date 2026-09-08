@@ -11,12 +11,8 @@ export async function listarMunicipios(estadoId, { activo, q } = {}) {
   return data
 }
 
-export async function actualizarEstadoActivo(estadoId, activo) {
-  const { data } = await api.patch(`/geo/estados/${estadoId}`, { activo })
-  return data
-}
-
-export async function actualizarMunicipioActivo(municipioId, activo) {
-  const { data } = await api.patch(`/geo/municipios/${municipioId}`, { activo })
-  return data
-}
+// `actualizarEstadoActivo`/`actualizarMunicipioActivo` (PATCH activar/
+// desactivar) vivían solo en `GeografiaView.vue`, retirada del panel —
+// se quitan de aquí junto con ella. El endpoint sigue existiendo en el
+// backend (protegido por `geo.gestionar`, ahora desactivado) por si se
+// reactiva la gestión de geografía más adelante.
