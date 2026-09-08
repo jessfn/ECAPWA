@@ -259,13 +259,82 @@ function cerrarDetalle() {
   document.body.style.overflow = ''
 }
 
+// ---- Visor de fotos (lightbox) ----
+// Al tocar la miniatura de una actividad se abre este visor con TODAS sus
+// evidencias: si es una sola, solo la imagen + cerrar; si son varias,
+// contador "n / total" y botones anterior/siguiente.
+const visorAbierto = ref(false)
+const visorFotos = ref([]) // [{ id, url }]
+const visorIndice = ref(0)
+const visorCargando = ref(false)
+const visorError = ref('')
+
+function limpiarVisor() {
+  for (const f of visorFotos.value) {
+    if (f.url) URL.revokeObjectURL(f.url)
+  }
+  visorFotos.value = []
+}
+
+async function abrirFotos(actividad) {
+  if (!actividad.primera_evidencia_id) return
+  visorAbierto.value = true
+  visorCargando.value = true
+  visorError.value = ''
+  visorIndice.value = 0
+  limpiarVisor()
+  document.body.style.overflow = 'hidden'
+  try {
+    const detalle = await obtenerActividad(actividad.uuid)
+    const evidencias = detalle.evidencias || []
+    // Se crean las entradas en orden y se cargan las miniaturas en
+    // paralelo; cada una rellena su `url` cuando llega.
+    visorFotos.value = evidencias.map((e) => ({ id: e.id, url: null }))
+    await Promise.all(
+      evidencias.map((e, i) =>
+        urlVistaPreviaEvidencia(e.id)
+          .then((url) => {
+            if (visorFotos.value[i]) visorFotos.value[i] = { id: e.id, url }
+          })
+          .catch(() => {}),
+      ),
+    )
+    if (!visorFotos.value.length) visorError.value = 'Esta actividad no tiene fotos.'
+  } catch {
+    visorError.value = 'No se pudieron cargar las fotos.'
+  } finally {
+    visorCargando.value = false
+  }
+}
+function cerrarVisor() {
+  visorAbierto.value = false
+  limpiarVisor()
+  document.body.style.overflow = ''
+}
+function fotoSiguiente() {
+  if (!visorFotos.value.length) return
+  visorIndice.value = (visorIndice.value + 1) % visorFotos.value.length
+}
+function fotoAnterior() {
+  if (!visorFotos.value.length) return
+  visorIndice.value = (visorIndice.value - 1 + visorFotos.value.length) % visorFotos.value.length
+}
+
 function onTeclaEscape(evento) {
-  if (evento.key === 'Escape' && modalUuid.value) cerrarDetalle()
+  if (evento.key === 'Escape') {
+    if (visorAbierto.value) return cerrarVisor()
+    if (modalUuid.value) return cerrarDetalle()
+  }
+  if (visorAbierto.value && visorFotos.value.length > 1) {
+    if (evento.key === 'ArrowRight') fotoSiguiente()
+    if (evento.key === 'ArrowLeft') fotoAnterior()
+  }
 }
 
 onBeforeUnmount(() => {
   limpiarVistasPrevias()
   limpiarModalVistasPrevias()
+  limpiarVisor()
   document.body.style.overflow = ''
   window.removeEventListener('keydown', onTeclaEscape)
 })
@@ -432,8 +501,26 @@ onMounted(async () => {
                   </span>
                 </div>
               </td>
-              <td>
-                <button type="button" class="actividades__foto-enlace" @click="abrirDetalle(a)">
+              <td class="actividades__foto-col">
+                <button
+                  type="button"
+                  class="actividades__foto-enlace"
+                  :class="{ 'actividades__foto-enlace--multi': a.num_evidencias > 1 }"
+                  :disabled="!a.primera_evidencia_id"
+                  @click="abrirFotos(a)"
+                >
+                  <!-- Mitades "apiladas" desvanecidas cuando hay más de una foto -->
+                  <template v-if="a.num_evidencias > 1">
+                    <span
+                      class="actividades__foto-pila actividades__foto-pila--izq"
+                      :style="vistasPrevias[a.primera_evidencia_id] ? { backgroundImage: `url(${vistasPrevias[a.primera_evidencia_id]})` } : null"
+                    ></span>
+                    <span
+                      class="actividades__foto-pila actividades__foto-pila--der"
+                      :style="vistasPrevias[a.primera_evidencia_id] ? { backgroundImage: `url(${vistasPrevias[a.primera_evidencia_id]})` } : null"
+                    ></span>
+                  </template>
+
                   <img
                     v-if="a.primera_evidencia_id && vistasPrevias[a.primera_evidencia_id]"
                     :src="vistasPrevias[a.primera_evidencia_id]"
@@ -446,6 +533,8 @@ onMounted(async () => {
                   <span v-else class="actividades__foto actividades__foto--vacia">
                     <AuthIcon name="camera" />
                   </span>
+
+                  <span v-if="a.num_evidencias > 1" class="actividades__foto-conteo">{{ a.num_evidencias }}</span>
                 </button>
               </td>
               <td>
@@ -584,6 +673,56 @@ onMounted(async () => {
               </template>
             </div>
           </Transition>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- ============ Visor de fotos (lightbox) ============ -->
+    <Teleport to="body">
+      <Transition name="visor-fondo">
+        <div v-if="visorAbierto" class="visor" @click.self="cerrarVisor">
+          <button type="button" class="visor__cerrar" aria-label="Cerrar" @click="cerrarVisor">
+            <AuthIcon name="close" />
+          </button>
+
+          <span v-if="visorFotos.length > 1" class="visor__contador">
+            {{ visorIndice + 1 }} / {{ visorFotos.length }}
+          </span>
+
+          <button
+            v-if="visorFotos.length > 1"
+            type="button"
+            class="visor__nav visor__nav--prev"
+            aria-label="Anterior"
+            @click="fotoAnterior"
+          >
+            <AuthIcon name="chevron-left" />
+          </button>
+
+          <div class="visor__lienzo">
+            <p v-if="visorCargando" class="visor__estado">Cargando…</p>
+            <p v-else-if="visorError" class="visor__estado">{{ visorError }}</p>
+            <Transition v-else name="visor-imagen" mode="out-in">
+              <img
+                v-if="visorFotos[visorIndice]?.url"
+                :key="visorFotos[visorIndice].id"
+                :src="visorFotos[visorIndice].url"
+                alt="Evidencia"
+                class="visor__img"
+              />
+              <p v-else key="cargando-img" class="visor__estado">Cargando imagen…</p>
+            </Transition>
+          </div>
+
+          <button
+            v-if="visorFotos.length > 1"
+            type="button"
+            class="visor__nav visor__nav--next"
+            aria-label="Siguiente"
+            @click="fotoSiguiente"
+          >
+            <AuthIcon name="chevron-right" />
+          </button>
         </div>
       </Transition>
     </Teleport>
@@ -968,11 +1107,28 @@ select.actividades__control:disabled {
 }
 
 /* Miniatura de evidencia */
+/* Columna de foto: el círculo va centrado en la celda. */
+.actividades__foto-col {
+  text-align: center;
+}
 .actividades__foto-enlace {
-  display: block;
-  width: fit-content;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 2.6rem;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+.actividades__foto-enlace:disabled {
+  cursor: default;
 }
 .actividades__foto {
+  position: relative;
+  z-index: 2;
   width: 2.6rem;
   height: 2.6rem;
   border-radius: 50%;
@@ -980,19 +1136,70 @@ select.actividades__control:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid rgba(139, 195, 74, 0.35);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.25s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.actividades__foto-enlace:hover .actividades__foto {
-  transform: scale(1.15);
-  border-color: var(--eca-green-600);
+.actividades__foto-enlace:hover:not(:disabled) .actividades__foto {
+  transform: scale(1.12);
+}
+/* Mitades "apiladas" que asoman desvanecidas a los lados cuando hay varias
+   fotos — dan la sensación de un montón de imágenes detrás. */
+.actividades__foto-pila {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--eca-surface);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
+}
+.actividades__foto-pila--izq {
+  left: 0;
+  transform: translate(-38%, -50%) scale(0.82);
+  opacity: 0.45;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 65%);
+  mask-image: linear-gradient(to right, transparent 0%, #000 65%);
+}
+.actividades__foto-pila--der {
+  right: 0;
+  transform: translate(38%, -50%) scale(0.82);
+  opacity: 0.45;
+  -webkit-mask-image: linear-gradient(to left, transparent 0%, #000 65%);
+  mask-image: linear-gradient(to left, transparent 0%, #000 65%);
+}
+.actividades__foto-enlace--multi:hover:not(:disabled) .actividades__foto-pila--izq {
+  transform: translate(-58%, -50%) scale(0.82);
+  opacity: 0.7;
+}
+.actividades__foto-enlace--multi:hover:not(:disabled) .actividades__foto-pila--der {
+  transform: translate(58%, -50%) scale(0.82);
+  opacity: 0.7;
+}
+.actividades__foto-conteo {
+  position: absolute;
+  z-index: 3;
+  bottom: -0.15rem;
+  right: -0.15rem;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: var(--eca-green-600);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1.05rem;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 .actividades__foto--vacia,
 .actividades__foto--cargando {
   color: var(--eca-ink-faint, #9aa1af);
   background: var(--eca-surface);
-  border-color: var(--eca-surface-border);
+  border: 1px solid var(--eca-surface-border);
 }
 .actividades__foto--vacia svg,
 .actividades__foto-spinner {
@@ -1001,6 +1208,131 @@ select.actividades__control:disabled {
 }
 .actividades__foto-spinner {
   animation: eca-girar 0.9s linear infinite;
+}
+
+/* ---- Visor de fotos (lightbox) ---- */
+.visor {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  background: rgba(10, 15, 12, 0.82);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.visor-fondo-enter-active,
+.visor-fondo-leave-active {
+  transition: opacity 0.2s ease;
+}
+.visor-fondo-enter-from,
+.visor-fondo-leave-to {
+  opacity: 0;
+}
+.visor__lienzo {
+  flex: 1;
+  max-width: min(92vw, 900px);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.visor__img {
+  max-width: 100%;
+  max-height: 82vh;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  object-fit: contain;
+}
+.visor-imagen-enter-active,
+.visor-imagen-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.visor-imagen-enter-from {
+  opacity: 0;
+  transform: scale(0.98);
+}
+.visor-imagen-leave-to {
+  opacity: 0;
+}
+.visor__estado {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.95rem;
+}
+.visor__cerrar {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.visor__cerrar:hover {
+  background: rgba(255, 255, 255, 0.28);
+  transform: rotate(90deg);
+}
+.visor__cerrar svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.visor__contador {
+  position: absolute;
+  top: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.visor__nav {
+  flex-shrink: 0;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.visor__nav:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.08);
+}
+.visor__nav svg {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+@media (max-width: 640px) {
+  .visor {
+    padding: 0.6rem;
+    gap: 0.25rem;
+  }
+  .visor__nav {
+    width: 2.4rem;
+    height: 2.4rem;
+  }
+  .visor__img {
+    max-height: 74vh;
+  }
 }
 
 /* Acciones circulares — mismo lenguaje visual que las tarjetas del

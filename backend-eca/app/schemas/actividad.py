@@ -56,6 +56,9 @@ class ActividadPublica(BaseModel):
     # (`ActividadDetallePublica` ya trae la lista completa en `evidencias`).
     # `None` en cualquier respuesta que no la calcule explícitamente.
     primera_evidencia_id: int | None = None
+    # Nº de evidencias de la actividad — para la miniatura "apilada" y el
+    # contador del visor en el listado admin. 0 si no se calcula.
+    num_evidencias: int = 0
 
 
 class ActividadListaPaginada(BaseModel):

@@ -64,6 +64,21 @@ def primera_por_actividad(db: Session, actividad_ids: list[int]) -> dict[int, in
     return {actividad_id: evidencia_id for actividad_id, evidencia_id in filas}
 
 
+def conteo_por_actividad(db: Session, actividad_ids: list[int]) -> dict[int, int]:
+    """`{actividad_id: nº de evidencias}` para toda una página — UNA sola
+    consulta. Lo usa el listado admin para saber cuántas fotos tiene cada
+    actividad (miniatura "apilada" + contador del visor) sin pedir el
+    detalle completo de cada una."""
+    if not actividad_ids:
+        return {}
+    filas = db.execute(
+        select(ActividadEvidencia.actividad_id, func.count().label("n"))
+        .where(ActividadEvidencia.actividad_id.in_(actividad_ids))
+        .group_by(ActividadEvidencia.actividad_id)
+    ).all()
+    return {actividad_id: n for actividad_id, n in filas}
+
+
 def crear(db: Session, evidencia: ActividadEvidencia) -> ActividadEvidencia:
     db.add(evidencia)
     db.flush()

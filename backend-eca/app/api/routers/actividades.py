@@ -141,11 +141,18 @@ def listar_actividades(
     filtros = _filtros_admin(tecnico_id, eca_id, municipio_id, tipo_actividad_id, tema_id, estado_gps, desde, hasta)
     resultados, total = actividades_service.listar_todas(db, page=page, page_size=page_size, **filtros)
 
-    # Miniatura de evidencia por fila — UNA consulta para toda la página
-    # (ver `repo_evidencias.primera_por_actividad`), nunca una por actividad.
-    mapa_evidencias = repo_evidencias.primera_por_actividad(db, [a.id for a in resultados])
+    # Miniatura + conteo de evidencias por fila — DOS consultas para toda la
+    # página (ver `repo_evidencias.*`), nunca una por actividad.
+    ids = [a.id for a in resultados]
+    mapa_evidencias = repo_evidencias.primera_por_actividad(db, ids)
+    mapa_conteo = repo_evidencias.conteo_por_actividad(db, ids)
     publicos = [
-        ActividadPublica.model_validate(a).model_copy(update={"primera_evidencia_id": mapa_evidencias.get(a.id)})
+        ActividadPublica.model_validate(a).model_copy(
+            update={
+                "primera_evidencia_id": mapa_evidencias.get(a.id),
+                "num_evidencias": mapa_conteo.get(a.id, 0),
+            }
+        )
         for a in resultados
     ]
     return ActividadListaPaginada(total=total, page=page, page_size=page_size, resultados=publicos)
