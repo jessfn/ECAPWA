@@ -39,7 +39,50 @@ _ERRORES_422 = (
     evidencias_service.OrdenInvalidoError,
     evidencias_service.MimeNoPermitidoError,
     evidencias_service.ArchivoDemasiadoGrandeError,
+    evidencias_service.ArchivoVacioError,
 )
+
+
+def _a_float(valor: str | None) -> float | None:
+    """Parseo tolerante: la latitud/longitud llegan como campo de formulario
+    (texto). Antes se declaraban `float | None` y una cadena vacía o mal
+    formada provocaba un 422 de validación de FastAPI ANTES de entrar al
+    endpoint — un modo de falla que dejaba la evidencia atorada. Aquí se
+    aceptan como texto y se parsean con tolerancia: vacío/None/ilegible ->
+    None, nunca un error."""
+    if valor is None:
+        return None
+    valor = valor.strip()
+    if not valor:
+        return None
+    try:
+        return float(valor)
+    except (TypeError, ValueError):
+        return None
+
+
+def _a_datetime(valor: str | None) -> datetime | None:
+    if valor is None:
+        return None
+    valor = valor.strip()
+    if not valor:
+        return None
+    try:
+        # Acepta el ISO de `Date.toISOString()` (con o sin 'Z').
+        return datetime.fromisoformat(valor.replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+
+
+def _a_orden(valor: str | None) -> int:
+    """`orden` tolerante: si llega vacío/ilegible, cae a 1 (la validación de
+    rango 1..3 la sigue haciendo el servicio)."""
+    if valor is None:
+        return 1
+    try:
+        return int(str(valor).strip())
+    except (TypeError, ValueError):
+        return 1
 
 
 @router.post(
@@ -51,10 +94,15 @@ async def subir_evidencia(
     actividad_uuid: uuid_lib.UUID,
     archivo: UploadFile,
     uuid: uuid_lib.UUID = Form(...),
-    orden: int = Form(...),
-    latitud: float | None = Form(default=None),
-    longitud: float | None = Form(default=None),
-    capturada_en: datetime | None = Form(default=None),
+    # `orden`, `latitud`, `longitud` y `capturada_en` se reciben como TEXTO y
+    # se parsean con tolerancia (ver helpers arriba) — declararlos con tipo
+    # estricto hacía que un valor vacío/mal formado del celular reventara con
+    # un 422 de validación de FastAPI antes de entrar aquí, dejando la
+    # evidencia atorada para siempre.
+    orden: str | None = Form(default=None),
+    latitud: str | None = Form(default=None),
+    longitud: str | None = Form(default=None),
+    capturada_en: str | None = Form(default=None),
     db: Session = Depends(get_db),
     storage: Storage = Depends(get_storage),
     actor: Usuario = Depends(require_permission("actividades.crear")),
@@ -69,13 +117,13 @@ async def subir_evidencia(
             db,
             actividad=actividad,
             uuid=uuid,
-            orden=orden,
+            orden=_a_orden(orden),
             contenido=contenido,
             nombre_archivo=archivo.filename or "evidencia",
             mime=archivo.content_type or "application/octet-stream",
-            latitud=latitud,
-            longitud=longitud,
-            capturada_en=capturada_en,
+            latitud=_a_float(latitud),
+            longitud=_a_float(longitud),
+            capturada_en=_a_datetime(capturada_en),
             actor=actor,
             storage=storage,
         )

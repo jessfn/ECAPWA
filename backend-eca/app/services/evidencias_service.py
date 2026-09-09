@@ -37,14 +37,11 @@ MIME_PERMITIDOS = {
     "image/bmp": "bmp",
     "image/tiff": "tiff",
 }
-# Pedido explícito (2026-09-09, reiterado): "deben poder subir imágenes con
-# el peso que sea" — 25 MB se quedaba corto para fotos sin comprimir de
-# cámaras de gama alta (40-60 MP, modo "alta calidad" de iPhone/Samsung
-# recientes pueden pasar de 30 MB). Subido a 80 MB, justo debajo del
-# `client_max_body_size 100m` de Nginx para este sitio (`apieca-
-# sembrandodatos`) — más que eso, Nginx cortaría la subida con 413 antes
-# de que la petición llegue siquiera a este código.
-TAMANO_MAXIMO_BYTES = 80 * 1024 * 1024
+# Pedido explícito (2026-09-09, reiterado): "que no exista límite en las
+# imágenes... cada imagen no tenga límite en lo que pese". Ya NO se rechaza
+# una evidencia por tamaño — Nginx también se puso en `client_max_body_size
+# 0` (ilimitado) para este sitio, así que no hay corte por peso en ninguna
+# capa.
 
 
 def _sniff_imagen(contenido: bytes) -> tuple[str, str] | None:
@@ -118,6 +115,10 @@ class ArchivoDemasiadoGrandeError(ValueError):
     pass
 
 
+class ArchivoVacioError(ValueError):
+    pass
+
+
 def _clave_de(actividad_id: int, evidencia_uuid: uuid_lib.UUID, extension: str) -> str:
     return f"actividades/{actividad_id}/{evidencia_uuid}.{extension}"
 
@@ -149,8 +150,12 @@ def subir(
     # El tipo real lo dan los bytes (el MIME declarado suele venir mal o
     # vacío desde el celular); `mime`/`extension` finales salen de aquí.
     mime, extension = _resolver_tipo(contenido, mime)
-    if len(contenido) > TAMANO_MAXIMO_BYTES:
-        raise ArchivoDemasiadoGrandeError("El archivo excede el tamaño máximo permitido.")
+    # Sin límite de tamaño (pedido explícito). Se conserva la validación de
+    # que el archivo no venga VACÍO — un archivo de 0 bytes no es una foto y
+    # es señal de un blob corrupto en el cliente; mejor rechazarlo con un
+    # mensaje claro que guardar un archivo inservible.
+    if not contenido:
+        raise ArchivoVacioError("El archivo llegó vacío (0 bytes).")
 
     hash_sha256 = hashlib.sha256(contenido).hexdigest()
 

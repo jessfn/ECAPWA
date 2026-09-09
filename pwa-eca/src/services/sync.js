@@ -106,11 +106,20 @@ async function sincronizarEvidenciasDe(actividadUuid) {
   )
   for (const evidencia of evidencias) {
     try {
+      // Reconstruye el Blob desde los bytes durables (ArrayBuffer) — así se
+      // sube un archivo real aunque iOS haya desalojado cualquier Blob. Los
+      // registros VIEJOS (encolados antes de este cambio) traían `archivo`
+      // como Blob directo: se usan tal cual por compatibilidad, aunque en
+      // iOS pueden ya estar corruptos (esos no se pueden recuperar).
+      const archivo = evidencia.archivo_buffer
+        ? new Blob([evidencia.archivo_buffer], { type: evidencia.archivo_mime || 'image/jpeg' })
+        : evidencia.archivo
       await conReintentos(() =>
         subirEvidencia(actividadUuid, {
           uuid: evidencia.uuid,
           orden: evidencia.orden,
-          archivo: evidencia.archivo,
+          archivo,
+          nombre: evidencia.archivo_nombre,
           gps: evidencia.gps,
           capturadaEn: evidencia.capturada_en,
         }),

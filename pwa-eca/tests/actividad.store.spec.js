@@ -90,13 +90,27 @@ describe('useActividadStore.crear', () => {
   })
 })
 
+// La captura real entrega un File/Blob; el código lee sus BYTES con
+// `.arrayBuffer()` para guardarlos como ArrayBuffer durable (fiable en iOS).
+// jsdom no implementa `Blob.arrayBuffer()` de forma consistente, así que se
+// usa un doble ligero con los tres accesos que usa el código: `arrayBuffer`,
+// `type` y `name`.
+function fotoFalsa(id, texto) {
+  const bytes = new TextEncoder().encode(texto)
+  return {
+    id,
+    archivo: {
+      type: 'image/jpeg',
+      name: `${id}.jpg`,
+      arrayBuffer: async () => bytes.buffer,
+    },
+  }
+}
+
 describe('useActividadStore.encolarEvidencias', () => {
-  it('encola cada foto con el `orden` correcto, como Blob', async () => {
+  it('encola cada foto con el `orden` correcto, guardando los bytes como ArrayBuffer', async () => {
     const actividad = useActividadStore()
-    const fotos = [
-      { id: 'a', archivo: new Blob(['x']) },
-      { id: 'b', archivo: new Blob(['y']) },
-    ]
+    const fotos = [fotoFalsa('a', 'x'), fotoFalsa('b', 'y')]
 
     const errores = await actividad.encolarEvidencias('act-uuid', fotos, null)
 
@@ -105,19 +119,23 @@ describe('useActividadStore.encolarEvidencias', () => {
     expect(enOutbox).toHaveLength(2)
     expect(enOutbox.map((e) => e.orden).sort()).toEqual([1, 2])
     expect(enOutbox.every((e) => e.actividad_uuid === 'act-uuid')).toBe(true)
-    // No se verifica el contenido del Blob tras el roundtrip: el
-    // structured-clone de `fake-indexeddb` bajo jsdom no reconoce el
-    // `Blob` de jsdom como nativo y lo vacía — una limitación conocida del
-    // entorno de prueba, no del código (en un navegador real no ocurre).
-    // Que `encolar` reciba y guarde `foto.archivo` tal cual (sin
-    // convertirlo a base64 en ningún punto) se verifica por inspección del
-    // código de `stores/actividad.js`.
+    // Se guardan los bytes + mime + nombre, NO un Blob: es lo que sobrevive
+    // de forma fiable a IndexedDB en iOS (el Blob directo se desalojaba y la
+    // foto se perdía). El Blob se reconstruye al subir. (No se comprueba
+    // `instanceof ArrayBuffer` tras el roundtrip: el structured-clone de
+    // fake-indexeddb bajo jsdom cambia la identidad del tipo — limitación
+    // del entorno, no del código; se verifica que el campo quedó guardado y
+    // que YA NO se guarda un `archivo`/Blob.)
+    expect(enOutbox.every((e) => e.archivo_buffer != null)).toBe(true)
+    expect(enOutbox.every((e) => e.archivo === undefined)).toBe(true)
+    expect(enOutbox.every((e) => e.archivo_mime === 'image/jpeg')).toBe(true)
+    expect(enOutbox.every((e) => typeof e.archivo_nombre === 'string')).toBe(true)
   })
 
   it('acepta un gps reactivo (Proxy de Vue) sin reventar IndexedDB', async () => {
     const actividad = useActividadStore()
     const gpsReactivo = reactive({ estado_gps: 'CON_GPS', latitud: 19.4, longitud: -99.1, precision_gps_m: 12 })
-    const fotos = [{ id: 'a', archivo: new Blob(['x']) }]
+    const fotos = [fotoFalsa('a', 'x')]
 
     const errores = await actividad.encolarEvidencias('act-uuid', fotos, gpsReactivo)
 

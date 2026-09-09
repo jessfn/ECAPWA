@@ -205,10 +205,18 @@ def test_subir_evidencia_acepta_imagen_declarada_sin_firma_reconocida(db, repo, 
     assert evidencia.storage_clave.endswith(".img")
 
 
-def test_subir_evidencia_demasiado_grande_es_error(db, repo, storage, actividad, actor) -> None:
-    grande = b"x" * (evidencias_service.TAMANO_MAXIMO_BYTES + 1)
-    with pytest.raises(evidencias_service.ArchivoDemasiadoGrandeError):
-        _subir(db, actividad, actor, storage, contenido=grande)
+def test_subir_evidencia_sin_limite_de_tamano(db, repo, storage, actividad, actor) -> None:
+    # Pedido explícito: no hay límite de tamaño. Un archivo grande se acepta.
+    grande = b"\xff\xd8\xff\xe0" + b"x" * (30 * 1024 * 1024)
+    evidencia = _subir(db, actividad, actor, storage, contenido=grande)
+    assert evidencia.tamano_bytes == len(grande)
+
+
+def test_subir_evidencia_vacia_es_error(db, repo, storage, actividad, actor) -> None:
+    # Un archivo de 0 bytes (blob corrupto en el cliente) sí se rechaza, con
+    # un error claro — no se guarda un archivo inservible.
+    with pytest.raises(evidencias_service.ArchivoVacioError):
+        _subir(db, actividad, actor, storage, contenido=b"")
 
 
 def test_subir_evidencia_orden_invalido_es_error(db, repo, storage, actividad, actor) -> None:

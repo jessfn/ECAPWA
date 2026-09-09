@@ -105,11 +105,24 @@ export const useActividadStore = defineStore('actividad', {
       for (let i = 0; i < fotos.length; i += 1) {
         const foto = fotos[i]
         try {
+          // Bug real en iPhone: guardar un Blob/File directo en IndexedDB
+          // NO es fiable en iOS — Safari respalda esos Blob con referencias
+          // a archivo que el sistema puede desalojar cuando la PWA se
+          // cierra/reabre; al releerlo, el "archivo" vuelve corrupto/vacío
+          // y al subirlo se enviaba como "[object Object]" (un string),
+          // que el backend rechazaba con 422 para siempre (la foto nunca
+          // llegaba). Se guardan los BYTES como ArrayBuffer, que iOS SÍ
+          // persiste de forma fiable (van inline en el registro, no como
+          // referencia externa); el Blob se reconstruye al momento de subir
+          // (ver `sync.js`).
+          const buffer = await foto.archivo.arrayBuffer()
           await encolar('outbox_evidencias', {
             uuid: crypto.randomUUID(),
             actividad_uuid: actividadUuid,
             orden: i + 1,
-            archivo: foto.archivo, // Blob, nunca base64
+            archivo_buffer: buffer, // ArrayBuffer durable (no un Blob)
+            archivo_mime: foto.archivo.type || 'image/jpeg',
+            archivo_nombre: foto.archivo.name || `evidencia-${i + 1}.jpg`,
             gps: gps ? { ...gps } : null,
             capturada_en: new Date().toISOString(),
           })
