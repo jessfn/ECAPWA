@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 import pytest
 
 from app.models.actividad import Actividad
-from app.models.catalogos import Subtema, TipoActividad
+from app.models.catalogos import SistemaProductivo, Subtema, Tema, TipoActividad
 from app.models.jornada import Jornada
 from app.models.usuario import Usuario
 from app.schemas.gps import GpsPeticion
@@ -424,3 +424,125 @@ def test_eliminar_actividad_ya_eliminada_es_error(db: DBFalsa, repo_actividades,
 
     with pytest.raises(actividades_service.ActividadNoEncontradaError):
         actividades_service.eliminar(db, uuid=actividad.uuid, actor=actor)
+
+
+# --- "Otro" en catálogos (tipo/tema/subtema/sistema productivo) -------------
+
+
+def _tema(**overrides) -> Tema:
+    base = dict(id=next(_contador_ids), clave="X", nombre="X", activo=True, orden=0)
+    base.update(overrides)
+    return Tema(**base)
+
+
+def _sistema_productivo(**overrides) -> SistemaProductivo:
+    base = dict(id=next(_contador_ids), clave="X", nombre="X", activo=True, orden=0)
+    base.update(overrides)
+    return SistemaProductivo(**base)
+
+
+def test_tipo_actividad_otro_sin_texto_es_error(db: DBFalsa, repo_actividades, repo_jornadas, actor: Usuario) -> None:
+    tipo = _tipo(clave="OTR", requiere_eca=False)
+    db.registrar(TipoActividad, tipo.id, tipo)
+
+    with pytest.raises(actividades_service.OtroTextoRequeridoError):
+        actividades_service.crear(
+            db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, **DATOS_BASE
+        )
+
+
+def test_tipo_actividad_otro_con_texto_se_normaliza(db: DBFalsa, repo_actividades, repo_jornadas, actor: Usuario) -> None:
+    tipo = _tipo(clave="OTR", requiere_eca=False)
+    db.registrar(TipoActividad, tipo.id, tipo)
+    datos = dict(DATOS_BASE, tipo_actividad_otro_texto="  reunión de peña  ")
+
+    actividad = actividades_service.crear(
+        db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, **datos
+    )
+
+    assert actividad.tipo_actividad_otro_texto == "REUNION DE PEÑA"
+
+
+def test_tipo_no_otro_ignora_texto_otro_recibido(db: DBFalsa, repo_actividades, repo_jornadas, actor: Usuario) -> None:
+    # Si el cliente manda texto de "otro" pero el tipo elegido no es "Otro",
+    # se descarta — no tiene sentido guardarlo pegado a una opción distinta.
+    tipo = _tipo(clave="CAP")
+    db.registrar(TipoActividad, tipo.id, tipo)
+    datos = dict(DATOS_BASE, tipo_actividad_otro_texto="texto que no debería guardarse")
+
+    actividad = actividades_service.crear(
+        db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, **datos
+    )
+
+    assert actividad.tipo_actividad_otro_texto is None
+
+
+def test_tema_otro_sin_texto_es_error(db: DBFalsa, repo_actividades, repo_jornadas, actor: Usuario) -> None:
+    tipo = _tipo(requiere_eca=False)
+    db.registrar(TipoActividad, tipo.id, tipo)
+    tema = _tema(clave="OTRO", nombre="Otro")
+    db.registrar(Tema, tema.id, tema)
+    datos = dict(DATOS_BASE, tema_id=tema.id)
+
+    with pytest.raises(actividades_service.OtroTextoRequeridoError):
+        actividades_service.crear(
+            db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, **datos
+        )
+
+
+def test_tema_otro_con_texto_se_normaliza(db: DBFalsa, repo_actividades, repo_jornadas, actor: Usuario) -> None:
+    tipo = _tipo(requiere_eca=False)
+    db.registrar(TipoActividad, tipo.id, tipo)
+    tema = _tema(clave="OTRO", nombre="Otro")
+    db.registrar(Tema, tema.id, tema)
+    datos = dict(DATOS_BASE, tema_id=tema.id, tema_otro_texto="innovación técnica")
+
+    actividad = actividades_service.crear(
+        db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, **datos
+    )
+
+    assert actividad.tema_otro_texto == "INNOVACION TECNICA"
+
+
+def test_subtema_otro_sin_texto_es_error(db: DBFalsa, repo_actividades, repo_jornadas, actor: Usuario) -> None:
+    tipo = _tipo(requiere_eca=False)
+    db.registrar(TipoActividad, tipo.id, tipo)
+    tema = _tema()
+    db.registrar(Tema, tema.id, tema)
+    subtema = Subtema(id=next(_contador_ids), clave="OTRO", nombre="Otro", activo=True, orden=0, tema_id=tema.id)
+    db.registrar(Subtema, subtema.id, subtema)
+    datos = dict(DATOS_BASE, tema_id=tema.id, subtema_id=subtema.id)
+
+    with pytest.raises(actividades_service.OtroTextoRequeridoError):
+        actividades_service.crear(
+            db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, **datos
+        )
+
+
+def test_sistema_productivo_otro_sin_texto_es_error(db: DBFalsa, repo_actividades, repo_jornadas, actor: Usuario) -> None:
+    tipo = _tipo(requiere_eca=False)
+    db.registrar(TipoActividad, tipo.id, tipo)
+    sistema = _sistema_productivo(clave="OTRO", nombre="Otro")
+    db.registrar(SistemaProductivo, sistema.id, sistema)
+    datos = dict(DATOS_BASE, sistema_productivo_id=sistema.id)
+
+    with pytest.raises(actividades_service.OtroTextoRequeridoError):
+        actividades_service.crear(
+            db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, **datos
+        )
+
+
+def test_sistema_productivo_otro_con_texto_se_normaliza(
+    db: DBFalsa, repo_actividades, repo_jornadas, actor: Usuario
+) -> None:
+    tipo = _tipo(requiere_eca=False)
+    db.registrar(TipoActividad, tipo.id, tipo)
+    sistema = _sistema_productivo(clave="OTRO", nombre="Otro")
+    db.registrar(SistemaProductivo, sistema.id, sistema)
+    datos = dict(DATOS_BASE, sistema_productivo_id=sistema.id, sistema_productivo_otro_texto="acuacultura de traspatio")
+
+    actividad = actividades_service.crear(
+        db, uuid=uuid_lib.uuid4(), jornada_uuid=repo_jornadas.uuid, tipo_actividad_id=tipo.id, actor=actor, **datos
+    )
+
+    assert actividad.sistema_productivo_otro_texto == "ACUACULTURA DE TRASPATIO"

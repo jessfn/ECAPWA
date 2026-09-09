@@ -20,6 +20,13 @@ class ActividadCrearPeticion(BaseModel):
     tema_id: int | None = None
     subtema_id: int | None = None
     sistema_productivo_id: int | None = None
+    # Texto libre cuando el catálogo correspondiente eligió "Otro" — el
+    # backend valida que venga cuando corresponde (ver `actividades_service.
+    # _validar_otros`), así que aquí son opcionales.
+    tipo_actividad_otro_texto: str | None = None
+    tema_otro_texto: str | None = None
+    subtema_otro_texto: str | None = None
+    sistema_productivo_otro_texto: str | None = None
     descripcion: str = Field(min_length=1)
     resultado: str | None = None
     fecha_hora: datetime
@@ -42,6 +49,10 @@ class ActividadPublica(BaseModel):
     tema_id: int | None
     subtema_id: int | None
     sistema_productivo_id: int | None
+    tipo_actividad_otro_texto: str | None
+    tema_otro_texto: str | None
+    subtema_otro_texto: str | None
+    sistema_productivo_otro_texto: str | None
     descripcion: str
     resultado: str | None
     fecha_hora: datetime

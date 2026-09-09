@@ -38,6 +38,7 @@ _ERRORES_422 = (
     actividades_service.ParticipantesNoPermitidosError,
     actividades_service.SubtemaIncoherenteError,
     actividades_service.GpsInvalidoError,
+    actividades_service.OtroTextoRequeridoError,
 )
 
 
@@ -59,6 +60,10 @@ def crear_actividad(
             tema_id=peticion.tema_id,
             subtema_id=peticion.subtema_id,
             sistema_productivo_id=peticion.sistema_productivo_id,
+            tipo_actividad_otro_texto=peticion.tipo_actividad_otro_texto,
+            tema_otro_texto=peticion.tema_otro_texto,
+            subtema_otro_texto=peticion.subtema_otro_texto,
+            sistema_productivo_otro_texto=peticion.sistema_productivo_otro_texto,
             descripcion=peticion.descripcion,
             resultado=peticion.resultado,
             fecha_hora=peticion.fecha_hora,

@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import registrar_evento
 from app.models.actividad import Actividad
-from app.models.catalogos import Subtema, TipoActividad
+from app.models.catalogos import SistemaProductivo, Subtema, Tema, TipoActividad
 from app.models.usuario import Usuario
 from app.repositories import actividades as repo_actividades
 from app.repositories import jornadas as repo_jornadas
@@ -29,6 +29,10 @@ class TipoActividadDesconocidoError(Exception):
 
 
 class EcaRequeridaError(Exception):
+    pass
+
+
+class OtroTextoRequeridoError(Exception):
     pass
 
 
@@ -68,18 +72,39 @@ def _validar_gps(gps: GpsPeticion) -> None:
 _MAPA_ACENTOS = str.maketrans("áéíóúü", "aeiouu")
 
 
-def _normalizar_eca(texto: str | None) -> str | None:
-    """MAYÚSCULAS y sin tildes en vocales (pedido explícito): la PWA ya
-    manda el texto así (transformado mientras el técnico escribe), pero se
-    vuelve a normalizar aquí por si acaso — un cliente viejo, la API usada
-    directo, o cualquier otro origen no debe poder colar un nombre de ECA
-    con minúsculas o acentos."""
+def _normalizar_texto_libre(texto: str | None) -> str | None:
+    """MAYÚSCULAS y sin tildes en vocales (pedido explícito) — usada tanto
+    para `eca_nombre` como para el texto de cualquier opción "Otro". La PWA
+    ya manda el texto así (transformado mientras el técnico escribe), pero
+    se vuelve a normalizar aquí por si acaso: un cliente viejo, la API
+    usada directo, o cualquier otro origen no debe poder colar texto con
+    minúsculas o acentos."""
     if texto is None:
         return None
     limpio = texto.strip()
     if not limpio:
         return None
     return limpio.lower().translate(_MAPA_ACENTOS).upper()
+
+
+# Claves de la opción "Otro" en cada catálogo (ver 0012_seed_catalogos):
+# "OTR" en tipos_actividad, "OTRO" en temas/subtemas/sistemas_productivos.
+_CLAVE_OTRO_TIPO_ACTIVIDAD = "OTR"
+_CLAVE_OTRO = "OTRO"
+
+
+def _validar_y_normalizar_otro(texto: str | None, *, es_otro: bool, etiqueta: str) -> str | None:
+    """Cuando la opción elegida en el catálogo es "Otro", el texto que
+    especifica cuál es ese "otro" es obligatorio — sin esto, el admin solo
+    veía "Otro" en el listado sin saber a qué se refería el técnico. Si la
+    opción elegida NO es "Otro", el texto (si vino) se descarta: no tiene
+    sentido guardarlo pegado a una opción distinta."""
+    if not es_otro:
+        return None
+    normalizado = _normalizar_texto_libre(texto)
+    if not normalizado:
+        raise OtroTextoRequeridoError(f'Escribe cuál es el/la "{etiqueta}" cuando eliges la opción Otro.')
+    return normalizado
 
 
 def crear(
@@ -94,6 +119,10 @@ def crear(
     tema_id: int | None,
     subtema_id: int | None,
     sistema_productivo_id: int | None,
+    tipo_actividad_otro_texto: str | None = None,
+    tema_otro_texto: str | None = None,
+    subtema_otro_texto: str | None = None,
+    sistema_productivo_otro_texto: str | None = None,
     descripcion: str,
     resultado: str | None,
     fecha_hora: datetime,
@@ -123,7 +152,7 @@ def crear(
     # Pedido explícito (2026-09-08): la ECA es obligatoria SIEMPRE, sin
     # importar `tipo.requiere_eca` — antes solo se exigía para los tipos
     # marcados así en el catálogo.
-    eca_nombre = _normalizar_eca(eca_nombre)
+    eca_nombre = _normalizar_texto_libre(eca_nombre)
     if eca_id is None and not eca_nombre:
         raise EcaRequeridaError("El nombre de la ECA es obligatorio.")
     if num_participantes is not None and not tipo.permite_participantes:
@@ -131,12 +160,32 @@ def crear(
             f"El tipo de actividad «{tipo.nombre}» no admite número de participantes."
         )
 
+    subtema_obj = None
     if subtema_id is not None:
-        subtema = db.get(Subtema, subtema_id)
-        if subtema is None or (tema_id is not None and subtema.tema_id != tema_id):
+        subtema_obj = db.get(Subtema, subtema_id)
+        if subtema_obj is None or (tema_id is not None and subtema_obj.tema_id != tema_id):
             raise SubtemaIncoherenteError("El subtema no corresponde al tema indicado.")
         if tema_id is None:
-            tema_id = subtema.tema_id
+            tema_id = subtema_obj.tema_id
+    tema_obj = db.get(Tema, tema_id) if tema_id is not None else None
+    sistema_obj = db.get(SistemaProductivo, sistema_productivo_id) if sistema_productivo_id is not None else None
+
+    # Texto obligatorio cuando la opción elegida en el catálogo es "Otro"
+    # (pedido explícito) — mismo criterio que `eca_nombre` arriba.
+    tipo_actividad_otro_texto = _validar_y_normalizar_otro(
+        tipo_actividad_otro_texto, es_otro=tipo.clave == _CLAVE_OTRO_TIPO_ACTIVIDAD, etiqueta="tipo de actividad"
+    )
+    tema_otro_texto = _validar_y_normalizar_otro(
+        tema_otro_texto, es_otro=tema_obj is not None and tema_obj.clave == _CLAVE_OTRO, etiqueta="tema"
+    )
+    subtema_otro_texto = _validar_y_normalizar_otro(
+        subtema_otro_texto, es_otro=subtema_obj is not None and subtema_obj.clave == _CLAVE_OTRO, etiqueta="subtema"
+    )
+    sistema_productivo_otro_texto = _validar_y_normalizar_otro(
+        sistema_productivo_otro_texto,
+        es_otro=sistema_obj is not None and sistema_obj.clave == _CLAVE_OTRO,
+        etiqueta="sistema productivo",
+    )
 
     # Red anti-duplicado (además de la idempotencia por `uuid` de arriba):
     # el doble-toque en la PWA generaba dos `uuid` distintos para la MISMA
@@ -166,6 +215,10 @@ def crear(
         tema_id=tema_id,
         subtema_id=subtema_id,
         sistema_productivo_id=sistema_productivo_id,
+        tipo_actividad_otro_texto=tipo_actividad_otro_texto,
+        tema_otro_texto=tema_otro_texto,
+        subtema_otro_texto=subtema_otro_texto,
+        sistema_productivo_otro_texto=sistema_productivo_otro_texto,
         descripcion=descripcion,
         resultado=resultado,
         fecha_hora=fecha_hora,

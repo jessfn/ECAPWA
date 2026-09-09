@@ -57,6 +57,14 @@ class Actividad(Base):
     sistema_productivo_id: Mapped[int | None] = mapped_column(
         ForeignKey("sistemas_productivos.id"), nullable=True
     )
+    # Texto libre cuando el catálogo elegido es la opción "Otro" (clave
+    # "OTR" en tipos_actividad, "OTRO" en temas/subtemas/sistemas_productivos)
+    # — mismo motivo que `eca_nombre`: sin esto, el admin solo veía "Otro" en
+    # el listado sin saber a qué se refería el técnico. Ver 0028.
+    tipo_actividad_otro_texto: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tema_otro_texto: Mapped[str | None] = mapped_column(Text, nullable=True)
+    subtema_otro_texto: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sistema_productivo_otro_texto: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     descripcion: Mapped[str] = mapped_column(Text, nullable=False)
     resultado: Mapped[str | None] = mapped_column(Text, nullable=True)

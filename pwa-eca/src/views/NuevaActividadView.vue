@@ -11,7 +11,7 @@
      tema/subtema) solo se reflejan aquí para UX — el backend las vuelve
      a validar siempre. -->
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useJornadaStore } from '../stores/jornada'
 import { useActividadStore } from '../stores/actividad'
@@ -46,22 +46,71 @@ const ecaNombre = ref('')
 // es una letra propia del español, no una "n acentuada", y un `normalize
 // ('NFD')` genérico la convertía en "N" (bug real: "Muñoz" -> "MUNOZ",
 // "Peña" -> "PENA"), corrompiendo nombres de lugar comunes en México.
+// Reutilizada tanto para la ECA escrita a mano como para el texto de
+// cualquier opción "Otro" de los catálogos (mismo criterio, mismo bug a
+// evitar).
 const MAPA_ACENTOS = { á: 'a', é: 'e', í: 'i', ó: 'o', ú: 'u', ü: 'u' }
-function normalizarEca(texto) {
+function normalizarMayusculasSinTildes(texto) {
   return (texto || '')
     .toLowerCase()
     .replace(/[áéíóúü]/g, (c) => MAPA_ACENTOS[c])
     .toUpperCase()
 }
-function onInputEca(evento) {
-  // La normalización (mayúsculas + quitar acento) es 1 carácter -> 1
-  // carácter, así que el cursor casi siempre queda en el mismo índice —
-  // pero Vue reasigna `value` del input, y el navegador por defecto manda
-  // el cursor al final del texto si no se restaura a mano.
-  const cursor = evento.target.selectionStart
-  ecaNombre.value = normalizarEca(evento.target.value)
-  requestAnimationFrame(() => evento.target.setSelectionRange(cursor, cursor))
+// Fábrica de manejador de `@input`: mueve el texto normalizado al `ref`
+// destino preservando la posición del cursor. La normalización (mayúsculas
+// + quitar acento) es 1 carácter -> 1 carácter, así que el cursor casi
+// siempre queda en el mismo índice — pero Vue reasigna `value` del input, y
+// el navegador por defecto manda el cursor al final del texto si no se
+// restaura a mano.
+function crearManejadorMayusculas(destino) {
+  return (evento) => {
+    const cursor = evento.target.selectionStart
+    destino.value = normalizarMayusculasSinTildes(evento.target.value)
+    requestAnimationFrame(() => evento.target.setSelectionRange(cursor, cursor))
+  }
 }
+const onInputEca = crearManejadorMayusculas(ecaNombre)
+
+// Pedido explícito: cuando el técnico elige la opción "Otro" en tipo de
+// actividad, tema, subtema o sistema productivo, debe escribir
+// obligatoriamente cuál es ese "otro" — antes se guardaba solo "Otro" sin
+// que el admin supiera a qué se refería. Clave "OTR" en tipos_actividad,
+// "OTRO" en temas/subtemas/sistemas_productivos (ver `0012_seed_catalogos`
+// en el backend).
+const tipoActividadOtroTexto = ref('')
+const temaOtroTexto = ref('')
+const subtemaOtroTexto = ref('')
+const sistemaProductivoOtroTexto = ref('')
+const onInputTipoOtro = crearManejadorMayusculas(tipoActividadOtroTexto)
+const onInputTemaOtro = crearManejadorMayusculas(temaOtroTexto)
+const onInputSubtemaOtro = crearManejadorMayusculas(subtemaOtroTexto)
+const onInputSistemaOtro = crearManejadorMayusculas(sistemaProductivoOtroTexto)
+
+const temaSeleccionado = computed(() => catalogos.value?.temas.find((t) => t.id === temaId.value) || null)
+const subtemaSeleccionado = computed(() => subtemasDisponibles.value.find((s) => s.id === subtemaId.value) || null)
+const sistemaProductivoSeleccionado = computed(
+  () => catalogos.value?.sistemasProductivos.find((s) => s.id === sistemaProductivoId.value) || null,
+)
+const esTipoOtro = computed(() => tipoSeleccionado.value?.clave === 'OTR')
+const esTemaOtro = computed(() => temaSeleccionado.value?.clave === 'OTRO')
+const esSubtemaOtro = computed(() => subtemaSeleccionado.value?.clave === 'OTRO')
+const esSistemaProductivoOtro = computed(() => sistemaProductivoSeleccionado.value?.clave === 'OTRO')
+
+// Si el técnico cambia de opción y ya no es "Otro", se limpia el texto que
+// había escrito — si no, quedaría un texto huérfano listo para colarse si
+// vuelve a elegir "Otro" sin querer escribir uno nuevo.
+watch(tipoActividadId, () => {
+  if (!esTipoOtro.value) tipoActividadOtroTexto.value = ''
+})
+watch(temaId, () => {
+  if (!esTemaOtro.value) temaOtroTexto.value = ''
+})
+watch(subtemaId, () => {
+  if (!esSubtemaOtro.value) subtemaOtroTexto.value = ''
+})
+watch(sistemaProductivoId, () => {
+  if (!esSistemaProductivoOtro.value) sistemaProductivoOtroTexto.value = ''
+})
 const descripcion = ref('')
 const resultado = ref('')
 const numParticipantes = ref(null)
@@ -101,7 +150,14 @@ const minFotos = computed(() =>
 // obtuvo una lectura real, no solo que ya se intentó.
 const pasoUbicacionListo = computed(() => gps.value?.estado_gps === 'CON_GPS' || gps.value?.estado_gps === 'GPS_IMPRECISO')
 const pasoClasificacionListo = computed(
-  () => Boolean(modalidadId.value) && Boolean(tipoActividadId.value) && Boolean(ecaNombre.value.trim()),
+  () =>
+    Boolean(modalidadId.value) &&
+    Boolean(tipoActividadId.value) &&
+    Boolean(ecaNombre.value.trim()) &&
+    (!esTipoOtro.value || Boolean(tipoActividadOtroTexto.value.trim())) &&
+    (!esTemaOtro.value || Boolean(temaOtroTexto.value.trim())) &&
+    (!esSubtemaOtro.value || Boolean(subtemaOtroTexto.value.trim())) &&
+    (!esSistemaProductivoOtro.value || Boolean(sistemaProductivoOtroTexto.value.trim())),
 )
 const pasoDescripcionListo = computed(() => Boolean(descripcion.value.trim()))
 const pasoFotosListo = computed(() => !minFotos.value || fotos.value.length >= minFotos.value)
@@ -182,6 +238,30 @@ async function guardar() {
     return
   }
 
+  // "Otro" obligatorio (pedido explícito): si el técnico eligió "Otro" en
+  // cualquiera de estos catálogos, debe escribir cuál es — si no, el admin
+  // solo ve "Otro" en el listado sin saber a qué se refería.
+  if (esTipoOtro.value && !tipoActividadOtroTexto.value.trim()) {
+    actividad.error = 'Escribe cuál es el otro tipo de actividad.'
+    enviando.value = false
+    return
+  }
+  if (esTemaOtro.value && !temaOtroTexto.value.trim()) {
+    actividad.error = 'Escribe cuál es el otro tema.'
+    enviando.value = false
+    return
+  }
+  if (esSubtemaOtro.value && !subtemaOtroTexto.value.trim()) {
+    actividad.error = 'Escribe cuál es el otro subtema.'
+    enviando.value = false
+    return
+  }
+  if (esSistemaProductivoOtro.value && !sistemaProductivoOtroTexto.value.trim()) {
+    actividad.error = 'Escribe cuál es el otro sistema productivo.'
+    enviando.value = false
+    return
+  }
+
   if (minFotos.value && fotos.value.length < minFotos.value) {
     errorFotos.value = `Este tipo de actividad requiere al menos ${minFotos.value} foto(s).`
     enviando.value = false
@@ -197,6 +277,10 @@ async function guardar() {
       temaId: temaId.value,
       subtemaId: subtemaId.value,
       sistemaProductivoId: sistemaProductivoId.value,
+      tipoActividadOtroTexto: esTipoOtro.value ? tipoActividadOtroTexto.value.trim() : null,
+      temaOtroTexto: esTemaOtro.value ? temaOtroTexto.value.trim() : null,
+      subtemaOtroTexto: esSubtemaOtro.value ? subtemaOtroTexto.value.trim() : null,
+      sistemaProductivoOtroTexto: esSistemaProductivoOtro.value ? sistemaProductivoOtroTexto.value.trim() : null,
       descripcion: descripcion.value,
       resultado: resultado.value || null,
       numParticipantes: tipoSeleccionado.value?.permite_participantes ? numParticipantes.value : null,
@@ -280,6 +364,21 @@ function cerrarAvisoExito() {
               <option v-for="t in catalogos.tiposActividad" :key="t.id" :value="t.id">{{ t.nombre }}</option>
             </select>
           </label>
+          <label v-if="esTipoOtro">
+            ¿Cuál es el otro tipo de actividad?
+            <input
+              :value="tipoActividadOtroTexto"
+              type="text"
+              class="nueva-actividad__select nueva-actividad__eca"
+              placeholder="ESCRIBE CUÁL…"
+              autocapitalize="characters"
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="false"
+              required
+              @input="onInputTipoOtro"
+            />
+          </label>
 
           <label>
             Tema (opcional)
@@ -287,6 +386,21 @@ function cerrarAvisoExito() {
               <option :value="null">Sin tema</option>
               <option v-for="t in catalogos.temas" :key="t.id" :value="t.id">{{ t.nombre }}</option>
             </select>
+          </label>
+          <label v-if="esTemaOtro">
+            ¿Cuál es el otro tema?
+            <input
+              :value="temaOtroTexto"
+              type="text"
+              class="nueva-actividad__select nueva-actividad__eca"
+              placeholder="ESCRIBE CUÁL…"
+              autocapitalize="characters"
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="false"
+              required
+              @input="onInputTemaOtro"
+            />
           </label>
 
           <label v-if="temaId">
@@ -296,6 +410,21 @@ function cerrarAvisoExito() {
               <option v-for="s in subtemasDisponibles" :key="s.id" :value="s.id">{{ s.nombre }}</option>
             </select>
           </label>
+          <label v-if="esSubtemaOtro">
+            ¿Cuál es el otro subtema?
+            <input
+              :value="subtemaOtroTexto"
+              type="text"
+              class="nueva-actividad__select nueva-actividad__eca"
+              placeholder="ESCRIBE CUÁL…"
+              autocapitalize="characters"
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="false"
+              required
+              @input="onInputSubtemaOtro"
+            />
+          </label>
 
           <label>
             Sistema productivo (opcional)
@@ -303,6 +432,21 @@ function cerrarAvisoExito() {
               <option :value="null">Sin sistema productivo</option>
               <option v-for="s in catalogos.sistemasProductivos" :key="s.id" :value="s.id">{{ s.nombre }}</option>
             </select>
+          </label>
+          <label v-if="esSistemaProductivoOtro">
+            ¿Cuál es el otro sistema productivo?
+            <input
+              :value="sistemaProductivoOtroTexto"
+              type="text"
+              class="nueva-actividad__select nueva-actividad__eca"
+              placeholder="ESCRIBE CUÁL…"
+              autocapitalize="characters"
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="false"
+              required
+              @input="onInputSistemaOtro"
+            />
           </label>
 
           <label>
