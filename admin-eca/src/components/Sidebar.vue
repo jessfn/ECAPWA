@@ -16,9 +16,17 @@ const auth = useAuthStore()
 
 const showLogoutModal = ref(false)
 
-// Orden alfabético por etiqueta (pedido explícito). "Modificaciones" unifica
-// las antiguas ECA/Ámbitos/Asignaciones/Catálogos en una sola entrada.
+// Orden pedido explícito: Visor de Seguimiento primero (pantalla de
+// aterrizaje), Modificaciones y Permisos administrativos al final (son las
+// vistas de configuración, no de trabajo diario); el resto alfabético.
 const enlaces = [
+  {
+    nombre: 'visor-seguimiento',
+    etiqueta: 'Visor de Seguimiento',
+    ruta: { name: 'visor-seguimiento' },
+    permiso: 'vista.visor_seguimiento',
+    icono: 'map-pin',
+  },
   {
     nombre: 'actividades',
     etiqueta: 'Actividades',
@@ -34,6 +42,13 @@ const enlaces = [
     icono: 'check-circle',
   },
   {
+    nombre: 'tecnicos',
+    etiqueta: 'Técnicos',
+    ruta: { name: 'tecnicos' },
+    permiso: 'vista.tecnicos',
+    icono: 'user',
+  },
+  {
     nombre: 'modificaciones',
     etiqueta: 'Modificaciones',
     ruta: { name: 'modificaciones' },
@@ -46,20 +61,6 @@ const enlaces = [
     ruta: { name: 'permisos-administrativos' },
     permiso: 'vista.permisos_administrativos',
     icono: 'shield-check',
-  },
-  {
-    nombre: 'tecnicos',
-    etiqueta: 'Técnicos',
-    ruta: { name: 'tecnicos' },
-    permiso: 'vista.tecnicos',
-    icono: 'user',
-  },
-  {
-    nombre: 'visor-seguimiento',
-    etiqueta: 'Visor de Seguimiento',
-    ruta: { name: 'visor-seguimiento' },
-    permiso: 'vista.visor_seguimiento',
-    icono: 'map-pin',
   },
 ]
 
