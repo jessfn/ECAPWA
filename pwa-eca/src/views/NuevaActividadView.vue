@@ -364,21 +364,23 @@ function cerrarAvisoExito() {
               <option v-for="t in catalogos.tiposActividad" :key="t.id" :value="t.id">{{ t.nombre }}</option>
             </select>
           </label>
-          <label v-if="esTipoOtro">
-            ¿Cuál es el otro tipo de actividad?
-            <input
-              :value="tipoActividadOtroTexto"
-              type="text"
-              class="nueva-actividad__select nueva-actividad__eca"
-              placeholder="ESCRIBE CUÁL…"
-              autocapitalize="characters"
-              autocomplete="off"
-              autocorrect="off"
-              spellcheck="false"
-              required
-              @input="onInputTipoOtro"
-            />
-          </label>
+          <Transition name="otro-aparece">
+            <label v-if="esTipoOtro" class="nueva-actividad__otro">
+              <span class="nueva-actividad__otro-etiqueta"><AuthIcon name="edit" /> ¿Cuál es el otro tipo de actividad?</span>
+              <input
+                :value="tipoActividadOtroTexto"
+                type="text"
+                class="nueva-actividad__select nueva-actividad__otro-input"
+                placeholder="ESCRIBE AQUÍ CUÁL…"
+                autocapitalize="characters"
+                autocomplete="off"
+                autocorrect="off"
+                spellcheck="false"
+                required
+                @input="onInputTipoOtro"
+              />
+            </label>
+          </Transition>
 
           <label>
             Tema (opcional)
@@ -387,21 +389,23 @@ function cerrarAvisoExito() {
               <option v-for="t in catalogos.temas" :key="t.id" :value="t.id">{{ t.nombre }}</option>
             </select>
           </label>
-          <label v-if="esTemaOtro">
-            ¿Cuál es el otro tema?
-            <input
-              :value="temaOtroTexto"
-              type="text"
-              class="nueva-actividad__select nueva-actividad__eca"
-              placeholder="ESCRIBE CUÁL…"
-              autocapitalize="characters"
-              autocomplete="off"
-              autocorrect="off"
-              spellcheck="false"
-              required
-              @input="onInputTemaOtro"
-            />
-          </label>
+          <Transition name="otro-aparece">
+            <label v-if="esTemaOtro" class="nueva-actividad__otro">
+              <span class="nueva-actividad__otro-etiqueta"><AuthIcon name="edit" /> ¿Cuál es el otro tema?</span>
+              <input
+                :value="temaOtroTexto"
+                type="text"
+                class="nueva-actividad__select nueva-actividad__otro-input"
+                placeholder="ESCRIBE AQUÍ CUÁL…"
+                autocapitalize="characters"
+                autocomplete="off"
+                autocorrect="off"
+                spellcheck="false"
+                required
+                @input="onInputTemaOtro"
+              />
+            </label>
+          </Transition>
 
           <label v-if="temaId">
             Subtema (opcional)
@@ -410,21 +414,23 @@ function cerrarAvisoExito() {
               <option v-for="s in subtemasDisponibles" :key="s.id" :value="s.id">{{ s.nombre }}</option>
             </select>
           </label>
-          <label v-if="esSubtemaOtro">
-            ¿Cuál es el otro subtema?
-            <input
-              :value="subtemaOtroTexto"
-              type="text"
-              class="nueva-actividad__select nueva-actividad__eca"
-              placeholder="ESCRIBE CUÁL…"
-              autocapitalize="characters"
-              autocomplete="off"
-              autocorrect="off"
-              spellcheck="false"
-              required
-              @input="onInputSubtemaOtro"
-            />
-          </label>
+          <Transition name="otro-aparece">
+            <label v-if="esSubtemaOtro" class="nueva-actividad__otro">
+              <span class="nueva-actividad__otro-etiqueta"><AuthIcon name="edit" /> ¿Cuál es el otro subtema?</span>
+              <input
+                :value="subtemaOtroTexto"
+                type="text"
+                class="nueva-actividad__select nueva-actividad__otro-input"
+                placeholder="ESCRIBE AQUÍ CUÁL…"
+                autocapitalize="characters"
+                autocomplete="off"
+                autocorrect="off"
+                spellcheck="false"
+                required
+                @input="onInputSubtemaOtro"
+              />
+            </label>
+          </Transition>
 
           <label>
             Sistema productivo (opcional)
@@ -433,21 +439,23 @@ function cerrarAvisoExito() {
               <option v-for="s in catalogos.sistemasProductivos" :key="s.id" :value="s.id">{{ s.nombre }}</option>
             </select>
           </label>
-          <label v-if="esSistemaProductivoOtro">
-            ¿Cuál es el otro sistema productivo?
-            <input
-              :value="sistemaProductivoOtroTexto"
-              type="text"
-              class="nueva-actividad__select nueva-actividad__eca"
-              placeholder="ESCRIBE CUÁL…"
-              autocapitalize="characters"
-              autocomplete="off"
-              autocorrect="off"
-              spellcheck="false"
-              required
-              @input="onInputSistemaOtro"
-            />
-          </label>
+          <Transition name="otro-aparece">
+            <label v-if="esSistemaProductivoOtro" class="nueva-actividad__otro">
+              <span class="nueva-actividad__otro-etiqueta"><AuthIcon name="edit" /> ¿Cuál es el otro sistema productivo?</span>
+              <input
+                :value="sistemaProductivoOtroTexto"
+                type="text"
+                class="nueva-actividad__select nueva-actividad__otro-input"
+                placeholder="ESCRIBE AQUÍ CUÁL…"
+                autocapitalize="characters"
+                autocomplete="off"
+                autocorrect="off"
+                spellcheck="false"
+                required
+                @input="onInputSistemaOtro"
+              />
+            </label>
+          </Transition>
 
           <label>
             ECA (obligatoria)
@@ -680,6 +688,61 @@ function cerrarAvisoExito() {
   outline: none;
   border-color: #9333ea;
   box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.15);
+}
+
+/* Campo "Otro" (pedido explícito): azul rey fuerte para que salte a la
+   vista de inmediato que ahí hay que escribir — a diferencia del resto de
+   los campos (morado/neutro), este es el único con este color en toda la
+   pantalla, así que no se confunde con nada más. */
+.nueva-actividad__otro {
+  color: #1d3fd6;
+}
+.nueva-actividad__otro-etiqueta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.nueva-actividad__otro-etiqueta svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.nueva-actividad__otro-input {
+  background: #eef1ff;
+  border: 2px solid #1d3fd6 !important;
+  color: #14219e;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.nueva-actividad__otro-input::placeholder {
+  color: rgba(29, 63, 214, 0.45);
+  font-weight: 400;
+}
+.nueva-actividad__otro-input:focus {
+  outline: none;
+  border-color: #1d3fd6 !important;
+  box-shadow: 0 0 0 3px rgba(29, 63, 214, 0.25);
+}
+
+/* Aparece/desaparece con un pequeño deslizamiento — nunca de golpe, para
+   que el técnico note que un campo nuevo se agregó justo debajo del
+   selector que acaba de tocar. */
+.otro-aparece-enter-active,
+.otro-aparece-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease, max-height 0.3s ease;
+  overflow: hidden;
+}
+.otro-aparece-enter-from,
+.otro-aparece-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+  max-height: 0;
+  margin-bottom: 0 !important;
+}
+.otro-aparece-enter-to,
+.otro-aparece-leave-from {
+  max-height: 6rem;
 }
 
 /* Checklist de resumen. */
