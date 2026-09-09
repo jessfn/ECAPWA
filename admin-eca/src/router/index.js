@@ -3,11 +3,8 @@ import { useAuthStore } from '../stores/auth'
 import DefaultLayout from '../layouts/DefaultLayout.vue'
 import LoginView from '../views/LoginView.vue'
 import VisorSeguimientoView from '../views/VisorSeguimientoView.vue'
-import EcasView from '../views/EcasView.vue'
+import ModificacionesView from '../views/ModificacionesView.vue'
 import EcaImportarView from '../views/EcaImportarView.vue'
-import AmbitosView from '../views/AmbitosView.vue'
-import AsignacionesView from '../views/AsignacionesView.vue'
-import CatalogosView from '../views/CatalogosView.vue'
 import ActividadesView from '../views/ActividadesView.vue'
 import ActividadDetalleView from '../views/ActividadDetalleView.vue'
 import TecnicosView from '../views/TecnicosView.vue'
@@ -30,31 +27,25 @@ const routes = [
         component: VisorSeguimientoView,
         meta: { requierePermiso: 'vista.visor_seguimiento' },
       },
-      { path: 'ecas', name: 'ecas', component: EcasView, meta: { requierePermiso: 'vista.ecas' } },
+      {
+        path: 'modificaciones',
+        name: 'modificaciones',
+        component: ModificacionesView,
+        meta: { requierePermiso: 'vista.modificaciones' },
+      },
       {
         path: 'ecas/importar',
         name: 'ecas-importar',
         component: EcaImportarView,
         meta: { requierePermiso: 'ecas.importar' },
       },
-      {
-        path: 'ambitos',
-        name: 'ambitos',
-        component: AmbitosView,
-        meta: { requierePermiso: 'vista.ambitos' },
-      },
-      {
-        path: 'asignaciones',
-        name: 'asignaciones',
-        component: AsignacionesView,
-        meta: { requierePermiso: 'vista.asignaciones' },
-      },
-      {
-        path: 'catalogos',
-        name: 'catalogos',
-        component: CatalogosView,
-        meta: { requierePermiso: 'vista.catalogos' },
-      },
+      // Las 4 vistas antiguas (ECA, Ámbitos, Asignaciones, Catálogos) se
+      // unificaron en "Modificaciones" — se dejan estas redirecciones por
+      // ruta para no romper enlaces/favoritos viejos.
+      { path: 'ecas', redirect: { name: 'modificaciones', query: { tab: 'ecas' } } },
+      { path: 'ambitos', redirect: { name: 'modificaciones', query: { tab: 'ambitos' } } },
+      { path: 'asignaciones', redirect: { name: 'modificaciones', query: { tab: 'asignaciones' } } },
+      { path: 'catalogos', redirect: { name: 'modificaciones', query: { tab: 'catalogos' } } },
       {
         path: 'tecnicos',
         name: 'tecnicos',
@@ -114,18 +105,18 @@ const router = createRouter({
 // raíz y el primer destino de la lista (mismo motivo que antes: nunca
 // asumir un destino fijo que el usuario podría no tener permiso de ver —
 // eso fue lo que causó el bucle infinito de redirección de la vez pasada).
+// Orden de PRIORIDAD para el destino tras login / fallback anti-bucle (no es
+// el orden visual del menú, que va alfabético en el Sidebar). Se conserva
+// "visor-seguimiento" primero para no cambiar la pantalla de aterrizaje.
 const ORDEN_VISTAS = [
   'visor-seguimiento',
-  'ecas',
-  'ambitos',
-  'asignaciones',
-  'catalogos',
+  'modificaciones',
   'tecnicos',
   'asistencia',
   'actividades',
   'permisos-administrativos',
 ]
-const PERMISO_DE_RUTA = { 'visor-seguimiento': 'vista.visor_seguimiento', ecas: 'vista.ecas', ambitos: 'vista.ambitos', asignaciones: 'vista.asignaciones', catalogos: 'vista.catalogos', tecnicos: 'vista.tecnicos', asistencia: 'vista.asistencia', actividades: 'vista.actividades', 'permisos-administrativos': 'vista.permisos_administrativos' }
+const PERMISO_DE_RUTA = { 'visor-seguimiento': 'vista.visor_seguimiento', modificaciones: 'vista.modificaciones', tecnicos: 'vista.tecnicos', asistencia: 'vista.asistencia', actividades: 'vista.actividades', 'permisos-administrativos': 'vista.permisos_administrativos' }
 
 function primeraRutaAccesible(auth) {
   const nombre = ORDEN_VISTAS.find((n) => auth.tienePermiso(PERMISO_DE_RUTA[n]))

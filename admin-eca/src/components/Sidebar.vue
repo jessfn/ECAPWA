@@ -16,42 +16,15 @@ const auth = useAuthStore()
 
 const showLogoutModal = ref(false)
 
+// Orden alfabético por etiqueta (pedido explícito). "Modificaciones" unifica
+// las antiguas ECA/Ámbitos/Asignaciones/Catálogos en una sola entrada.
 const enlaces = [
   {
-    nombre: 'visor-seguimiento',
-    etiqueta: 'Visor de Seguimiento',
-    ruta: { name: 'visor-seguimiento' },
-    permiso: 'vista.visor_seguimiento',
-    icono: 'map-pin',
-  },
-  { nombre: 'ecas', etiqueta: 'ECA', ruta: { name: 'ecas' }, permiso: 'vista.ecas', icono: 'school' },
-  {
-    nombre: 'ambitos',
-    etiqueta: 'Ámbitos',
-    ruta: { name: 'ambitos' },
-    permiso: 'vista.ambitos',
-    icono: 'shield',
-  },
-  {
-    nombre: 'asignaciones',
-    etiqueta: 'Asignaciones',
-    ruta: { name: 'asignaciones' },
-    permiso: 'vista.asignaciones',
-    icono: 'check-circle',
-  },
-  {
-    nombre: 'catalogos',
-    etiqueta: 'Catálogos',
-    ruta: { name: 'catalogos' },
-    permiso: 'vista.catalogos',
-    icono: 'book',
-  },
-  {
-    nombre: 'tecnicos',
-    etiqueta: 'Técnicos',
-    ruta: { name: 'tecnicos' },
-    permiso: 'vista.tecnicos',
-    icono: 'user',
+    nombre: 'actividades',
+    etiqueta: 'Actividades',
+    ruta: { name: 'actividades' },
+    permiso: 'vista.actividades',
+    icono: 'clock',
   },
   {
     nombre: 'asistencia',
@@ -61,11 +34,11 @@ const enlaces = [
     icono: 'check-circle',
   },
   {
-    nombre: 'actividades',
-    etiqueta: 'Actividades',
-    ruta: { name: 'actividades' },
-    permiso: 'vista.actividades',
-    icono: 'clock',
+    nombre: 'modificaciones',
+    etiqueta: 'Modificaciones',
+    ruta: { name: 'modificaciones' },
+    permiso: 'vista.modificaciones',
+    icono: 'edit',
   },
   {
     nombre: 'permisos-administrativos',
@@ -73,6 +46,20 @@ const enlaces = [
     ruta: { name: 'permisos-administrativos' },
     permiso: 'vista.permisos_administrativos',
     icono: 'shield-check',
+  },
+  {
+    nombre: 'tecnicos',
+    etiqueta: 'Técnicos',
+    ruta: { name: 'tecnicos' },
+    permiso: 'vista.tecnicos',
+    icono: 'user',
+  },
+  {
+    nombre: 'visor-seguimiento',
+    etiqueta: 'Visor de Seguimiento',
+    ruta: { name: 'visor-seguimiento' },
+    permiso: 'vista.visor_seguimiento',
+    icono: 'map-pin',
   },
 ]
 

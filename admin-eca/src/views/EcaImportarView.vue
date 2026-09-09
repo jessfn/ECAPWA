@@ -74,7 +74,7 @@ function cancelar() {
 
 <template>
   <section>
-    <RouterLink :to="{ name: 'ecas' }" class="detalle__volver">
+    <RouterLink :to="{ name: 'modificaciones', query: { tab: 'ecas' } }" class="detalle__volver">
       <AuthIcon name="arrow-left" /> Volver a ECA
     </RouterLink>
 

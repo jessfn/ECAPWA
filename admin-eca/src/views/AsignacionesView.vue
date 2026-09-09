@@ -12,6 +12,9 @@ import {
 } from '../services/asignacionesService'
 import AuthIcon from '../components/auth/AuthIcon.vue'
 
+// `embebido`: dentro de "Modificaciones" se oculta el header verde propio.
+defineProps({ embebido: { type: Boolean, default: false } })
+
 const tecnicos = ref([])
 const tecnicoId = ref(null)
 const asignaciones = ref([])
@@ -112,7 +115,7 @@ onMounted(async () => {
 
 <template>
   <section>
-    <div class="eca-page-header">
+    <div v-if="!embebido" class="eca-page-header">
       <span class="eca-page-header__icono"><AuthIcon name="check-circle" /></span>
       <div class="eca-page-header__texto">
         <h1>Asignaciones técnico–ECA</h1>

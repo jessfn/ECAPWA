@@ -28,21 +28,19 @@ const ETIQUETA_ROL = { ADMIN: 'Administrador', USUARIO: 'Usuario' }
 const ETIQUETA_ESTADO = { ACTIVO: 'Activo', SUSPENDIDO: 'Suspendido', BAJA: 'Baja' }
 const BADGE_ESTADO = { ACTIVO: 'eca-badge--verde', SUSPENDIDO: 'eca-badge--ambar', BAJA: 'eca-badge--rojo' }
 
-// Mismo orden y mismas vistas que `Sidebar.vue` — el switch de cada una
-// prende/apaga exactamente el permiso `vista.*` que la muestra en el menú.
-// `modulo` conecta cada vista con los permisos "finos" de esa sección del
-// catálogo (p. ej. `ecas.gestionar`), que solo tienen sentido si la vista
-// ya está encendida.
+// Mismo orden (alfabético) y mismas vistas que `Sidebar.vue` — el switch de
+// cada una prende/apaga exactamente el permiso `vista.*` que la muestra en el
+// menú. `modulos` conecta cada vista con los permisos "finos" de sus secciones
+// del catálogo (p. ej. `ecas.gestionar`), que solo tienen sentido si la vista
+// ya está encendida. "Modificaciones" abarca VARIOS módulos (unifica ECA,
+// Ámbitos, Asignaciones y Catálogos), por eso `modulos` es una lista.
 const VISTAS = [
-  { clave: 'vista.visor_seguimiento', etiqueta: 'Visor de Seguimiento', icono: 'map-pin', modulo: null },
-  { clave: 'vista.ecas', etiqueta: 'ECA', icono: 'school', modulo: 'ecas' },
-  { clave: 'vista.ambitos', etiqueta: 'Ámbitos', icono: 'shield', modulo: 'ambitos' },
-  { clave: 'vista.asignaciones', etiqueta: 'Asignaciones', icono: 'check-circle', modulo: 'asignaciones' },
-  { clave: 'vista.catalogos', etiqueta: 'Catálogos', icono: 'book', modulo: 'catalogos' },
-  { clave: 'vista.tecnicos', etiqueta: 'Técnicos', icono: 'user', modulo: 'usuarios' },
-  { clave: 'vista.asistencia', etiqueta: 'Asistencia', icono: 'check-circle', modulo: 'jornadas' },
-  { clave: 'vista.actividades', etiqueta: 'Actividades', icono: 'clock', modulo: 'actividades' },
-  { clave: 'vista.permisos_administrativos', etiqueta: 'Permisos administrativos', icono: 'shield-check', modulo: null },
+  { clave: 'vista.actividades', etiqueta: 'Actividades', icono: 'clock', modulos: ['actividades'] },
+  { clave: 'vista.asistencia', etiqueta: 'Asistencia', icono: 'check-circle', modulos: ['jornadas'] },
+  { clave: 'vista.modificaciones', etiqueta: 'Modificaciones', icono: 'edit', modulos: ['ecas', 'ambitos', 'asignaciones', 'catalogos'] },
+  { clave: 'vista.permisos_administrativos', etiqueta: 'Permisos administrativos', icono: 'shield-check', modulos: [] },
+  { clave: 'vista.tecnicos', etiqueta: 'Técnicos', icono: 'user', modulos: ['usuarios'] },
+  { clave: 'vista.visor_seguimiento', etiqueta: 'Visor de Seguimiento', icono: 'map-pin', modulos: [] },
 ]
 
 // Solo cuentas de PANEL (admin/usuario) — los técnicos se gestionan en
@@ -71,9 +69,14 @@ const permisosPorModulo = computed(() => {
   return mapa
 })
 // Vistas + sus permisos finos, ya armado en el orden del sidebar — lo que
-// consume directamente el modal de permisos.
+// consume directamente el modal de permisos. Una vista puede abarcar varios
+// módulos (p. ej. "Modificaciones"), así que se juntan los sub-permisos de
+// todos ellos.
 const vistasConPermisos = computed(() =>
-  VISTAS.map((v) => ({ ...v, subPermisos: v.modulo ? permisosPorModulo.value.get(v.modulo) || [] : [] })),
+  VISTAS.map((v) => ({
+    ...v,
+    subPermisos: (v.modulos || []).flatMap((m) => permisosPorModulo.value.get(m) || []),
+  })),
 )
 
 function iniciales(u) {

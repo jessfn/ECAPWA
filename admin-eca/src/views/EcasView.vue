@@ -7,6 +7,12 @@ import { listarEstados, listarMunicipios } from '../services/geoService'
 import { listarEcas, crearEca } from '../services/ecasService'
 import AuthIcon from '../components/auth/AuthIcon.vue'
 
+// `embebido`: cuando esta vista se renderiza dentro de "Modificaciones"
+// (como pestaña), se oculta su header verde propio para no duplicarlo con
+// el de esa vista contenedora, y el botón "Importar" se muestra dentro de
+// los filtros en su lugar.
+defineProps({ embebido: { type: Boolean, default: false } })
+
 const auth = useAuthStore()
 const puedeGestionar = auth.tienePermiso('ecas.gestionar')
 
@@ -85,7 +91,7 @@ onMounted(async () => {
 
 <template>
   <section>
-    <div class="eca-page-header">
+    <div v-if="!embebido" class="eca-page-header">
       <span class="eca-page-header__icono"><AuthIcon name="school" /></span>
       <div class="eca-page-header__texto">
         <h1>ECA</h1>
@@ -99,6 +105,13 @@ onMounted(async () => {
     <p v-if="error" class="eca-alerta-error" role="alert">{{ error }}</p>
 
     <div class="ecas__filtros">
+      <RouterLink
+        v-if="embebido && auth.tienePermiso('ecas.importar')"
+        :to="{ name: 'ecas-importar' }"
+        class="eca-btn eca-btn-secundario"
+      >
+        Importar CSV/XLSX
+      </RouterLink>
       <select v-model="estadoId" @change="onCambioEstado">
         <option :value="null">Todos los estados</option>
         <option v-for="e in estados" :key="e.id" :value="e.id">{{ e.nombre }}</option>
