@@ -27,6 +27,12 @@ const ecas = ref([]) // solo las que tienen coordenadas
 const tecnicos = ref([])
 const tecnicosPorId = computed(() => new Map(tecnicos.value.map((t) => [t.id, t])))
 const tiposActividad = ref([])
+// Solo para mostrar el nombre real en el panel de detalle (antes no se
+// mostraban en absoluto tema/subtema/sistema productivo, igual que pasaba
+// en Actividades) — no se usan como filtro del mapa.
+const temas = ref([])
+const subtemas = ref([])
+const sistemasProductivos = ref([])
 
 const ETIQUETAS_GPS = { CON_GPS: 'Con GPS', GPS_IMPRECISO: 'GPS impreciso' }
 
@@ -104,6 +110,27 @@ async function cargarTiposActividad() {
     tiposActividad.value = []
   }
 }
+async function cargarTemas() {
+  try {
+    temas.value = await listarCatalogo('temas', { todos: true })
+  } catch {
+    temas.value = []
+  }
+}
+async function cargarSubtemas() {
+  try {
+    subtemas.value = await listarCatalogo('subtemas', { todos: true })
+  } catch {
+    subtemas.value = []
+  }
+}
+async function cargarSistemasProductivos() {
+  try {
+    sistemasProductivos.value = await listarCatalogo('sistemas-productivos', { todos: true })
+  } catch {
+    sistemasProductivos.value = []
+  }
+}
 async function cargarEcas() {
   try {
     // `page_size` alto en una sola pasada (mismo criterio que tenía
@@ -174,6 +201,21 @@ function tipoNombre(a) {
 function ecaNombreDe(a) {
   return a.eca_nombre || (a.eca_id ? `ECA #${a.eca_id}` : '—')
 }
+function temaNombre(a) {
+  if (!a?.tema_id) return null
+  return temas.value.find((t) => t.id === a.tema_id)?.nombre || `Tema #${a.tema_id}`
+}
+function subtemaNombre(a) {
+  if (!a?.subtema_id) return null
+  return subtemas.value.find((s) => s.id === a.subtema_id)?.nombre || `Subtema #${a.subtema_id}`
+}
+function sistemaProductivoNombre(a) {
+  if (!a?.sistema_productivo_id) return null
+  return (
+    sistemasProductivos.value.find((s) => s.id === a.sistema_productivo_id)?.nombre ||
+    `Sistema #${a.sistema_productivo_id}`
+  )
+}
 
 // ---- Panel de detalle al tocar una ubicación (solo actividades: son las
 // únicas con fotos) — ACOPLADO al mapa, nunca navega a otra vista: arranca
@@ -190,6 +232,14 @@ const modalIndice = ref(0)
 // cuando el admin quiere ver todo — galería completa con contador y
 // flechas, descripción sin recortar.
 const panelExpandido = ref(false)
+// Pedido explícito: el panel no mostraba toda la información al seleccionar
+// un punto (tema/subtema/sistema productivo, el texto de "Otro", resultado,
+// coordenadas...). Esos campos ya vienen en la fila básica de la lista
+// (`modalActividad`, `ActividadPublica` los incluye todos) — no hace falta
+// esperar a que cargue el detalle completo (`modalDetalle`, que solo agrega
+// las evidencias) para mostrarlos. Este computed usa lo que haya disponible
+// más rápido, y se actualiza solo cuando el detalle completo llega.
+const infoActividad = computed(() => modalDetalle.value || modalActividad.value || {})
 
 // Pedido explícito: al seleccionar una ubicación, el mapa hace un zoom
 // suave hacia ella (poco, no un acercamiento extremo) y el marcador se
@@ -440,7 +490,15 @@ function alternarCapa(capa) {
 onMounted(async () => {
   window.addEventListener('keydown', onTeclaModal)
   cargando.value = true
-  await Promise.all([cargarTecnicos(), cargarTiposActividad(), cargarActividades(), cargarEcas()])
+  await Promise.all([
+    cargarTecnicos(),
+    cargarTiposActividad(),
+    cargarTemas(),
+    cargarSubtemas(),
+    cargarSistemasProductivos(),
+    cargarActividades(),
+    cargarEcas(),
+  ])
   cargando.value = false
   iniciarMapa()
 })
@@ -628,6 +686,65 @@ onBeforeUnmount(() => {
               </div>
               <p class="visor-panel__eca"><AuthIcon name="school" /> {{ ecaNombreDe(modalActividad || {}) }}</p>
               <p v-if="modalError" class="eca-alerta-error" role="alert">{{ modalError }}</p>
+
+              <!-- Información completa de la actividad (pedido explícito):
+                   antes solo se veían técnico/fecha/GPS/tipo/ECA/descripción
+                   y una foto — faltaban tema/subtema/sistema productivo, el
+                   texto de "Otro" cuando aplica, resultado y coordenadas. -->
+              <div class="visor-panel__datos">
+                <p v-if="infoActividad.tipo_actividad_otro_texto" class="visor-panel__dato visor-panel__dato--otro">
+                  <span class="visor-panel__dato-etiqueta">Otro (tipo de actividad)</span>
+                  <span class="visor-panel__dato-valor">{{ infoActividad.tipo_actividad_otro_texto }}</span>
+                </p>
+                <p v-if="temaNombre(infoActividad)" class="visor-panel__dato">
+                  <span class="visor-panel__dato-etiqueta">Tema</span>
+                  <span class="visor-panel__dato-valor">{{ temaNombre(infoActividad) }}</span>
+                </p>
+                <p v-if="infoActividad.tema_otro_texto" class="visor-panel__dato visor-panel__dato--otro">
+                  <span class="visor-panel__dato-etiqueta">Otro (tema)</span>
+                  <span class="visor-panel__dato-valor">{{ infoActividad.tema_otro_texto }}</span>
+                </p>
+                <p v-if="subtemaNombre(infoActividad)" class="visor-panel__dato">
+                  <span class="visor-panel__dato-etiqueta">Subtema</span>
+                  <span class="visor-panel__dato-valor">{{ subtemaNombre(infoActividad) }}</span>
+                </p>
+                <p v-if="infoActividad.subtema_otro_texto" class="visor-panel__dato visor-panel__dato--otro">
+                  <span class="visor-panel__dato-etiqueta">Otro (subtema)</span>
+                  <span class="visor-panel__dato-valor">{{ infoActividad.subtema_otro_texto }}</span>
+                </p>
+                <p v-if="sistemaProductivoNombre(infoActividad)" class="visor-panel__dato">
+                  <span class="visor-panel__dato-etiqueta">Sistema productivo</span>
+                  <span class="visor-panel__dato-valor">{{ sistemaProductivoNombre(infoActividad) }}</span>
+                </p>
+                <p v-if="infoActividad.sistema_productivo_otro_texto" class="visor-panel__dato visor-panel__dato--otro">
+                  <span class="visor-panel__dato-etiqueta">Otro (sistema productivo)</span>
+                  <span class="visor-panel__dato-valor">{{ infoActividad.sistema_productivo_otro_texto }}</span>
+                </p>
+                <p v-if="infoActividad.num_participantes != null" class="visor-panel__dato">
+                  <span class="visor-panel__dato-etiqueta">Participantes</span>
+                  <span class="visor-panel__dato-valor">{{ infoActividad.num_participantes }}</span>
+                </p>
+                <p v-if="infoActividad.latitud != null" class="visor-panel__dato">
+                  <span class="visor-panel__dato-etiqueta">Coordenadas</span>
+                  <span class="visor-panel__dato-valor visor-panel__coordenadas">
+                    {{ infoActividad.latitud.toFixed(6) }}, {{ infoActividad.longitud.toFixed(6) }}
+                    <template v-if="infoActividad.precision_gps_m"> (±{{ Math.round(infoActividad.precision_gps_m) }} m)</template>
+                  </span>
+                </p>
+                <p v-if="infoActividad.requiere_seguimiento" class="visor-panel__dato">
+                  <span class="visor-panel__dato-etiqueta">Seguimiento</span>
+                  <span class="visor-panel__dato-valor">
+                    Requiere seguimiento
+                    <template v-if="infoActividad.fecha_proximo_seguimiento">
+                      — {{ new Date(`${infoActividad.fecha_proximo_seguimiento}T00:00:00`).toLocaleDateString('es-MX') }}
+                    </template>
+                  </span>
+                </p>
+                <p v-if="infoActividad.resultado" class="visor-panel__dato">
+                  <span class="visor-panel__dato-etiqueta">Resultado</span>
+                  <span class="visor-panel__dato-valor">{{ infoActividad.resultado }}</span>
+                </p>
+              </div>
 
               <!-- Compacto: miniatura + descripción recortada -->
               <template v-if="!panelExpandido">
@@ -1329,6 +1446,50 @@ onBeforeUnmount(() => {
 .visor-panel__eca svg {
   width: 0.7rem;
   height: 0.7rem;
+}
+
+/* Información completa (pedido explícito): lista compacta de datos extra
+   de la actividad — tema/subtema/sistema productivo, participantes,
+   coordenadas, seguimiento, resultado. Los renglones "Otro" van en azul
+   rey, mismo color que ya distingue ese campo en Actividades y en la PWA
+   de captura, para reconocerlo de un vistazo. */
+.visor-panel__datos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0 0 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--eca-r-sm);
+  background: var(--eca-surface);
+  border: 1px solid var(--eca-surface-border);
+}
+.visor-panel__dato {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  margin: 0;
+}
+.visor-panel__dato-etiqueta {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--eca-ink-soft);
+}
+.visor-panel__dato-valor {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--eca-ink);
+  word-break: break-word;
+}
+.visor-panel__dato--otro .visor-panel__dato-etiqueta,
+.visor-panel__dato--otro .visor-panel__dato-valor {
+  color: #1d3fd6;
+}
+.visor-panel__coordenadas {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 500;
 }
 
 /* Compacto */
