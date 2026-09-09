@@ -8,12 +8,13 @@
 import AuthIcon from './auth/AuthIcon.vue'
 
 const props = defineProps({
-  tipo: { type: String, default: 'bloqueo' }, // 'bloqueo' | 'exito'
+  tipo: { type: String, default: 'bloqueo' }, // 'bloqueo' | 'exito' | 'error'
   titulo: { type: String, required: true },
   mensaje: { type: String, required: true },
   textoBoton: { type: String, default: 'Entendido' },
 })
 const emit = defineEmits(['cerrar'])
+const ICONOS = { exito: 'check', error: 'alert', bloqueo: 'lock' }
 </script>
 
 <template>
@@ -21,7 +22,7 @@ const emit = defineEmits(['cerrar'])
     <div class="aviso-modal__overlay" @click.self="emit('cerrar')">
       <div class="aviso-modal" :class="`aviso-modal--${tipo}`">
         <span class="aviso-modal__icono">
-          <AuthIcon :name="tipo === 'exito' ? 'check' : 'lock'" />
+          <AuthIcon :name="ICONOS[tipo] || 'lock'" />
         </span>
         <h2 class="aviso-modal__titulo">{{ titulo }}</h2>
         <p class="aviso-modal__mensaje">{{ mensaje }}</p>
@@ -89,6 +90,10 @@ const emit = defineEmits(['cerrar'])
 .aviso-modal--exito .aviso-modal__icono {
   background: var(--eca-green-100);
   color: var(--eca-green-700);
+}
+.aviso-modal--error .aviso-modal__icono {
+  background: var(--eca-danger-bg);
+  color: var(--eca-danger);
 }
 .aviso-modal__titulo {
   margin: 0;

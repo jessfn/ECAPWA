@@ -15,7 +15,17 @@ const CLAVE_DISPOSITIVO = 'eca_tecnico_dispositivo_uuid'
 const ESTADOS_A_ENVIAR = new Set(['PENDIENTE', 'RECHAZADO'])
 const MAX_INTENTOS_RED = 3
 
-let sincronizando = false
+// `sincronizandoPromesa` coalesce llamadas concurrentes en la MISMA promesa en vez
+// de rechazar la segunda con "ya_en_curso": antes, si el timer de fondo
+// (`setInterval` en `main.js`/`AppHeader.vue`) disparaba una sincronización
+// justo cuando el técnico guardaba una actividad, la llamada de `crear()`
+// perdía la carrera y volvía con `{ ok: false, motivo: 'ya_en_curso' }` —
+// el modal de confirmación mostraba "se reintentará en breve" con red
+// perfectamente buena, porque en realidad NUNCA se había ni intentado subir
+// esa actividad en ese golpe. Con la promesa compartida, cualquiera que
+// llame a `sincronizar()` mientras otra está en curso espera el mismo
+// resultado real — nunca un resultado inventado.
+let sincronizandoPromesa = null
 
 function obtenerDispositivoUuid() {
   let uuid = localStorage.getItem(CLAVE_DISPOSITIVO)
@@ -114,12 +124,15 @@ async function sincronizarEvidenciasDe(actividadUuid) {
 }
 
 /** @returns {Promise<{ok: boolean, motivo?: string, aplicados: number, duplicados: number, rechazados: number}>} */
-export async function sincronizar(auth) {
-  if (sincronizando) {
-    return { ok: false, motivo: 'ya_en_curso', aplicados: 0, duplicados: 0, rechazados: 0 }
-  }
-  sincronizando = true
+export function sincronizar(auth) {
+  if (sincronizandoPromesa) return sincronizandoPromesa
+  sincronizandoPromesa = _sincronizarInterno(auth).finally(() => {
+    sincronizandoPromesa = null
+  })
+  return sincronizandoPromesa
+}
 
+async function _sincronizarInterno(auth) {
   try {
     if (!navigator.onLine) {
       return { ok: false, motivo: 'sin_red', aplicados: 0, duplicados: 0, rechazados: 0 }
@@ -224,8 +237,11 @@ export async function sincronizar(auth) {
     ejecutarPull().catch(() => {})
 
     return { ok: true, aplicados, duplicados, rechazados }
-  } finally {
-    sincronizando = false
+  } catch (err) {
+    // Defensa final: un error inesperado (no contemplado arriba) no debe
+    // dejar la promesa compartida rota para las próximas llamadas — se
+    // reporta como error de red genérico, nunca se deja sin resolver.
+    return { ok: false, motivo: 'error_red', aplicados: 0, duplicados: 0, rechazados: 0, detalle: err }
   }
 }
 
@@ -254,6 +270,6 @@ export function sincronizarOportunista() {
 }
 
 export function _reiniciarSyncParaPruebas() {
-  sincronizando = false
+  sincronizandoPromesa = null
   autoSyncArmado = false
 }

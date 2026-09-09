@@ -53,6 +53,17 @@ class ActividadSyncItem(BaseModel):
     tema_id: int | None = None
     subtema_id: int | None = None
     sistema_productivo_id: int | None = None
+    # Texto libre cuando el catálogo elegido es "Otro" (ver
+    # `actividades_service._validar_y_normalizar_otro`) — faltaban aquí:
+    # Pydantic descarta en silencio cualquier campo del payload que no esté
+    # declarado en el schema, así que aunque la PWA sí mandaba el texto
+    # escrito, se perdía ANTES de llegar a la validación del servicio, y
+    # cualquier actividad con "Otro" quedaba rechazada para siempre (el
+    # outbox reintenta el mismo payload sin este campo en cada sync).
+    tipo_actividad_otro_texto: str | None = None
+    tema_otro_texto: str | None = None
+    subtema_otro_texto: str | None = None
+    sistema_productivo_otro_texto: str | None = None
     descripcion: str = Field(min_length=1)
     resultado: str | None = None
     fecha_hora: datetime

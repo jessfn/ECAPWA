@@ -42,6 +42,7 @@ _ERRORES_ACTIVIDAD = (
     actividades_service.ParticipantesNoPermitidosError,
     actividades_service.SubtemaIncoherenteError,
     actividades_service.GpsInvalidoError,
+    actividades_service.OtroTextoRequeridoError,
 )
 
 
@@ -138,6 +139,10 @@ def _procesar_actividad(
             tema_id=item.tema_id,
             subtema_id=item.subtema_id,
             sistema_productivo_id=item.sistema_productivo_id,
+            tipo_actividad_otro_texto=item.tipo_actividad_otro_texto,
+            tema_otro_texto=item.tema_otro_texto,
+            subtema_otro_texto=item.subtema_otro_texto,
+            sistema_productivo_otro_texto=item.sistema_productivo_otro_texto,
             descripcion=item.descripcion,
             resultado=item.resultado,
             fecha_hora=item.fecha_hora,

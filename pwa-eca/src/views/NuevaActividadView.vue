@@ -168,27 +168,37 @@ const todoListo = computed(
 // Mismo criterio que en JornadaView: el mensaje solo debe hablar de "sin
 // señal" cuando de verdad no la hay — antes salía igual con internet.
 //
-// Bug real encontrado en producción: cuando la actividad lleva foto, esta
-// pantalla dispara DOS sincronizaciones seguidas — una al crear la
-// actividad (`actividad.crear`) y otra al encolar la evidencia
-// (`actividad.encolarEvidencias`) — y `actividad.ultimoSync` solo guarda
-// el resultado de la SEGUNDA. Esa segunda sincronización solo mueve
-// evidencias (no jornadas/actividades), así que `aplicados`/`duplicados`
-// siempre quedan en 0 aunque la foto SÍ se haya subido con éxito — el
-// mensaje decía "la reintentaremos en breve" incluso cuando todo ya
-// estaba en el servidor. Confirmado subiendo una actividad de prueba
-// real: la evidencia llegó al servidor pese al mensaje. Con `sync?.ok`
-// alcanza: cualquier sincronización exitosa (con o sin conteo de
-// aplicados/duplicados) significa que ya no queda nada pendiente.
+// Pedido explícito: la confirmación debe reflejar la VERDAD de esta
+// actividad puntual, no un agregado del lote de sincronización — antes
+// bastaba con que la petición al servidor viajara (`sync.ok`) para mostrar
+// "ya se sincronizó", aunque ESTA actividad en particular hubiera venido
+// RECHAZADA en la respuesta (p. ej. un catálogo "Otro" sin texto), o
+// aunque la sincronización real nunca se hubiera intentado por perder la
+// carrera contra el sync de fondo (`ya_en_curso`, ya corregido en
+// `services/sync.js` con una promesa compartida, pero esta pantalla igual
+// debe seguir la verdad del registro, no adivinarla). `actividad.ultimoSync.
+// estadoActividad` viene de releer el propio registro del outbox después
+// de sincronizar (ver `stores/actividad.js`), así que es la fuente de
+// verdad correcta sin importar cuántas sincronizaciones hayan corrido de
+// por medio (crear la actividad + encolar sus evidencias son dos).
+const actividadFueRechazada = computed(() => actividad.ultimoSync?.estadoActividad === 'RECHAZADO')
+const tituloAviso = computed(() => (actividadFueRechazada.value ? 'No se pudo guardar' : 'Actividad guardada'))
+const tipoAviso = computed(() => (actividadFueRechazada.value ? 'error' : 'exito'))
 const mensajeConfirmacion = computed(() => {
   const sync = actividad.ultimoSync
-  if (sync?.motivo === 'sin_red') {
-    return 'Tu actividad se guardó en tu dispositivo. En cuanto tengas señal, se subirá automáticamente al servidor.'
-  }
-  if (sync?.ok) {
+  if (sync?.estadoActividad === 'SINCRONIZADO') {
     return 'Tu actividad se guardó y ya se sincronizó con el servidor.'
   }
-  return 'Tu actividad se guardó en tu dispositivo. La reintentaremos en breve.'
+  if (sync?.estadoActividad === 'RECHAZADO') {
+    return `El servidor rechazó esta actividad: ${sync.errorActividad || 'revisa los datos e inténtalo de nuevo.'}`
+  }
+  // Todavía pendiente en el dispositivo: solo se habla de "sin señal"
+  // cuando de verdad no la hay — cualquier otro motivo (sesión, un
+  // tropiezo puntual de red) es transitorio y se reintentará solo.
+  if (!navigator.onLine || sync?.motivo === 'sin_red') {
+    return 'Tu actividad se guardó en tu dispositivo. En cuanto tengas señal, se subirá automáticamente al servidor.'
+  }
+  return 'Tu actividad se guardó en tu dispositivo y la estamos subiendo al servidor.'
 })
 
 onMounted(async () => {
@@ -570,8 +580,8 @@ function cerrarAvisoExito() {
 
     <AvisoModal
       v-if="avisoExito"
-      tipo="exito"
-      titulo="Actividad guardada"
+      :tipo="tipoAviso"
+      :titulo="tituloAviso"
       :mensaje="mensajeConfirmacion"
       @cerrar="cerrarAvisoExito"
     />

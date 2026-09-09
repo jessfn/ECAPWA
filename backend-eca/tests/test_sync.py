@@ -321,6 +321,59 @@ def test_push_registra_dispositivo_sobre_la_marcha(db: DBFalsa, repos, actor: Us
     assert repos.dispositivos.filas[0].uuid == DISPOSITIVO_UUID
 
 
+# Regresión real reportada en producción: una actividad con tipo "Otro" y
+# el texto escrito por el técnico se rechazaba SIEMPRE, incluso habiendo
+# escrito el texto. Causa: `ActividadSyncItem` (el schema que de verdad usa
+# el flujo real, `POST /sync/push` — la PWA nunca llama al `POST
+# /actividades` directo) no tenía los campos `*_otro_texto`, así que
+# Pydantic los descartaba en silencio ANTES de llegar a
+# `actividades_service.crear()`, y como el outbox reintenta el MISMO
+# payload sin ese campo en cada sync, quedaba rechazada para siempre.
+def test_push_actividad_otro_con_texto_se_aplica(db: DBFalsa, repos, actor: Usuario) -> None:
+    tipo = _tipo_actividad(db, clave="OTR", nombre="Otro")
+    jornada_item = JornadaSyncItem(uuid=uuid_lib.uuid4(), inicio_en=INICIO, nota="Detalle.")
+    item = ActividadSyncItem(
+        uuid=uuid_lib.uuid4(),
+        jornada_uuid=jornada_item.uuid,
+        modalidad_id=1,
+        tipo_actividad_id=tipo.id,
+        tipo_actividad_otro_texto="reunión de planeación",
+        descripcion="Actividad con tipo Otro.",
+        fecha_hora=INICIO,
+        eca_nombre="ECA DE PRUEBA",
+        gps=GPS_VALIDO,
+    )
+
+    resultados = sync_service.push(
+        db, dispositivo_uuid=DISPOSITIVO_UUID, jornadas=[jornada_item], actividades=[item], actor=actor
+    )
+
+    assert resultados[1].resultado == "APLICADO", resultados[1].error
+    assert repos.actividades.filas[0].tipo_actividad_otro_texto == "REUNION DE PLANEACION"
+
+
+def test_push_actividad_otro_sin_texto_es_rechazado(db: DBFalsa, repos, actor: Usuario) -> None:
+    tipo = _tipo_actividad(db, clave="OTR", nombre="Otro")
+    jornada_item = JornadaSyncItem(uuid=uuid_lib.uuid4(), inicio_en=INICIO, nota="Detalle.")
+    item = ActividadSyncItem(
+        uuid=uuid_lib.uuid4(),
+        jornada_uuid=jornada_item.uuid,
+        modalidad_id=1,
+        tipo_actividad_id=tipo.id,
+        descripcion="Actividad con tipo Otro sin texto.",
+        fecha_hora=INICIO,
+        eca_nombre="ECA DE PRUEBA",
+        gps=GPS_VALIDO,
+    )
+
+    resultados = sync_service.push(
+        db, dispositivo_uuid=DISPOSITIVO_UUID, jornadas=[jornada_item], actividades=[item], actor=actor
+    )
+
+    assert resultados[1].resultado == "RECHAZADO"
+    assert "Otro" in resultados[1].error
+
+
 def test_registrar_dispositivo_es_idempotente(db: DBFalsa, repos, actor: Usuario) -> None:
     primero = sync_service.registrar_dispositivo(
         db, uuid=DISPOSITIVO_UUID, plataforma="Android", user_agent="ua-1", actor=actor

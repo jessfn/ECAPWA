@@ -5,7 +5,7 @@
 // `Blob`, nunca base64 — corrige `02` §15). El envío real al backend lo
 // hace el motor de sincronización de ECA-017.
 import { defineStore } from 'pinia'
-import { encolar } from '../services/outbox'
+import { encolar, obtener } from '../services/outbox'
 import { useOutboxStore } from './outbox'
 import { sincronizar } from '../services/sync'
 import { useAuthStore } from './auth'
@@ -42,8 +42,9 @@ export const useActividadStore = defineStore('actividad', {
     }) {
       this.guardando = true
       this.error = ''
+      let registro = null
       try {
-        return await encolar('outbox_actividades', {
+        registro = await encolar('outbox_actividades', {
           uuid: crypto.randomUUID(),
           jornada_uuid: jornadaUuid,
           eca_id: null,
@@ -71,13 +72,26 @@ export const useActividadStore = defineStore('actividad', {
           // guardar la actividad localmente" en TODOS los intentos con GPS.
           gps: gps ? { ...gps } : null,
         })
+        return registro
       } catch {
         this.error = 'No se pudo guardar la actividad localmente.'
         throw new Error('encolar_actividad_fallo')
       } finally {
         this.guardando = false
         await useOutboxStore().refrescar()
-        this.ultimoSync = await sincronizar(useAuthStore()).catch(() => ({ ok: false, motivo: 'error_red' }))
+        const resultadoSync = await sincronizar(useAuthStore()).catch(() => ({ ok: false, motivo: 'error_red' }))
+        // La verdad de ESTA actividad en particular — no el agregado del
+        // lote, que puede incluir otros registros pendientes/rechazados de
+        // antes — es lo que debe decidir el mensaje que ve el técnico. Antes
+        // se confiaba ciegamente en `resultadoSync.ok`, que es `true` con
+        // solo que la petición al servidor haya viajado, aunque ESTA
+        // actividad en particular haya venido RECHAZADA en la respuesta.
+        const registroFinal = registro ? await obtener('outbox_actividades', registro.uuid).catch(() => null) : null
+        this.ultimoSync = {
+          ...resultadoSync,
+          estadoActividad: registroFinal?.estado_local ?? null,
+          errorActividad: registroFinal?.ultimo_error ?? null,
+        }
       }
     },
 
@@ -107,7 +121,18 @@ export const useActividadStore = defineStore('actividad', {
         this.error = `${errores.length} de ${fotos.length} fotos no se pudieron guardar localmente.`
       }
       await useOutboxStore().refrescar()
-      this.ultimoSync = await sincronizar(useAuthStore()).catch(() => ({ ok: false, motivo: 'error_red' }))
+      const resultadoSync = await sincronizar(useAuthStore()).catch(() => ({ ok: false, motivo: 'error_red' }))
+      // Esta sincronización mueve evidencias, no la actividad en sí — pero
+      // como es la ÚLTIMA en correr cuando la actividad lleva fotos (el
+      // caso normal, ver comentario de `NuevaActividadView.mensajeConfirmacion`),
+      // vuelve a leer el estado real de la actividad para no perder esa
+      // verdad detrás del resultado (agregado) de esta segunda sincronización.
+      const registroActividad = await obtener('outbox_actividades', actividadUuid).catch(() => null)
+      this.ultimoSync = {
+        ...resultadoSync,
+        estadoActividad: registroActividad?.estado_local ?? null,
+        errorActividad: registroActividad?.ultimo_error ?? null,
+      }
       return errores
     },
   },

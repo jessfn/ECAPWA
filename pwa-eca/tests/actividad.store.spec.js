@@ -53,6 +53,24 @@ describe('useActividadStore.crear', () => {
     expect(enOutbox).toHaveLength(1)
   })
 
+  // Regresión real: el modal de confirmación mostraba "ya se sincronizó"
+  // (o, por una carrera aparte, "sin señal") sin importar lo que en verdad
+  // le pasó a ESTA actividad — `ultimoSync.ok` solo confirma que la
+  // petición viajó, no que esta actividad puntual fue aceptada. Ahora
+  // `crear()` vuelve a leer el registro del outbox después de sincronizar
+  // y expone su estado real en `estadoActividad`.
+  it('ultimoSync trae el estado real del registro, no solo el agregado del lote', async () => {
+    const actividad = useActividadStore()
+
+    const registro = await actividad.crear(DATOS)
+
+    expect(actividad.ultimoSync).toHaveProperty('estadoActividad')
+    // Sin servidor real en la prueba, la sincronización no puede completarse
+    // — el registro se queda como se encoló (nunca se pierde ni se inventa
+    // un estado que no ocurrió de verdad).
+    expect(actividad.ultimoSync.estadoActividad).toBe(registro.estado_local)
+  })
+
   // Regresión real reportada en producción: registrar una actividad CON
   // ubicación fallaba siempre con "No se pudo guardar la actividad
   // localmente" — un `ref()` de Vue al que se le asigna un objeto (aquí,

@@ -172,4 +172,29 @@ describe('sincronizar', () => {
     expect(resultado.ok).toBe(true)
     expect(resultado.motivo).not.toBe('nada_pendiente')
   })
+
+  // Regresión real reportada en producción: el técnico guardaba una
+  // actividad con buena señal y aun así veía el mensaje de "se subirá en
+  // cuanto tengas señal" — causa: un timer de fondo (`setInterval` en
+  // `main.js`/`AppHeader.vue`) disparaba su propia `sincronizar()` justo en
+  // ese instante, y la llamada de `crear()` perdía la carrera contra el
+  // mutex `sincronizando`, volviendo con un resultado FALSO de
+  // `ya_en_curso` sin haber intentado nada en absoluto. Ahora las llamadas
+  // concurrentes comparten la MISMA promesa: ambas ven el resultado REAL
+  // de la única sincronización que de verdad corrió.
+  it('dos llamadas concurrentes comparten el mismo resultado real (nunca un "ya_en_curso" inventado)', async () => {
+    listar.mockImplementation(async (tienda) =>
+      tienda === 'outbox_actividades'
+        ? [{ uuid: 'a1', estado_local: 'PENDIENTE', jornada_uuid: 'j1', modalidad_id: 1, tipo_actividad_id: 1, descripcion: 'x', fecha_hora: '2026-01-01T09:00:00Z' }]
+        : [],
+    )
+    push.mockResolvedValueOnce({ resultados: [{ uuid: 'a1', resultado: 'APLICADO' }] })
+    const auth = authFalso()
+
+    const [primero, segundo] = await Promise.all([sincronizar(auth), sincronizar(auth)])
+
+    expect(primero).toEqual(segundo)
+    expect(primero).toEqual({ ok: true, aplicados: 1, duplicados: 0, rechazados: 0 })
+    expect(push).toHaveBeenCalledTimes(1) // una sola sincronización real, no dos
+  })
 })
