@@ -23,6 +23,13 @@ const { enLinea } = useConectividad()
 const pestana = ref('registros') // 'registros' | 'actividades'
 const jornadas = ref([])
 const actividades = ref([])
+// Pedido explícito: una foto que no llegó al servidor no debe desaparecer
+// en silencio — antes solo se veía entrando a la pantalla de
+// "Sincronización" (genérica, sin relacionarla con la actividad). Aquí se
+// cruza `outbox_evidencias` por `actividad_uuid` para que la propia
+// tarjeta de la actividad avise si le falta o le fue rechazada una foto,
+// sin importar si la actividad en sí ya se sincronizó.
+const evidenciasPorActividad = ref(new Map())
 const catalogos = ref(null)
 const cargando = ref(false)
 const error = ref('')
@@ -117,12 +124,28 @@ async function cargarActividades() {
   )
 }
 
+async function cargarEvidencias() {
+  const locales = await listar('outbox_evidencias')
+  const mapa = new Map()
+  for (const e of locales) {
+    const actual = mapa.get(e.actividad_uuid) || { rechazadas: 0, pendientes: 0, ultimoError: null }
+    if (e.estado_local === 'RECHAZADO') {
+      actual.rechazadas += 1
+      actual.ultimoError = actual.ultimoError || e.ultimo_error
+    } else if (e.estado_local === 'PENDIENTE' || e.estado_local === 'SINCRONIZANDO') {
+      actual.pendientes += 1
+    }
+    mapa.set(e.actividad_uuid, actual)
+  }
+  evidenciasPorActividad.value = mapa
+}
+
 async function cargar() {
   cargando.value = true
   error.value = ''
   try {
     catalogos.value = await obtenerCatalogos()
-    await Promise.all([cargarJornadas(), cargarActividades()])
+    await Promise.all([cargarJornadas(), cargarActividades(), cargarEvidencias()])
   } finally {
     cargando.value = false
   }
@@ -205,6 +228,7 @@ onMounted(cargar)
               :key="item.actividad.uuid"
               :actividad="item.actividad"
               :estado-sincronizacion="item.estadoSincronizacion"
+              :evidencias-estado="evidenciasPorActividad.get(item.actividad.uuid)"
               v-bind="nombresDe(item.actividad)"
             />
           </section>

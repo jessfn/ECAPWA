@@ -37,13 +37,14 @@ MIME_PERMITIDOS = {
     "image/bmp": "bmp",
     "image/tiff": "tiff",
 }
-# Pedido explícito (2026-09-07): "se deben subir las imágenes como sea, sin
-# importar el tamaño" — el cliente comprime a ~100 KB, pero desde que
-# `CapturaEvidencia.vue` sube el archivo ORIGINAL sin comprimir cuando la
-# compresión falla (celular con poca memoria, formato que el navegador no
-# decodifica, etc.), este límite debe ser generoso de verdad: una foto sin
-# comprimir de una cámara de 48 MP puede pesar 15-20 MB.
-TAMANO_MAXIMO_BYTES = 25 * 1024 * 1024
+# Pedido explícito (2026-09-09, reiterado): "deben poder subir imágenes con
+# el peso que sea" — 25 MB se quedaba corto para fotos sin comprimir de
+# cámaras de gama alta (40-60 MP, modo "alta calidad" de iPhone/Samsung
+# recientes pueden pasar de 30 MB). Subido a 80 MB, justo debajo del
+# `client_max_body_size 100m` de Nginx para este sitio (`apieca-
+# sembrandodatos`) — más que eso, Nginx cortaría la subida con 413 antes
+# de que la petición llegue siquiera a este código.
+TAMANO_MAXIMO_BYTES = 80 * 1024 * 1024
 
 
 def _sniff_imagen(contenido: bytes) -> tuple[str, str] | None:

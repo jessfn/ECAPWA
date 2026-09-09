@@ -119,6 +119,7 @@ const fechaProximoSeguimiento = ref('')
 const avisoExito = ref(false)
 const gps = ref(null)
 const fotos = ref([])
+const procesandoFotos = ref(false)
 const errorFotos = ref('')
 // Candado de reentrada: evita que un doble toque en "Guardar" cree DOS
 // actividades (cada llamada a `actividad.crear` genera un uuid nuevo, así
@@ -211,6 +212,15 @@ onMounted(async () => {
 async function guardar() {
   // Candado síncrono: si ya hay un envío en curso, ignorar el segundo toque.
   if (enviando.value) return
+  // Defensa adicional (bug real): el botón "Guardar" ya se deshabilita
+  // mientras `CapturaEvidencia` está comprimiendo (`procesandoFotos`), pero
+  // un `<form @submit>` también dispara con Enter desde otro campo — este
+  // guard corta ahí también, para que NUNCA se arme el payload con `fotos`
+  // todavía incompleto mientras la compresión sigue en curso.
+  if (procesandoFotos.value) {
+    actividad.error = 'Espera a que terminen de procesarse las fotos antes de guardar.'
+    return
+  }
   enviando.value = true
   actividad.error = ''
   errorFotos.value = ''
@@ -537,6 +547,7 @@ function cerrarAvisoExito() {
             :min-fotos="minFotos"
             :max-fotos="tipoSeleccionado.max_fotos"
             @update:fotos="(f) => (fotos = f)"
+            @update:comprimiendo="(v) => (procesandoFotos = v)"
           />
         </section>
 
@@ -568,12 +579,15 @@ function cerrarAvisoExito() {
         <button
           type="submit"
           class="eca-btn eca-btn-primary"
-          :disabled="enviando || actividad.guardando || !jornada.abierta || !pasoUbicacionListo"
+          :disabled="enviando || actividad.guardando || procesandoFotos || !jornada.abierta || !pasoUbicacionListo"
         >
-          {{ enviando || actividad.guardando ? 'Guardando…' : 'Guardar actividad' }}
+          {{ procesandoFotos ? 'Procesando fotos…' : enviando || actividad.guardando ? 'Guardando…' : 'Guardar actividad' }}
         </button>
         <p v-if="!pasoUbicacionListo" class="eca-ayuda" style="text-align:center;margin:0">
           Captura tu ubicación (paso 1) para poder guardar.
+        </p>
+        <p v-else-if="procesandoFotos" class="eca-ayuda" style="text-align:center;margin:0">
+          Espera un momento, estamos procesando tus fotos…
         </p>
       </form>
     </div>

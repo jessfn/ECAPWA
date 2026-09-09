@@ -14,6 +14,11 @@ const props = defineProps({
   estadoSincronizacion: { type: String, required: true },
   modalidadNombre: { type: String, default: null },
   tipoActividadNombre: { type: String, default: null },
+  // { rechazadas, pendientes, ultimoError } del cruce con `outbox_evidencias`
+  // — `undefined`/`null` cuando esta actividad no tiene ninguna evidencia
+  // local rastreada (ya se sincronizaron todas hace tiempo y se purgaron,
+  // o la actividad nunca llevó fotos).
+  evidenciasEstado: { type: Object, default: null },
 })
 
 const ETIQUETAS = {
@@ -63,6 +68,15 @@ const coords = gps?.latitud != null && gps?.longitud != null ? `${gps.latitud.to
       </p>
 
       <p v-if="actividad.ultimo_error" class="actividad-card__error">{{ actividad.ultimo_error }}</p>
+
+      <p v-if="evidenciasEstado?.rechazadas" class="actividad-card__error">
+        <AuthIcon name="alert" />
+        {{ evidenciasEstado.rechazadas }} foto{{ evidenciasEstado.rechazadas > 1 ? 's' : '' }} no se pudo subir{{ evidenciasEstado.rechazadas > 1 ? 'ieron' : '' }}{{ evidenciasEstado.ultimoError ? `: ${evidenciasEstado.ultimoError}` : '' }}
+      </p>
+      <p v-else-if="evidenciasEstado?.pendientes" class="actividad-card__pendiente">
+        <AuthIcon name="clock" />
+        Subiendo {{ evidenciasEstado.pendientes }} foto{{ evidenciasEstado.pendientes > 1 ? 's' : '' }}…
+      </p>
     </div>
   </article>
 </template>
@@ -159,8 +173,29 @@ const coords = gps?.latitud != null && gps?.longitud != null ? `${gps.latitud.to
   flex-shrink: 0;
 }
 .actividad-card__error {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
   color: var(--eca-danger);
   font-size: 0.82rem;
   margin: 0;
+}
+.actividad-card__error svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+.actividad-card__pendiente {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--eca-ink-soft);
+  font-size: 0.82rem;
+  margin: 0;
+}
+.actividad-card__pendiente svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
 }
 </style>

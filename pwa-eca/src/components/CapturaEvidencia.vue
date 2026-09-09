@@ -17,7 +17,7 @@ const props = defineProps({
   minFotos: { type: Number, default: 0 },
   maxFotos: { type: Number, default: 3 },
 })
-const emit = defineEmits(['update:fotos'])
+const emit = defineEmits(['update:fotos', 'update:comprimiendo'])
 
 const fotos = ref([]) // [{ id, archivo, previsualizacion }]
 const comprimiendo = ref(false)
@@ -47,6 +47,17 @@ async function onSeleccionArchivos(evento) {
   }
 
   comprimiendo.value = true
+  // Pedido explícito (2026-09-09): "Guardar" no debe poder tocarse mientras
+  // se están procesando fotos. Bug real: si el técnico tocaba "Guardar" en
+  // el instante entre tomar la foto y que terminara de comprimirse (1-3 s
+  // en celulares de gama baja), el padre (`NuevaActividadView.vue`) armaba
+  // el payload con `fotos` TODAVÍA VACÍO — y si el tipo de actividad tenía
+  // `min_fotos = 0` (evidencia "opcional"), no había ningún guard que lo
+  // detectara: la actividad se creaba sin evidencia, sin ningún rastro de
+  // error en ningún lado (nunca llegaba a encolarse, así que ni siquiera
+  // quedaba un registro RECHAZADO). Este evento le avisa al padre para que
+  // deshabilite "Guardar" mientras `comprimiendo` sea `true`.
+  emit('update:comprimiendo', true)
   try {
     for (const original of aProcesar) {
       let archivoFinal
@@ -66,6 +77,7 @@ async function onSeleccionArchivos(evento) {
   } finally {
     comprimiendo.value = false
     emit('update:fotos', fotos.value)
+    emit('update:comprimiendo', false)
   }
 }
 

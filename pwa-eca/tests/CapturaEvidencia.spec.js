@@ -77,4 +77,37 @@ describe('CapturaEvidencia', () => {
     expect(fotos).toHaveLength(1)
     expect(fotos[0].archivo.name).toBe('foto.jpg')
   })
+
+  // Regresión real reportada en producción: una actividad se creó sin
+  // ninguna foto aunque el técnico sí la tomó. Causa raíz: `comprimiendo`
+  // vivía solo dentro de este componente — el padre (`NuevaActividadView`)
+  // no sabía que seguía en curso y dejaba tocar "Guardar" mientras la
+  // compresión aún corría, armando el payload con `fotos` todavía vacío.
+  // Ahora este componente también emite `update:comprimiendo` para que el
+  // padre pueda deshabilitar "Guardar" en esa ventana.
+  it('emite update:comprimiendo(true) al empezar a procesar y (false) al terminar', async () => {
+    let resolverCompresion
+    comprimirImagen.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolverCompresion = resolve
+      }),
+    )
+    const wrapper = mount(CapturaEvidencia, { props: { minFotos: 1, maxFotos: 3 } })
+
+    const disparo = dispararSeleccion(wrapper, [archivoDe('foto.jpg')])
+    await wrapper.vm.$nextTick()
+
+    // Mientras la compresión sigue pendiente, ya se avisó `true` y todavía
+    // no se avisó `false` — esta es exactamente la ventana en la que antes
+    // se podía tocar "Guardar" con `fotos` vacío en el padre.
+    expect(wrapper.emitted('update:comprimiendo')?.[0]).toEqual([true])
+    expect(wrapper.emitted('update:comprimiendo')).toHaveLength(1)
+
+    resolverCompresion(new Blob(['ok']))
+    await disparo
+    await wrapper.vm.$nextTick()
+
+    const eventos = wrapper.emitted('update:comprimiendo')
+    expect(eventos.at(-1)).toEqual([false])
+  })
 })
