@@ -13,6 +13,7 @@ piloto — se gatea únicamente con `actividades.ver_todas` (hoy solo
 """
 from __future__ import annotations
 
+import logging
 import uuid as uuid_lib
 from datetime import datetime
 
@@ -29,6 +30,8 @@ from app.repositories import actividades as repo_actividades
 from app.repositories import evidencias as repo_evidencias
 from app.schemas.evidencia import EvidenciaPublica
 from app.services import evidencias_service
+
+logger = logging.getLogger("app.evidencias")
 
 router = APIRouter(tags=["evidencias"])
 
@@ -79,6 +82,20 @@ async def subir_evidencia(
     except evidencias_service.ActividadAjenaError as exc:
         raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
     except _ERRORES_422 as exc:
+        # Antes esto era invisible en los logs (solo se veía "422" en el
+        # access log, sin el motivo) — diagnosticar una evidencia rechazada
+        # exigía adivinar o entrar por SSH a cruzar contra la base de datos.
+        # Con el motivo y el tamaño real del archivo en el log, se ve de
+        # inmediato en `journalctl -u apieca` por qué se rechazó cada una.
+        logger.warning(
+            "evidencia rechazada: actividad=%s uuid=%s orden=%s mime_declarado=%s tamano_bytes=%s motivo=%s",
+            actividad_uuid,
+            uuid,
+            orden,
+            archivo.content_type,
+            len(contenido),
+            exc,
+        )
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
 
     return EvidenciaPublica.model_validate(evidencia)
