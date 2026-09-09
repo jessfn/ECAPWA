@@ -78,12 +78,23 @@ def _detalles_serializables(errores: list[dict]) -> list[dict]:
 
 
 async def _manejar_validacion(request: Request, exc: RequestValidationError) -> JSONResponse:
+    detalles = _detalles_serializables(exc.errors())
+    # Se registra el motivo (campo + tipo de error) — sin esto, un 422 de
+    # validación de FastAPI solo se veía como "422" en el access log, sin
+    # forma de saber QUÉ campo falló (justo lo que pasaba con las subidas de
+    # evidencias desde iPhone). El cuerpo con detalles ya iba al cliente,
+    # pero el cliente offline lo descarta; el log del servidor es el único
+    # lugar donde queda para diagnosticar.
+    resumen = [
+        {"loc": e.get("loc"), "type": e.get("type"), "msg": e.get("msg")} for e in detalles
+    ]
+    logger.warning("422 validación en %s %s: %s", request.method, request.url.path, resumen)
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content=_cuerpo_error(
             "datos_invalidos",
             "Los datos enviados no son válidos.",
-            details=_detalles_serializables(exc.errors()),
+            details=detalles,
         ),
     )
 
