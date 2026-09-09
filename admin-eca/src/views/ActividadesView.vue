@@ -44,6 +44,13 @@ const municipios = ref([])
 const municipioId = ref(null)
 const tiposActividad = ref([])
 const tipoActividadId = ref(null)
+// Solo para mostrar el nombre real en el detalle (pedido explícito: el
+// modal no mostraba tema/subtema/sistema productivo en absoluto) — no se
+// usan como filtro de la tabla, así que no hace falta cargarlos "todos"
+// para el selector, basta con lo que ya trae el catálogo activo.
+const temas = ref([])
+const subtemas = ref([])
+const sistemasProductivos = ref([])
 const estadoGps = ref('')
 const desde = ref('')
 const hasta = ref('')
@@ -213,6 +220,21 @@ function tipoInfo(actividad) {
   const tipo = tiposActividad.value.find((t) => t.id === actividad.tipo_actividad_id)
   const indice = tiposActividad.value.findIndex((t) => t.id === actividad.tipo_actividad_id)
   return { nombre: tipo?.nombre || '—', color: COLORES_TIPO[Math.max(0, indice) % COLORES_TIPO.length] }
+}
+function temaNombre(actividad) {
+  if (!actividad.tema_id) return null
+  return temas.value.find((t) => t.id === actividad.tema_id)?.nombre || `Tema #${actividad.tema_id}`
+}
+function subtemaNombre(actividad) {
+  if (!actividad.subtema_id) return null
+  return subtemas.value.find((s) => s.id === actividad.subtema_id)?.nombre || `Subtema #${actividad.subtema_id}`
+}
+function sistemaProductivoNombre(actividad) {
+  if (!actividad.sistema_productivo_id) return null
+  return (
+    sistemasProductivos.value.find((s) => s.id === actividad.sistema_productivo_id)?.nombre ||
+    `Sistema #${actividad.sistema_productivo_id}`
+  )
 }
 
 // ---- Modal de detalle (pedido explícito: ya no navega a otra vista) ----
@@ -499,6 +521,9 @@ onMounted(async () => {
     cargarEcas(),
     listarEstados().then((r) => (estados.value = r)),
     listarCatalogo('tipos-actividad', { todos: true }).then((r) => (tiposActividad.value = r)),
+    listarCatalogo('temas', { todos: true }).then((r) => (temas.value = r)),
+    listarCatalogo('subtemas', { todos: true }).then((r) => (subtemas.value = r)),
+    listarCatalogo('sistemas-productivos', { todos: true }).then((r) => (sistemasProductivos.value = r)),
   ])
   await cargar()
 })
@@ -692,6 +717,7 @@ onMounted(async () => {
               </td>
               <td>
                 <span class="eca-badge" :class="`eca-badge--${tipoInfo(a).color}`">{{ tipoInfo(a).nombre }}</span>
+                <span v-if="a.tipo_actividad_otro_texto" class="actividades__otro-chico">{{ a.tipo_actividad_otro_texto }}</span>
               </td>
               <td>
                 <span class="actividades__fecha-badge">{{ new Date(a.fecha_hora).toLocaleDateString('es-MX') }}</span>
@@ -796,6 +822,30 @@ onMounted(async () => {
                       <div class="actividades__modal-dato">
                         <span class="actividades__modal-dato-etiqueta">Tipo</span>
                         <span class="actividades__modal-dato-valor">{{ tipoInfo(modalDetalle).nombre }}</span>
+                        <small v-if="modalDetalle.tipo_actividad_otro_texto" class="actividades__modal-otro">
+                          {{ modalDetalle.tipo_actividad_otro_texto }}
+                        </small>
+                      </div>
+                      <div v-if="temaNombre(modalDetalle)" class="actividades__modal-dato">
+                        <span class="actividades__modal-dato-etiqueta">Tema</span>
+                        <span class="actividades__modal-dato-valor">{{ temaNombre(modalDetalle) }}</span>
+                        <small v-if="modalDetalle.tema_otro_texto" class="actividades__modal-otro">
+                          {{ modalDetalle.tema_otro_texto }}
+                        </small>
+                      </div>
+                      <div v-if="subtemaNombre(modalDetalle)" class="actividades__modal-dato">
+                        <span class="actividades__modal-dato-etiqueta">Subtema</span>
+                        <span class="actividades__modal-dato-valor">{{ subtemaNombre(modalDetalle) }}</span>
+                        <small v-if="modalDetalle.subtema_otro_texto" class="actividades__modal-otro">
+                          {{ modalDetalle.subtema_otro_texto }}
+                        </small>
+                      </div>
+                      <div v-if="sistemaProductivoNombre(modalDetalle)" class="actividades__modal-dato">
+                        <span class="actividades__modal-dato-etiqueta">Sistema productivo</span>
+                        <span class="actividades__modal-dato-valor">{{ sistemaProductivoNombre(modalDetalle) }}</span>
+                        <small v-if="modalDetalle.sistema_productivo_otro_texto" class="actividades__modal-otro">
+                          {{ modalDetalle.sistema_productivo_otro_texto }}
+                        </small>
                       </div>
                       <div class="actividades__modal-dato">
                         <span class="actividades__modal-dato-etiqueta">ECA</span>
@@ -1402,6 +1452,20 @@ select.actividades__control:disabled {
   display: block;
   font-size: 0.75rem;
   color: var(--eca-ink-soft);
+}
+/* "Otro" con lo que en verdad escribió el técnico, chico y debajo del
+   badge — pedido explícito: antes solo se veía "Otro" sin saber a qué se
+   refería. */
+.actividades__otro-chico {
+  display: block;
+  margin-top: 0.2rem;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #1d3fd6;
 }
 
 /* Miniatura de evidencia */
@@ -2175,6 +2239,16 @@ select.actividades__control:disabled {
   font-size: 0.78rem;
   font-weight: 500;
   color: var(--eca-ink-soft);
+}
+/* Lo que en verdad escribió el técnico al elegir "Otro" — azul rey, mismo
+   color que ya distingue este campo en la PWA de captura, para que se
+   reconozca de un vistazo como "esto es lo que dijeron que era el otro". */
+.actividades__modal-otro {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #1d3fd6;
 }
 .actividades__modal-vacio {
   font-size: 0.82rem;
