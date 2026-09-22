@@ -129,6 +129,12 @@
       <circle cx="8.3" cy="9.3" r="1.8" />
       <path d="M4 17.5l5-5.3 3.3 3.3 2.7-3 5 5" />
     </template>
+    <template v-else-if="name === 'chevron-left'">
+      <path d="M15 5.5 8 12l7 6.5" />
+    </template>
+    <template v-else-if="name === 'chevron-right'">
+      <path d="M9 5.5 16 12l-7 6.5" />
+    </template>
   </svg>
 </template>
 

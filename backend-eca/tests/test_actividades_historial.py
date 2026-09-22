@@ -144,6 +144,30 @@ def test_listar_actividades_admin_combina_filtros_con_and(
     }
 
 
+def test_listar_mis_actividades_incluye_miniatura_de_evidencia(
+    cliente: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Regresión real (pedido explícito): el Historial de la PWA de técnico
+    # no mostraba ninguna foto de sus actividades — a diferencia del listado
+    # admin, `GET /actividades/me` nunca se enriquecía con
+    # `primera_evidencia_id`/`num_evidencias`.
+    from app.repositories import rbac as repo_rbac
+
+    monkeypatch.setattr(repo_rbac, "permisos_efectivos_de", lambda _db, _uid: {"actividades.ver_propias"})
+
+    actividad = _actividad(id=9, usuario_id=1)
+    monkeypatch.setattr(repo_actividades, "listar", lambda _db, **_kw: ([actividad], 1))
+    monkeypatch.setattr(repo_evidencias, "primera_por_actividad", lambda _db, ids: {9: 42} if ids == [9] else {})
+    monkeypatch.setattr(repo_evidencias, "conteo_por_actividad", lambda _db, ids: {9: 3} if ids == [9] else {})
+
+    respuesta = cliente.get("/actividades/me")
+
+    assert respuesta.status_code == 200
+    fila = respuesta.json()["resultados"][0]
+    assert fila["primera_evidencia_id"] == 42
+    assert fila["num_evidencias"] == 3
+
+
 def test_detalle_incluye_evidencias(cliente: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     from app.repositories import rbac as repo_rbac
 

@@ -103,7 +103,23 @@ def listar_mis_actividades(
         page=page,
         page_size=page_size,
     )
-    return ActividadListaPaginada(total=total, page=page, page_size=page_size, resultados=resultados)
+
+    # Miniatura + conteo de evidencias por fila (pedido explícito: el
+    # Historial de la PWA de técnico no mostraba ninguna foto) — mismas DOS
+    # consultas para toda la página que ya usa el listado admin, nunca N+1.
+    ids = [a.id for a in resultados]
+    mapa_evidencias = repo_evidencias.primera_por_actividad(db, ids)
+    mapa_conteo = repo_evidencias.conteo_por_actividad(db, ids)
+    publicos = [
+        ActividadPublica.model_validate(a).model_copy(
+            update={
+                "primera_evidencia_id": mapa_evidencias.get(a.id),
+                "num_evidencias": mapa_conteo.get(a.id, 0),
+            }
+        )
+        for a in resultados
+    ]
+    return ActividadListaPaginada(total=total, page=page, page_size=page_size, resultados=publicos)
 
 
 def _filtros_admin(

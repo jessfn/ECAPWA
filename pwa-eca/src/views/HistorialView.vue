@@ -7,10 +7,10 @@
      con lo del servidor — el indicador "sin sincronizar" se calcula del
      `estado_local` del outbox, nunca de una columna de la BD (§2.3). -->
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { RouterLink } from 'vue-router'
 import { listar } from '../services/outbox'
-import { listarMisActividades } from '../services/actividadesService'
+import { listarMisActividades, obtenerActividad, urlVistaPreviaEvidencia } from '../services/actividadesService'
 import { listarMisJornadas } from '../services/jornadasService'
 import { obtenerCatalogos, nombrePorId } from '../services/catalogosCache'
 import { useConectividad } from '../services/conectividad'
@@ -30,6 +30,14 @@ const actividades = ref([])
 // tarjeta de la actividad avise si le falta o le fue rechazada una foto,
 // sin importar si la actividad en sí ya se sincronizó.
 const evidenciasPorActividad = ref(new Map())
+// Pedido explícito: que en Historial > Actividades aparezcan las fotos que
+// se van subiendo. Miniatura por actividad (`actividad_uuid -> Object URL`)
+// — se arma PRIMERO desde el propio dispositivo (`outbox_evidencias`, que
+// conserva el archivo hasta 30 días después de sincronizado, ver
+// `services/outbox.js: purgar`) y solo se pide al servidor si no hay nada
+// local (actividad sincronizada hace tiempo desde otro dispositivo, o ya
+// purgada). Así casi nunca depende de la red.
+const vistasPrevias = ref({})
 const catalogos = ref(null)
 const cargando = ref(false)
 const error = ref('')
@@ -124,9 +132,15 @@ async function cargarActividades() {
   )
 }
 
+function limpiarVistasPrevias() {
+  for (const url of Object.values(vistasPrevias.value)) URL.revokeObjectURL(url)
+  vistasPrevias.value = {}
+}
+
 async function cargarEvidencias() {
   const locales = await listar('outbox_evidencias')
   const mapa = new Map()
+  const primeraLocalPorActividad = new Map() // actividad_uuid -> registro con menor `orden`
   for (const e of locales) {
     const actual = mapa.get(e.actividad_uuid) || { rechazadas: 0, pendientes: 0, ultimoError: null }
     if (e.estado_local === 'RECHAZADO') {
@@ -136,22 +150,144 @@ async function cargarEvidencias() {
       actual.pendientes += 1
     }
     mapa.set(e.actividad_uuid, actual)
+
+    const previa = primeraLocalPorActividad.get(e.actividad_uuid)
+    if (!previa || e.orden < previa.orden) primeraLocalPorActividad.set(e.actividad_uuid, e)
   }
   evidenciasPorActividad.value = mapa
+
+  // Miniaturas locales: se reconstruye el Blob desde los bytes guardados
+  // (`archivo_buffer`, el formato durable — ver `stores/actividad.js`) o,
+  // para registros más viejos, el `archivo` (Blob) tal cual.
+  for (const [actividadUuid, evidencia] of primeraLocalPorActividad) {
+    const blob = evidencia.archivo_buffer
+      ? new Blob([evidencia.archivo_buffer], { type: evidencia.archivo_mime || 'image/jpeg' })
+      : evidencia.archivo
+    if (blob) vistasPrevias.value[actividadUuid] = URL.createObjectURL(blob)
+  }
+}
+
+// Para actividades sin ninguna evidencia local (sincronizadas hace tiempo
+// desde otro dispositivo, o ya purgadas) se pide la miniatura al servidor
+// — mejor esfuerzo, en paralelo, sin bloquear el resto de la pantalla.
+function cargarVistasPreviasRemotas() {
+  if (!enLinea.value) return
+  for (const item of actividades.value) {
+    const uuid = item.actividad.uuid
+    const evidenciaId = item.actividad.primera_evidencia_id
+    if (vistasPrevias.value[uuid] || !evidenciaId) continue
+    urlVistaPreviaEvidencia(evidenciaId)
+      .then((url) => {
+        vistasPrevias.value = { ...vistasPrevias.value, [uuid]: url }
+      })
+      .catch(() => {})
+  }
 }
 
 async function cargar() {
   cargando.value = true
   error.value = ''
+  limpiarVistasPrevias()
   try {
     catalogos.value = await obtenerCatalogos()
     await Promise.all([cargarJornadas(), cargarActividades(), cargarEvidencias()])
+    cargarVistasPreviasRemotas()
   } finally {
     cargando.value = false
   }
 }
 
-onMounted(cargar)
+function onTeclaVisor(evento) {
+  if (!visorAbierto.value) return
+  if (evento.key === 'Escape') cerrarVisor()
+  if (visorFotos.value.length > 1) {
+    if (evento.key === 'ArrowRight') fotoSiguiente()
+    if (evento.key === 'ArrowLeft') fotoAnterior()
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onTeclaVisor)
+  cargar()
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onTeclaVisor)
+  limpiarVistasPrevias()
+  limpiarVisor()
+})
+
+// ---- Visor de fotos (lightbox) — pedido explícito: poder ver las fotos
+// que se van subiendo, no solo una miniatura chica. Al tocar la miniatura
+// se piden TODAS las evidencias de esa actividad (detalle completo) y se
+// navega entre ellas, mismo patrón que ya usa admin-eca. ----
+const visorAbierto = ref(false)
+const visorFotos = ref([]) // [{ id, url }]
+const visorIndice = ref(0)
+const visorCargando = ref(false)
+const visorError = ref('')
+
+function limpiarVisor() {
+  for (const f of visorFotos.value) {
+    if (f.url) URL.revokeObjectURL(f.url)
+  }
+  visorFotos.value = []
+}
+
+async function abrirFotos(item) {
+  const actividad = item.actividad
+  visorAbierto.value = true
+  visorCargando.value = true
+  visorError.value = ''
+  visorIndice.value = 0
+  limpiarVisor()
+  try {
+    // Local primero (sin red, siempre disponible mientras no se purgue):
+    // todas las evidencias de esa actividad que sigan en el outbox.
+    const locales = (await listar('outbox_evidencias'))
+      .filter((e) => e.actividad_uuid === actividad.uuid)
+      .sort((a, b) => a.orden - b.orden)
+
+    if (locales.length) {
+      visorFotos.value = locales.map((e) => {
+        const blob = e.archivo_buffer
+          ? new Blob([e.archivo_buffer], { type: e.archivo_mime || 'image/jpeg' })
+          : e.archivo
+        return { id: e.uuid, url: blob ? URL.createObjectURL(blob) : null }
+      })
+    } else if (item.estadoSincronizacion === 'SINCRONIZADO' && navigator.onLine) {
+      // Sin nada local: se pide el detalle completo al servidor.
+      const detalle = await obtenerActividad(actividad.uuid)
+      const evidencias = detalle.evidencias || []
+      visorFotos.value = evidencias.map((e) => ({ id: e.id, url: null }))
+      await Promise.all(
+        evidencias.map((e, i) =>
+          urlVistaPreviaEvidencia(e.id)
+            .then((url) => {
+              if (visorFotos.value[i]) visorFotos.value[i] = { id: e.id, url }
+            })
+            .catch(() => {}),
+        ),
+      )
+    }
+    if (!visorFotos.value.length) visorError.value = 'Esta actividad no tiene fotos.'
+  } catch {
+    visorError.value = 'No se pudieron cargar las fotos.'
+  } finally {
+    visorCargando.value = false
+  }
+}
+function cerrarVisor() {
+  visorAbierto.value = false
+  limpiarVisor()
+}
+function fotoSiguiente() {
+  if (!visorFotos.value.length) return
+  visorIndice.value = (visorIndice.value + 1) % visorFotos.value.length
+}
+function fotoAnterior() {
+  if (!visorFotos.value.length) return
+  visorIndice.value = (visorIndice.value - 1 + visorFotos.value.length) % visorFotos.value.length
+}
 </script>
 
 <template>
@@ -229,12 +365,64 @@ onMounted(cargar)
               :actividad="item.actividad"
               :estado-sincronizacion="item.estadoSincronizacion"
               :evidencias-estado="evidenciasPorActividad.get(item.actividad.uuid)"
+              :foto-previa="vistasPrevias[item.actividad.uuid]"
               v-bind="nombresDe(item.actividad)"
+              @ver-fotos="abrirFotos(item)"
             />
           </section>
         </div>
       </template>
     </div>
+
+    <!-- ============ Visor de fotos (lightbox) ============ -->
+    <Teleport to="body">
+      <Transition name="historial-visor-fondo">
+        <div v-if="visorAbierto" class="historial-visor" @click.self="cerrarVisor">
+          <button type="button" class="historial-visor__cerrar" aria-label="Cerrar" @click="cerrarVisor">
+            <AuthIcon name="close" />
+          </button>
+
+          <span v-if="visorFotos.length > 1" class="historial-visor__contador">
+            {{ visorIndice + 1 }} / {{ visorFotos.length }}
+          </span>
+
+          <button
+            v-if="visorFotos.length > 1"
+            type="button"
+            class="historial-visor__nav historial-visor__nav--prev"
+            aria-label="Anterior"
+            @click="fotoAnterior"
+          >
+            <AuthIcon name="chevron-left" />
+          </button>
+
+          <div class="historial-visor__lienzo">
+            <p v-if="visorCargando" class="historial-visor__estado">Cargando…</p>
+            <p v-else-if="visorError" class="historial-visor__estado">{{ visorError }}</p>
+            <Transition v-else name="historial-visor-imagen" mode="out-in">
+              <img
+                v-if="visorFotos[visorIndice]?.url"
+                :key="visorFotos[visorIndice].id"
+                :src="visorFotos[visorIndice].url"
+                alt="Evidencia"
+                class="historial-visor__img"
+              />
+              <p v-else key="cargando-img" class="historial-visor__estado">Cargando imagen…</p>
+            </Transition>
+          </div>
+
+          <button
+            v-if="visorFotos.length > 1"
+            type="button"
+            class="historial-visor__nav historial-visor__nav--next"
+            aria-label="Siguiente"
+            @click="fotoSiguiente"
+          >
+            <AuthIcon name="chevron-right" />
+          </button>
+        </div>
+      </Transition>
+    </Teleport>
   </main>
 </template>
 
@@ -353,5 +541,121 @@ onMounted(cargar)
 .historial__vacio span {
   font-size: 0.82rem;
   margin-bottom: 0.5rem;
+}
+
+/* ---- Visor de fotos (lightbox) ---- */
+.historial-visor {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.25rem;
+  background: rgba(10, 15, 12, 0.9);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.historial-visor-fondo-enter-active,
+.historial-visor-fondo-leave-active {
+  transition: opacity 0.2s ease;
+}
+.historial-visor-fondo-enter-from,
+.historial-visor-fondo-leave-to {
+  opacity: 0;
+}
+.historial-visor__lienzo {
+  flex: 1;
+  max-width: min(92vw, 700px);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.historial-visor__img {
+  max-width: 100%;
+  max-height: 80vh;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  object-fit: contain;
+}
+.historial-visor-imagen-enter-active,
+.historial-visor-imagen-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.historial-visor-imagen-enter-from {
+  opacity: 0;
+  transform: scale(0.98);
+}
+.historial-visor-imagen-leave-to {
+  opacity: 0;
+}
+.historial-visor__estado {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.95rem;
+}
+.historial-visor__cerrar {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.historial-visor__cerrar svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.historial-visor__contador {
+  position: absolute;
+  top: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.historial-visor__nav {
+  flex-shrink: 0;
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.historial-visor__nav svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+@media (max-width: 640px) {
+  .historial-visor {
+    padding: 0.6rem;
+    gap: 0.25rem;
+  }
+  .historial-visor__nav {
+    width: 2.3rem;
+    height: 2.3rem;
+  }
+  .historial-visor__img {
+    max-height: 72vh;
+  }
 }
 </style>

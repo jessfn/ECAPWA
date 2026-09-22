@@ -19,7 +19,24 @@ const props = defineProps({
   // local rastreada (ya se sincronizaron todas hace tiempo y se purgaron,
   // o la actividad nunca llevó fotos).
   evidenciasEstado: { type: Object, default: null },
+  // Object URL de la primera foto (pedido explícito: que las fotos
+  // aparezcan en el Historial) — `null` mientras no hay ninguna disponible
+  // todavía (sin evidencias, o la miniatura remota sigue cargando).
+  fotoPrevia: { type: String, default: null },
 })
+const emit = defineEmits(['ver-fotos'])
+
+// Cuántas fotos tiene en total (para el "+N"): la propia actividad ya trae
+// `num_evidencias` cuando viene del servidor; si es un registro local
+// (`outbox_actividades`) sin ese campo, se cuentan las locales pendientes/
+// rechazadas/sincronizadas de `evidenciasEstado` como piso razonable.
+const numFotos =
+  props.actividad.num_evidencias ??
+  (props.evidenciasEstado ? props.evidenciasEstado.rechazadas + props.evidenciasEstado.pendientes : 0)
+// Se puede tocar la miniatura si ya hay una imagen visible, o si se sabe
+// que existe al menos una foto aunque la miniatura todavía esté cargando
+// (el visor la vuelve a pedir al abrir).
+const tieneFotos = Boolean(props.fotoPrevia) || numFotos > 0 || Boolean(props.actividad.primera_evidencia_id)
 
 const ETIQUETAS = {
   SINCRONIZADO: 'Sincronizada',
@@ -60,8 +77,26 @@ const coords = gps?.latitud != null && gps?.longitud != null ? `${gps.latitud.to
         {{ tipoActividadNombre }}<template v-if="tipoActividadNombre && modalidadNombre"> · </template>{{ modalidadNombre }}
       </p>
 
-      <p class="actividad-card__descripcion">{{ actividad.descripcion }}</p>
-      <p v-if="actividad.resultado" class="eca-ayuda">{{ actividad.resultado }}</p>
+      <div class="actividad-card__fila">
+        <button
+          v-if="tieneFotos"
+          type="button"
+          class="actividad-card__foto-boton"
+          title="Ver fotos"
+          @click="emit('ver-fotos')"
+        >
+          <img v-if="fotoPrevia" :src="fotoPrevia" alt="Evidencia" class="actividad-card__foto" />
+          <span v-else class="actividad-card__foto actividad-card__foto--cargando">
+            <AuthIcon name="sync" />
+          </span>
+          <span v-if="numFotos > 1" class="actividad-card__foto-conteo">+{{ numFotos - 1 }}</span>
+        </button>
+
+        <div class="actividad-card__textos">
+          <p class="actividad-card__descripcion">{{ actividad.descripcion }}</p>
+          <p v-if="actividad.resultado" class="eca-ayuda">{{ actividad.resultado }}</p>
+        </div>
+      </div>
 
       <p v-if="coords" class="actividad-card__coords">
         <AuthIcon name="map-pin" /> {{ coords }}
@@ -154,6 +189,71 @@ const coords = gps?.latitud != null && gps?.longitud != null ? `${gps.latitud.to
   color: var(--eca-ink-soft);
   text-transform: uppercase;
   letter-spacing: 0.02em;
+}
+.actividad-card__fila {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+.actividad-card__textos {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.actividad-card__foto-boton {
+  position: relative;
+  flex-shrink: 0;
+  width: 3.4rem;
+  height: 3.4rem;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  overflow: visible;
+  cursor: pointer;
+  background: none;
+}
+.actividad-card__foto {
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  object-fit: cover;
+  display: block;
+  box-shadow: var(--eca-shadow-card);
+}
+.actividad-card__foto--cargando {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--eca-surface);
+  color: var(--eca-ink-soft);
+}
+.actividad-card__foto--cargando svg {
+  width: 1rem;
+  height: 1rem;
+  animation: actividad-card-girar 0.9s linear infinite;
+}
+@keyframes actividad-card-girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.actividad-card__foto-conteo {
+  position: absolute;
+  bottom: -0.3rem;
+  right: -0.3rem;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--eca-green-600);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1.15rem;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 .actividad-card__descripcion {
   margin: 0;
