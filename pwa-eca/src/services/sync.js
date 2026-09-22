@@ -9,6 +9,7 @@ import { registrarDispositivo, push } from './syncPushService'
 import { subirEvidencia } from './evidenciasService'
 import { ejecutarPull } from './bootstrap'
 import { useAuthStore } from '../stores/auth'
+import { useOutboxStore } from '../stores/outbox'
 import { asegurarSesionDeServidor } from './sesionServidor'
 
 const CLAVE_DISPOSITIVO = 'eca_tecnico_dispositivo_uuid'
@@ -142,6 +143,26 @@ export function sincronizar(auth) {
 }
 
 async function _sincronizarInterno(auth) {
+  try {
+    return await _correrSincronizacion(auth)
+  } finally {
+    // Pedido explícito: "Subiendo N fotos…" en el Historial se quedaba
+    // congelado hasta cerrar y reabrir la app. Causa: esa pantalla lee el
+    // store reactivo `outboxStore.items`, pero solo quien LLAMABA a
+    // `sincronizar()` refrescaba ese store (`stores/actividad.js`/
+    // `jornada.js`, justo ANTES de sincronizar) — una sincronización
+    // disparada por el timer de fondo, el evento `online`, u otra
+    // pantalla, terminaba sin que NADA avisara al store que el estado
+    // real ya había cambiado. Refrescando aquí, al final de CUALQUIER
+    // sincronización (haya sido pedida por quien sea), toda pantalla que
+    // dependa del store se entera sola, sin recargar la app.
+    await useOutboxStore()
+      .refrescar()
+      .catch(() => {})
+  }
+}
+
+async function _correrSincronizacion(auth) {
   try {
     if (!navigator.onLine) {
       return { ok: false, motivo: 'sin_red', aplicados: 0, duplicados: 0, rechazados: 0 }

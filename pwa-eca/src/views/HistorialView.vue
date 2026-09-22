@@ -7,9 +7,9 @@
      con lo del servidor — el indicador "sin sincronizar" se calcula del
      `estado_local` del outbox, nunca de una columna de la BD (§2.3). -->
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { RouterLink } from 'vue-router'
-import { listar } from '../services/outbox'
+import { useOutboxStore } from '../stores/outbox'
 import { listarMisActividades, obtenerActividad, urlVistaPreviaEvidencia } from '../services/actividadesService'
 import { listarMisJornadas } from '../services/jornadasService'
 import { obtenerCatalogos, nombrePorId } from '../services/catalogosCache'
@@ -20,16 +20,65 @@ import BackButton from '../components/BackButton.vue'
 import AuthIcon from '../components/auth/AuthIcon.vue'
 
 const { enLinea } = useConectividad()
+// Pedido explícito (bug real): "Subiendo N fotos…" se quedaba congelado
+// hasta cerrar y reabrir la app. Causa: esta pantalla leía el outbox con
+// un `listar(...)` de una sola vez al montar — una vez armado el `Map`,
+// nada volvía a tocarlo aunque el motor de sincronización terminara de
+// subir las fotos en segundo plano. `useOutboxStore().items` SÍ es
+// reactivo (Pinia) y `services/sync.js` ahora lo refresca al terminar
+// CUALQUIER sincronización (la disparó quien sea) — todo lo de aquí que
+// dependa de él (`computed`/`watch`) se actualiza solo, sin recargar nada.
+const outboxStore = useOutboxStore()
+const jornadasLocales = computed(() => outboxStore.items.filter((i) => i.tipo === 'jornada'))
+const actividadesLocales = computed(() => outboxStore.items.filter((i) => i.tipo === 'actividad'))
+const evidenciasLocales = computed(() => outboxStore.items.filter((i) => i.tipo === 'evidencia'))
+
 const pestana = ref('registros') // 'registros' | 'actividades'
-const jornadas = ref([])
-const actividades = ref([])
+// Solo la mitad "servidor" se pide por red y se cachea en un ref simple —
+// la mitad "local" sale del store reactivo de arriba. `jornadas`/
+// `actividades` (abajo) mezclan ambas en un `computed`, así que se
+// actualizan solos en cuanto cambie CUALQUIERA de las dos mitades.
+const remotasJornadasPorUuid = ref(new Map())
+const remotasActividadesPorUuid = ref(new Map())
+
+const jornadas = computed(() => {
+  const porUuid = new Map()
+  for (const local of jornadasLocales.value) porUuid.set(local.uuid, local)
+  for (const remota of remotasJornadasPorUuid.value.values()) porUuid.set(remota.uuid, remota)
+  return [...porUuid.values()].sort((a, b) => new Date(b.inicio_en) - new Date(a.inicio_en))
+})
+const actividades = computed(() => {
+  const porUuid = new Map()
+  for (const local of actividadesLocales.value) {
+    porUuid.set(local.uuid, { actividad: local, estadoSincronizacion: local.estado_local })
+  }
+  for (const remota of remotasActividadesPorUuid.value.values()) {
+    porUuid.set(remota.uuid, { actividad: remota, estadoSincronizacion: 'SINCRONIZADO' })
+  }
+  return [...porUuid.values()].sort((a, b) => new Date(b.actividad.fecha_hora) - new Date(a.actividad.fecha_hora))
+})
+
 // Pedido explícito: una foto que no llegó al servidor no debe desaparecer
 // en silencio — antes solo se veía entrando a la pantalla de
-// "Sincronización" (genérica, sin relacionarla con la actividad). Aquí se
-// cruza `outbox_evidencias` por `actividad_uuid` para que la propia
-// tarjeta de la actividad avise si le falta o le fue rechazada una foto,
-// sin importar si la actividad en sí ya se sincronizó.
-const evidenciasPorActividad = ref(new Map())
+// "Sincronización" (genérica, sin relacionarla con la actividad). Se cruza
+// `evidenciasLocales` (reactivo) por `actividad_uuid` para que la propia
+// tarjeta de la actividad avise si le falta, le fue rechazada, o SIGUE
+// subiendo una foto — y ese aviso se actualiza solo.
+const evidenciasPorActividad = computed(() => {
+  const mapa = new Map()
+  for (const e of evidenciasLocales.value) {
+    const actual = mapa.get(e.actividad_uuid) || { rechazadas: 0, pendientes: 0, ultimoError: null }
+    if (e.estado_local === 'RECHAZADO') {
+      actual.rechazadas += 1
+      actual.ultimoError = actual.ultimoError || e.ultimo_error
+    } else if (e.estado_local === 'PENDIENTE' || e.estado_local === 'SINCRONIZANDO') {
+      actual.pendientes += 1
+    }
+    mapa.set(e.actividad_uuid, actual)
+  }
+  return mapa
+})
+
 // Pedido explícito: que en Historial > Actividades aparezcan las fotos que
 // se van subiendo. Miniatura por actividad (`actividad_uuid -> Object URL`)
 // — se arma PRIMERO desde el propio dispositivo (`outbox_evidencias`, que
@@ -85,51 +134,33 @@ function gpsDeRemota(lat, lon, precision, estado) {
 }
 
 async function cargarJornadas() {
-  const locales = await listar('outbox_jornadas')
-  const porUuid = new Map()
-  for (const local of locales) porUuid.set(local.uuid, local)
-
-  if (enLinea.value) {
-    try {
-      const remotas = await listarMisJornadas()
-      for (const remota of remotas) {
-        porUuid.set(remota.uuid, {
-          ...remota,
-          gps_inicio: gpsDeRemota(remota.latitud_inicio, remota.longitud_inicio, remota.precision_gps_inicio_m, remota.estado_gps_inicio),
-          gps_fin: remota.fin_en
-            ? gpsDeRemota(remota.latitud_fin, remota.longitud_fin, remota.precision_gps_fin_m, remota.estado_gps_fin)
-            : null,
-        })
-      }
-    } catch {
-      error.value = 'No se pudo consultar el historial del servidor; se muestra lo guardado en el dispositivo.'
+  if (!enLinea.value) return
+  try {
+    const remotas = await listarMisJornadas()
+    const porUuid = new Map()
+    for (const remota of remotas) {
+      porUuid.set(remota.uuid, {
+        ...remota,
+        gps_inicio: gpsDeRemota(remota.latitud_inicio, remota.longitud_inicio, remota.precision_gps_inicio_m, remota.estado_gps_inicio),
+        gps_fin: remota.fin_en
+          ? gpsDeRemota(remota.latitud_fin, remota.longitud_fin, remota.precision_gps_fin_m, remota.estado_gps_fin)
+          : null,
+      })
     }
+    remotasJornadasPorUuid.value = porUuid
+  } catch {
+    error.value = 'No se pudo consultar el historial del servidor; se muestra lo guardado en el dispositivo.'
   }
-
-  jornadas.value = [...porUuid.values()].sort((a, b) => new Date(b.inicio_en) - new Date(a.inicio_en))
 }
 
 async function cargarActividades() {
-  const locales = await listar('outbox_actividades')
-  const porUuid = new Map()
-  for (const local of locales) {
-    porUuid.set(local.uuid, { actividad: local, estadoSincronizacion: local.estado_local })
+  if (!enLinea.value) return
+  try {
+    const { resultados } = await listarMisActividades({ page_size: 100 })
+    remotasActividadesPorUuid.value = new Map(resultados.map((remota) => [remota.uuid, remota]))
+  } catch {
+    error.value = 'No se pudo consultar el historial del servidor; se muestra lo guardado en el dispositivo.'
   }
-
-  if (enLinea.value) {
-    try {
-      const { resultados } = await listarMisActividades({ page_size: 100 })
-      for (const remota of resultados) {
-        porUuid.set(remota.uuid, { actividad: remota, estadoSincronizacion: 'SINCRONIZADO' })
-      }
-    } catch {
-      error.value = 'No se pudo consultar el historial del servidor; se muestra lo guardado en el dispositivo.'
-    }
-  }
-
-  actividades.value = [...porUuid.values()].sort(
-    (a, b) => new Date(b.actividad.fecha_hora) - new Date(a.actividad.fecha_hora),
-  )
 }
 
 function limpiarVistasPrevias() {
@@ -137,61 +168,65 @@ function limpiarVistasPrevias() {
   vistasPrevias.value = {}
 }
 
-async function cargarEvidencias() {
-  const locales = await listar('outbox_evidencias')
-  const mapa = new Map()
-  const primeraLocalPorActividad = new Map() // actividad_uuid -> registro con menor `orden`
-  for (const e of locales) {
-    const actual = mapa.get(e.actividad_uuid) || { rechazadas: 0, pendientes: 0, ultimoError: null }
-    if (e.estado_local === 'RECHAZADO') {
-      actual.rechazadas += 1
-      actual.ultimoError = actual.ultimoError || e.ultimo_error
-    } else if (e.estado_local === 'PENDIENTE' || e.estado_local === 'SINCRONIZANDO') {
-      actual.pendientes += 1
+// Miniaturas locales: reactivo sobre `evidenciasLocales` (el store del
+// outbox), así que una foto recién terminada de subir/rechazada/agregada
+// arma o corrige su miniatura sola, sin volver a entrar a la pantalla. Se
+// reconstruye el Blob desde los bytes guardados (`archivo_buffer`, el
+// formato durable) o, para registros más viejos, el `archivo` (Blob) tal
+// cual. Nunca se pisa una miniatura ya creada para el mismo `actividad_uuid`
+// con el mismo contenido — solo agrega las que faltan.
+watch(
+  evidenciasLocales,
+  (evidencias) => {
+    const primeraPorActividad = new Map() // actividad_uuid -> registro con menor `orden`
+    for (const e of evidencias) {
+      const previa = primeraPorActividad.get(e.actividad_uuid)
+      if (!previa || e.orden < previa.orden) primeraPorActividad.set(e.actividad_uuid, e)
     }
-    mapa.set(e.actividad_uuid, actual)
-
-    const previa = primeraLocalPorActividad.get(e.actividad_uuid)
-    if (!previa || e.orden < previa.orden) primeraLocalPorActividad.set(e.actividad_uuid, e)
-  }
-  evidenciasPorActividad.value = mapa
-
-  // Miniaturas locales: se reconstruye el Blob desde los bytes guardados
-  // (`archivo_buffer`, el formato durable — ver `stores/actividad.js`) o,
-  // para registros más viejos, el `archivo` (Blob) tal cual.
-  for (const [actividadUuid, evidencia] of primeraLocalPorActividad) {
-    const blob = evidencia.archivo_buffer
-      ? new Blob([evidencia.archivo_buffer], { type: evidencia.archivo_mime || 'image/jpeg' })
-      : evidencia.archivo
-    if (blob) vistasPrevias.value[actividadUuid] = URL.createObjectURL(blob)
-  }
-}
+    for (const [actividadUuid, evidencia] of primeraPorActividad) {
+      if (vistasPrevias.value[actividadUuid]) continue
+      const blob = evidencia.archivo_buffer
+        ? new Blob([evidencia.archivo_buffer], { type: evidencia.archivo_mime || 'image/jpeg' })
+        : evidencia.archivo
+      if (blob) vistasPrevias.value[actividadUuid] = URL.createObjectURL(blob)
+    }
+  },
+  { immediate: true },
+)
 
 // Para actividades sin ninguna evidencia local (sincronizadas hace tiempo
 // desde otro dispositivo, o ya purgadas) se pide la miniatura al servidor
-// — mejor esfuerzo, en paralelo, sin bloquear el resto de la pantalla.
-function cargarVistasPreviasRemotas() {
-  if (!enLinea.value) return
-  for (const item of actividades.value) {
-    const uuid = item.actividad.uuid
-    const evidenciaId = item.actividad.primera_evidencia_id
-    if (vistasPrevias.value[uuid] || !evidenciaId) continue
-    urlVistaPreviaEvidencia(evidenciaId)
-      .then((url) => {
-        vistasPrevias.value = { ...vistasPrevias.value, [uuid]: url }
-      })
-      .catch(() => {})
-  }
-}
+// — mejor esfuerzo, en paralelo, sin bloquear el resto de la pantalla. Se
+// reintenta solo (`watch`) cada vez que cambia la lista de actividades,
+// para las que se vayan agregando/sincronizando después.
+watch(
+  actividades,
+  (lista) => {
+    if (!enLinea.value) return
+    for (const item of lista) {
+      const uuid = item.actividad.uuid
+      const evidenciaId = item.actividad.primera_evidencia_id
+      if (vistasPrevias.value[uuid] || !evidenciaId) continue
+      urlVistaPreviaEvidencia(evidenciaId)
+        .then((url) => {
+          vistasPrevias.value = { ...vistasPrevias.value, [uuid]: url }
+        })
+        .catch(() => {})
+    }
+  },
+  { immediate: true },
+)
 
 async function cargar() {
   cargando.value = true
   error.value = ''
-  limpiarVistasPrevias()
   try {
-    catalogos.value = await obtenerCatalogos()
-    await Promise.all([cargarJornadas(), cargarActividades(), cargarEvidencias()])
-    cargarVistasPreviasRemotas()
+    await Promise.all([
+      obtenerCatalogos().then((c) => (catalogos.value = c)),
+      outboxStore.refrescar(),
+      cargarJornadas(),
+      cargarActividades(),
+    ])
   } finally {
     cargando.value = false
   }
@@ -243,7 +278,7 @@ async function abrirFotos(item) {
   try {
     // Local primero (sin red, siempre disponible mientras no se purgue):
     // todas las evidencias de esa actividad que sigan en el outbox.
-    const locales = (await listar('outbox_evidencias'))
+    const locales = evidenciasLocales.value
       .filter((e) => e.actividad_uuid === actividad.uuid)
       .sort((a, b) => a.orden - b.orden)
 

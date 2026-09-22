@@ -1,9 +1,17 @@
 // pwa-eca — pruebas del motor de sincronización (ECA-017).
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
 
 vi.mock('../src/services/outbox', () => ({
   listar: vi.fn(),
   marcarEstado: vi.fn(),
+  // `stores/outbox.js` (Pinia) — `sincronizar()` la refresca al terminar,
+  // para que cualquier pantalla que dependa de ella (Historial) se entere
+  // sola de un sync corrido en segundo plano. Mockeadas aquí igual que el
+  // resto del servicio: este archivo prueba el motor de sync aislado, no
+  // el store.
+  contarPendientes: vi.fn().mockResolvedValue(0),
+  listarTodo: vi.fn().mockResolvedValue([]),
 }))
 vi.mock('../src/services/syncPushService', () => ({
   registrarDispositivo: vi.fn(),
@@ -13,10 +21,11 @@ vi.mock('../src/services/evidenciasService', () => ({
   subirEvidencia: vi.fn(),
 }))
 
-import { listar, marcarEstado } from '../src/services/outbox'
+import { listar, marcarEstado, contarPendientes, listarTodo } from '../src/services/outbox'
 import { registrarDispositivo, push } from '../src/services/syncPushService'
 import { subirEvidencia } from '../src/services/evidenciasService'
 import { sincronizar, _reiniciarSyncParaPruebas } from '../src/services/sync'
+import { useOutboxStore } from '../src/stores/outbox'
 
 function authFalso({ sesionServidorValida = true, refrescarFalla = false } = {}) {
   return {
@@ -26,6 +35,7 @@ function authFalso({ sesionServidorValida = true, refrescarFalla = false } = {})
 }
 
 beforeEach(() => {
+  setActivePinia(createPinia())
   vi.clearAllMocks()
   _reiniciarSyncParaPruebas()
   localStorage.clear()
@@ -196,5 +206,24 @@ describe('sincronizar', () => {
     expect(primero).toEqual(segundo)
     expect(primero).toEqual({ ok: true, aplicados: 1, duplicados: 0, rechazados: 0 })
     expect(push).toHaveBeenCalledTimes(1) // una sola sincronización real, no dos
+  })
+
+  // Regresión real: "Subiendo N fotos…" en el Historial se quedaba
+  // congelado hasta cerrar y reabrir la app. Causa: esa pantalla lee
+  // `useOutboxStore().items` (reactivo), pero solo quien LLAMABA a
+  // `sincronizar()` refrescaba ese store — una sincronización disparada
+  // por el timer de fondo, el evento `online`, o cualquier otra pantalla,
+  // terminaba sin avisarle a nadie que el estado real ya había cambiado.
+  it('refresca el store del outbox al terminar, sin importar quién haya llamado a sincronizar', async () => {
+    const store = useOutboxStore()
+    expect(store.pendientes).toBe(0)
+    listarTodo.mockResolvedValueOnce([{ uuid: 'e1', tipo: 'evidencia', estado_local: 'SINCRONIZADO' }])
+    contarPendientes.mockResolvedValueOnce(0)
+
+    await sincronizar(authFalso())
+
+    expect(listarTodo).toHaveBeenCalled()
+    expect(contarPendientes).toHaveBeenCalled()
+    expect(store.items).toEqual([{ uuid: 'e1', tipo: 'evidencia', estado_local: 'SINCRONIZADO' }])
   })
 })
