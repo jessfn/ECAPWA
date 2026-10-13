@@ -3,8 +3,7 @@
      propia letra) que vuelan desde abajo, girando y , y encajan
      uno a uno hasta formar la letra completa — primero los de abajo, luego
      los de arriba, con un frenado suave y fluido (curva "expo-out"). Las
-     tres letras (E, C, A) se arman al mismo tiempo. Al terminar, una luz dorada recorre las
-     letras y titilan estrellitas. Debajo, "Aplicación de Seguimiento" se
+     tres letras (E, C, A) se arman al mismo tiempo. Debajo, "Aplicación de Seguimiento" se
      despliega entre líneas doradas. `oscuro` = sobre fondo verde oscuro
      (columna de marca de escritorio). Respeta `prefers-reduced-motion`:
      sin animaciones, ya armado. -->
@@ -58,13 +57,6 @@ const FRAGMENTOS = Array.from({ length: COLS * FILAS }, (_, n) => {
           :style="{ clipPath: f.clip, '--dx': f.dx, '--dy': f.dy, '--rot': f.rot, '--d': f.delay }"
         >{{ letra }}</span>
       </span>
-
-      <!-- Estrellitas que titilan alrededor de las letras -->
-      <i class="titulo-eca__estrella titulo-eca__estrella--1"></i>
-      <i class="titulo-eca__estrella titulo-eca__estrella--2"></i>
-      <i class="titulo-eca__estrella titulo-eca__estrella--3"></i>
-      <i class="titulo-eca__estrella titulo-eca__estrella--4"></i>
-      <i class="titulo-eca__estrella titulo-eca__estrella--5"></i>
     </div>
 
     <div class="titulo-eca__subtitulo" aria-hidden="true">
@@ -150,8 +142,7 @@ const FRAGMENTOS = Array.from({ length: COLS * FILAS }, (_, n) => {
   opacity: 0;
   will-change: transform, opacity;
   animation:
-    titulo-eca-encaja 0.7s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--inicio) + var(--d)) both,
-    titulo-eca-brillo 4.5s ease-in-out calc(var(--inicio) + 1.3s) infinite;
+    titulo-eca-encaja 0.7s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--inicio) + var(--d)) both;
 }
 
 /* El fragmento vuela desde abajo (con su propio giro y desenfoque) y frena
@@ -168,34 +159,6 @@ const FRAGMENTOS = Array.from({ length: COLS * FILAS }, (_, n) => {
     opacity: 1;
     transform: translate(0, 0) rotate(0) scale(1);
   }
-}
-@keyframes titulo-eca-brillo {
-  0%, 18%, 100% { background-position: calc(var(--i, 0) * 34%) 50%; }
-  55% { background-position: calc(var(--i, 0) * 34% + 100%) 50%; }
-}
-
-/* ---------------- Estrellitas ---------------- */
-.titulo-eca__estrella {
-  position: absolute;
-  width: 0.2em;
-  height: 0.2em;
-  background: var(--dorado);
-  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
-  filter: drop-shadow(0 0 4px rgba(245, 196, 81, 0.9));
-  opacity: 0;
-  pointer-events: none;
-  animation: titulo-eca-titila 3.2s ease-in-out infinite;
-}
-.titulo-eca__estrella--1 { left: -0.12em; top: 0.08em; animation-delay: 1.4s; }
-.titulo-eca__estrella--2 { left: 38%; top: -0.14em; width: 0.15em; height: 0.15em; animation-delay: 2.0s; }
-.titulo-eca__estrella--3 { right: -0.1em; top: 0.18em; width: 0.26em; height: 0.26em; animation-delay: 1.7s; }
-.titulo-eca__estrella--4 { left: 14%; bottom: -0.05em; width: 0.13em; height: 0.13em; animation-delay: 2.4s; }
-.titulo-eca__estrella--5 { right: 20%; bottom: 0.02em; width: 0.16em; height: 0.16em; animation-delay: 2.7s; }
-
-@keyframes titulo-eca-titila {
-  0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
-  20% { opacity: 1; transform: scale(1) rotate(45deg); }
-  40% { opacity: 0; transform: scale(0.3) rotate(90deg); }
 }
 
 /* ---------------- Subtítulo ---------------- */
@@ -237,6 +200,5 @@ const FRAGMENTOS = Array.from({ length: COLS * FILAS }, (_, n) => {
 @media (prefers-reduced-motion: reduce) {
   .titulo-eca__fragmento { animation: none; opacity: 1; }
   .titulo-eca__subtitulo { animation: none; opacity: 1; filter: none; }
-  .titulo-eca__estrella { display: none; }
 }
 </style>
