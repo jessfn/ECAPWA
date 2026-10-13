@@ -40,7 +40,7 @@ const FRAGMENTOS = Array.from({ length: COLS * FILAS }, (_, n) => {
     dy: (0.7 + azar(2) * 1.0).toFixed(2) + 'em',
     rot: Math.round((azar(3) - 0.5) * 120) + 'deg',
     // los de abajo primero, con un poco de desorden
-    delay: (filaDesdeAbajo * 0.045 + azar(4) * 0.26).toFixed(2) + 's',
+    delay: (filaDesdeAbajo * 0.02 + azar(4) * 0.12).toFixed(2) + 's',
   }
 })
 </script>
@@ -115,7 +115,7 @@ const FRAGMENTOS = Array.from({ length: COLS * FILAS }, (_, n) => {
   position: relative;
   display: inline-block;
   /* las tres letras arrancan AL MISMO TIEMPO (pedido explícito) */
-  --inicio: 0.25s;
+  --inicio: 0.08s;
   filter: drop-shadow(0 4px 10px rgba(21, 128, 61, 0.35));
 }
 .titulo-eca--oscuro .titulo-eca__celda {
@@ -150,8 +150,8 @@ const FRAGMENTOS = Array.from({ length: COLS * FILAS }, (_, n) => {
   opacity: 0;
   will-change: transform, opacity;
   animation:
-    titulo-eca-encaja 1.25s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--inicio) + var(--d)) both,
-    titulo-eca-brillo 4.5s ease-in-out calc(var(--inicio) + 2.2s) infinite;
+    titulo-eca-encaja 0.7s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--inicio) + var(--d)) both,
+    titulo-eca-brillo 4.5s ease-in-out calc(var(--inicio) + 1.3s) infinite;
 }
 
 /* El fragmento vuela desde abajo (con su propio giro y desenfoque) y frena
@@ -186,11 +186,11 @@ const FRAGMENTOS = Array.from({ length: COLS * FILAS }, (_, n) => {
   pointer-events: none;
   animation: titulo-eca-titila 3.2s ease-in-out infinite;
 }
-.titulo-eca__estrella--1 { left: -0.12em; top: 0.08em; animation-delay: 2.4s; }
-.titulo-eca__estrella--2 { left: 38%; top: -0.14em; width: 0.15em; height: 0.15em; animation-delay: 3.3s; }
-.titulo-eca__estrella--3 { right: -0.1em; top: 0.18em; width: 0.26em; height: 0.26em; animation-delay: 2.8s; }
-.titulo-eca__estrella--4 { left: 14%; bottom: -0.05em; width: 0.13em; height: 0.13em; animation-delay: 3.9s; }
-.titulo-eca__estrella--5 { right: 20%; bottom: 0.02em; width: 0.16em; height: 0.16em; animation-delay: 4.3s; }
+.titulo-eca__estrella--1 { left: -0.12em; top: 0.08em; animation-delay: 1.4s; }
+.titulo-eca__estrella--2 { left: 38%; top: -0.14em; width: 0.15em; height: 0.15em; animation-delay: 2.0s; }
+.titulo-eca__estrella--3 { right: -0.1em; top: 0.18em; width: 0.26em; height: 0.26em; animation-delay: 1.7s; }
+.titulo-eca__estrella--4 { left: 14%; bottom: -0.05em; width: 0.13em; height: 0.13em; animation-delay: 2.4s; }
+.titulo-eca__estrella--5 { right: 20%; bottom: 0.02em; width: 0.16em; height: 0.16em; animation-delay: 2.7s; }
 
 @keyframes titulo-eca-titila {
   0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
@@ -205,7 +205,7 @@ const FRAGMENTOS = Array.from({ length: COLS * FILAS }, (_, n) => {
   gap: 0.6rem;
   max-width: 100%;
   opacity: 0;
-  animation: titulo-eca-sub-entra 1.1s cubic-bezier(0.22, 1, 0.36, 1) 2s forwards;
+  animation: titulo-eca-sub-entra 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.95s forwards;
 }
 .titulo-eca__subtitulo-texto {
   font-family: 'Outfit', var(--au-font, system-ui, sans-serif);
