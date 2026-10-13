@@ -492,7 +492,7 @@ onBeforeUnmount(() => {
                     title="Eliminar del historial"
                     @click="eliminando = n"
                   >
-                    <AuthIcon name="trash" />
+                    <AuthIcon name="close" />
                   </button>
                 </div>
               </td>
@@ -751,7 +751,7 @@ onBeforeUnmount(() => {
         <div v-if="eliminando" class="notif-modal__fondo" @click.self="!eliminandoCargando && (eliminando = null)">
           <Transition name="notif-tarjeta" appear>
             <div class="notif-retirar" role="alertdialog" aria-modal="true">
-              <div class="notif-retirar__icono notif-retirar__icono--gris"><AuthIcon name="trash" /></div>
+              <div class="notif-retirar__icono notif-retirar__icono--gris"><AuthIcon name="close" /></div>
               <h3>¿Eliminar del historial?</h3>
               <p><strong>{{ eliminando.titulo }}</strong><br />Dejará de aparecer en esta lista. Esta acción no se puede deshacer.</p>
               <div class="notif-retirar__acciones">
