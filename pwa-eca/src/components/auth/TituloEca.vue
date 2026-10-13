@@ -2,8 +2,8 @@
      está hecha de FRAGMENTOS (una cuadrícula de piezas recortadas de la
      propia letra) que vuelan desde abajo, girando y , y encajan
      uno a uno hasta formar la letra completa — primero los de abajo, luego
-     los de arriba, con un frenado suave y fluido (curva "expo-out"). Una
-     letra tras otra (E, C, A). Al terminar, una luz dorada recorre las
+     los de arriba, con un frenado suave y fluido (curva "expo-out"). Las
+     tres letras (E, C, A) se arman al mismo tiempo. Al terminar, una luz dorada recorre las
      letras y titilan estrellitas. Debajo, "Aplicación de Seguimiento" se
      despliega entre líneas doradas. `oscuro` = sobre fondo verde oscuro
      (columna de marca de escritorio). Respeta `prefers-reduced-motion`:
@@ -114,8 +114,8 @@ const FRAGMENTOS = Array.from({ length: COLS * FILAS }, (_, n) => {
 .titulo-eca__celda {
   position: relative;
   display: inline-block;
-  /* retraso de arranque de esta letra: 1.ª, 2.ª y 3.ª una tras otra */
-  --inicio: calc(0.25s + var(--i) * 0.75s);
+  /* las tres letras arrancan AL MISMO TIEMPO (pedido explícito) */
+  --inicio: 0.25s;
   filter: drop-shadow(0 4px 10px rgba(21, 128, 61, 0.35));
 }
 .titulo-eca--oscuro .titulo-eca__celda {
@@ -186,11 +186,11 @@ const FRAGMENTOS = Array.from({ length: COLS * FILAS }, (_, n) => {
   pointer-events: none;
   animation: titulo-eca-titila 3.2s ease-in-out infinite;
 }
-.titulo-eca__estrella--1 { left: -0.12em; top: 0.08em; animation-delay: 3.6s; }
-.titulo-eca__estrella--2 { left: 38%; top: -0.14em; width: 0.15em; height: 0.15em; animation-delay: 4.5s; }
-.titulo-eca__estrella--3 { right: -0.1em; top: 0.18em; width: 0.26em; height: 0.26em; animation-delay: 4.0s; }
-.titulo-eca__estrella--4 { left: 14%; bottom: -0.05em; width: 0.13em; height: 0.13em; animation-delay: 5.1s; }
-.titulo-eca__estrella--5 { right: 20%; bottom: 0.02em; width: 0.16em; height: 0.16em; animation-delay: 5.5s; }
+.titulo-eca__estrella--1 { left: -0.12em; top: 0.08em; animation-delay: 2.4s; }
+.titulo-eca__estrella--2 { left: 38%; top: -0.14em; width: 0.15em; height: 0.15em; animation-delay: 3.3s; }
+.titulo-eca__estrella--3 { right: -0.1em; top: 0.18em; width: 0.26em; height: 0.26em; animation-delay: 2.8s; }
+.titulo-eca__estrella--4 { left: 14%; bottom: -0.05em; width: 0.13em; height: 0.13em; animation-delay: 3.9s; }
+.titulo-eca__estrella--5 { right: 20%; bottom: 0.02em; width: 0.16em; height: 0.16em; animation-delay: 4.3s; }
 
 @keyframes titulo-eca-titila {
   0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
@@ -205,7 +205,7 @@ const FRAGMENTOS = Array.from({ length: COLS * FILAS }, (_, n) => {
   gap: 0.6rem;
   max-width: 100%;
   opacity: 0;
-  animation: titulo-eca-sub-entra 1.1s cubic-bezier(0.22, 1, 0.36, 1) 3.1s forwards;
+  animation: titulo-eca-sub-entra 1.1s cubic-bezier(0.22, 1, 0.36, 1) 2s forwards;
 }
 .titulo-eca__subtitulo-texto {
   font-family: 'Outfit', var(--au-font, system-ui, sans-serif);
