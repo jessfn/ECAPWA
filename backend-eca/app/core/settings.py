@@ -56,6 +56,18 @@ class Settings(BaseSettings):
     # --- Almacenamiento de evidencias (declarado desde ECA-002; se usa desde ECA-015+) ---
     STORAGE_DIR: str = Field(default="./storage", description="Directorio local privado de evidencias")
 
+    # --- Web Push (notificaciones al dispositivo) ---
+    # Claves VAPID: sin ellas el Web Push queda deshabilitado (la bandeja y el
+    # tiempo real por WebSocket siguen funcionando). Generar con
+    # `python scripts/generar_vapid.py`.
+    VAPID_PUBLIC_KEY: str = Field(default="", description="Clave pública VAPID (base64url)")
+    VAPID_PRIVATE_KEY: str = Field(default="", description="Clave privada VAPID (base64url, 32 bytes)")
+    VAPID_SUBJECT: str = Field(default="mailto:soporte@sembrandodatos.com", description="Contacto VAPID")
+    API_PUBLIC_URL: str = Field(
+        default="https://api-eca.sembrandodatos.com",
+        description="URL pública de la API (para armar enlaces absolutos a medios en los push)",
+    )
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def _parse_cors_origins(cls, value: object) -> list[str]:

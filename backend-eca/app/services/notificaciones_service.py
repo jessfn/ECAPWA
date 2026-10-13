@@ -274,6 +274,12 @@ def retirar(db: Session, *, actor: Usuario, notif_uuid: uuid_lib.UUID) -> Notifi
     return notif
 
 
+def obtener_por_id(db: Session, notif_id: int) -> Notificacion | None:
+    return db.execute(
+        select(Notificacion).options(selectinload(Notificacion.adjuntos)).where(Notificacion.id == notif_id)
+    ).scalar_one_or_none()
+
+
 def obtener_por_uuid(db: Session, notif_uuid: uuid_lib.UUID) -> Notificacion:
     notif = db.execute(
         select(Notificacion).options(selectinload(Notificacion.adjuntos)).where(Notificacion.uuid == notif_uuid)

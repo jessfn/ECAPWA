@@ -5,11 +5,16 @@
      (antes solo `InicioView` tenía un header improvisado; el resto de
      pantallas no tenía ninguna forma de navegar entre sí). -->
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useConectividad } from '../services/conectividad'
+import { useNotificacionesStore } from '../stores/notificaciones'
+import { conectarSocketNotificaciones, desconectarSocketNotificaciones } from '../services/notificacionesSocket'
+import { sincronizarPushSilencioso, desligarPushEnServidor } from '../services/push'
 import AuthIcon from './auth/AuthIcon.vue'
+import NotificacionesPanel from './NotificacionesPanel.vue'
+import NotificacionToast from './NotificacionToast.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -17,6 +22,47 @@ const auth = useAuthStore()
 const { enLinea } = useConectividad()
 
 const menuAbierto = ref(false)
+
+// Notificaciones: campana con contador. La bandeja se carga al montar, y se
+// mantiene al día por WebSocket (tiempo real), al volver a primer plano y al
+// recuperar red. El Web Push cubre cuando la app está cerrada.
+const notificaciones = useNotificacionesStore()
+const campanaSacude = ref(false)
+watch(
+  () => notificaciones.noLeidas,
+  (nuevo, viejo) => {
+    if (nuevo > viejo) {
+      campanaSacude.value = true
+      setTimeout(() => (campanaSacude.value = false), 900)
+    }
+  },
+)
+function alternarNotificaciones() {
+  if (notificaciones.panelAbierto) notificaciones.cerrarPanel()
+  else {
+    menuAbierto.value = false
+    notificaciones.abrirPanel()
+  }
+}
+function alVolverVisible() {
+  if (document.visibilityState === 'visible') {
+    notificaciones.cargar()
+    conectarSocketNotificaciones()
+  }
+}
+// Tocar un aviso del sistema: el service worker avisa (app ya abierta) o abre
+// la app con `?notif=<uuid>` (app cerrada). Ambos casos abren esa notificación.
+async function abrirDesdeAviso(uuid) {
+  await notificaciones.cargar()
+  notificaciones.abrirPanel(uuid || null)
+}
+function alMensajeDelSw(evento) {
+  if (evento.data?.tipo === 'abrir_notificacion') abrirDesdeAviso(evento.data.uuid)
+}
+function alRecuperarRed() {
+  notificaciones.cargar()
+  conectarSocketNotificaciones()
+}
 
 // Hora y fecha de Ciudad de México — pedido explícito: "sin editarse del
 // dispositivo", o sea que no dependa del reloj del celular (un técnico
@@ -91,6 +137,7 @@ const enlaces = [
 
 function alternarMenu() {
   menuAbierto.value = !menuAbierto.value
+  if (menuAbierto.value) notificaciones.cerrarPanel()
 }
 
 function cerrarMenu() {
@@ -104,6 +151,9 @@ function navegar(enlace) {
 
 async function cerrarSesion() {
   cerrarMenu()
+  // Este dispositivo deja de recibir los avisos de la cuenta que sale (si otro
+  // técnico inicia sesión aquí, su propio arranque lo vuelve a ligar a él).
+  await desligarPushEnServidor()
   await auth.logout()
   // Bug real encontrado: `router.push({ name: 'login' })` (navegación de
   // Vue Router dentro de la SPA) se quedaba pegado en la pantalla actual
@@ -119,6 +169,19 @@ async function cerrarSesion() {
 }
 
 onMounted(async () => {
+  notificaciones.restaurarCache()
+  conectarSocketNotificaciones()
+  sincronizarPushSilencioso()
+  navigator.serviceWorker?.addEventListener('message', alMensajeDelSw)
+  const desdeAviso = new URLSearchParams(window.location.search).get('notif')
+  if (desdeAviso) {
+    window.history.replaceState({}, '', window.location.pathname)
+    abrirDesdeAviso(desdeAviso)
+  } else {
+    notificaciones.cargar()
+  }
+  document.addEventListener('visibilitychange', alVolverVisible)
+  window.addEventListener('online', alRecuperarRed)
   await sincronizarConInternet()
   actualizarReloj()
   intervaloReloj = setInterval(actualizarReloj, 1000)
@@ -128,6 +191,10 @@ onMounted(async () => {
   intervaloResincronizar = setInterval(sincronizarConInternet, 5 * 60 * 1000)
 })
 onUnmounted(() => {
+  document.removeEventListener('visibilitychange', alVolverVisible)
+  window.removeEventListener('online', alRecuperarRed)
+  desconectarSocketNotificaciones()
+  navigator.serviceWorker?.removeEventListener('message', alMensajeDelSw)
   if (intervaloReloj) clearInterval(intervaloReloj)
   if (intervaloResincronizar) clearInterval(intervaloResincronizar)
 })
@@ -156,6 +223,20 @@ onUnmounted(() => {
         </div>
 
         <div class="app-header__acciones">
+          <button
+            type="button"
+            class="app-header__campana"
+            :class="{ 'app-header__campana--sacude': campanaSacude, 'app-header__campana--activa': notificaciones.panelAbierto }"
+            :aria-label="notificaciones.noLeidas ? `Notificaciones, ${notificaciones.noLeidas} sin leer` : 'Notificaciones'"
+            @click="alternarNotificaciones"
+          >
+            <AuthIcon name="bell" />
+            <Transition name="campana-contador">
+              <span v-if="notificaciones.noLeidas" class="app-header__contador">
+                {{ notificaciones.noLeidas > 99 ? '99+' : notificaciones.noLeidas }}
+              </span>
+            </Transition>
+          </button>
           <button
             type="button"
             class="app-header__hamburguesa"
@@ -205,6 +286,9 @@ onUnmounted(() => {
   </div>
 
   <div v-if="menuAbierto" class="app-menu__overlay" @click="cerrarMenu"></div>
+
+  <NotificacionesPanel />
+  <NotificacionToast />
 </template>
 
 <style scoped>
@@ -386,6 +470,75 @@ onUnmounted(() => {
 .app-header__hamburguesa svg {
   width: 20px;
   height: 20px;
+}
+
+.app-header__campana {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.app-header__campana:hover,
+.app-header__campana--activa {
+  background: rgba(255, 255, 255, 0.24);
+}
+.app-header__campana:active {
+  transform: scale(0.9);
+}
+.app-header__campana svg {
+  width: 19px;
+  height: 19px;
+  transform-origin: 50% 8%;
+}
+.app-header__campana--sacude svg {
+  animation: campana-sacude 0.85s ease;
+}
+.app-header__contador {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: 99px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 17px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--eca-green-900);
+}
+.campana-contador-enter-active {
+  transition: transform 0.4s cubic-bezier(0.34, 1.8, 0.64, 1), opacity 0.2s ease;
+}
+.campana-contador-leave-active {
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+.campana-contador-enter-from,
+.campana-contador-leave-to {
+  opacity: 0;
+  transform: scale(0.3);
+}
+@keyframes campana-sacude {
+  0%, 100% { transform: rotate(0); }
+  15% { transform: rotate(18deg); }
+  30% { transform: rotate(-16deg); }
+  45% { transform: rotate(12deg); }
+  60% { transform: rotate(-9deg); }
+  75% { transform: rotate(5deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-header__campana--sacude svg { animation: none; }
 }
 
 .app-menu {

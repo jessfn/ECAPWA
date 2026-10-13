@@ -94,3 +94,21 @@ class DestinatarioBasico(BaseModel):
     id: int
     nombre: str
     correo: str
+
+
+class PushClave(BaseModel):
+    clave: str | None
+
+
+class PushKeys(BaseModel):
+    p256dh: str = Field(min_length=1, max_length=300)
+    auth: str = Field(min_length=1, max_length=300)
+
+
+class PushSuscripcion(BaseModel):
+    endpoint: str = Field(min_length=10, max_length=2000)
+    keys: PushKeys
+
+
+class PushDesuscribir(BaseModel):
+    endpoint: str = Field(min_length=10, max_length=2000)

@@ -7,7 +7,7 @@ import asyncio
 import logging
 
 from app.core.db import SessionLocal
-from app.services import notificaciones_service
+from app.services import notificaciones_service, push_service
 
 logger = logging.getLogger("app.notificaciones_tareas")
 
@@ -16,7 +16,11 @@ INTERVALO_S = 20
 
 def _publicar_pendientes() -> int:
     with SessionLocal() as db:
-        return len(notificaciones_service.publicar_programadas(db))
+        ids = [n.id for n in notificaciones_service.publicar_programadas(db)]
+    # Solo el worker que publicó (SKIP LOCKED) envía el push: una sola vez.
+    for notif_id in ids:
+        push_service.enviar_en_segundo_plano(notif_id)
+    return len(ids)
 
 
 async def publicar_programadas_en_bucle() -> None:

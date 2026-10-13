@@ -111,6 +111,8 @@ blanco. Verificar en el navegador y, si pasa, forzar
 | `SECRET_KEY` | Aleatoria larga (`openssl rand -hex 32`). Nunca en el repo. |
 | `CORS_ORIGINS` | Lista separada por comas de los orígenes de los frontends reales. |
 | `STORAGE_DIR` | `/var/www/backend-eca/storage` |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Claves Web Push (notificaciones al dispositivo). Generar UNA vez con `python scripts/generar_vapid.py`; cambiarlas invalida las suscripciones. Sin ellas el push queda deshabilitado (la bandeja y el tiempo real siguen). |
+| `VAPID_SUBJECT`, `API_PUBLIC_URL` | Contacto `mailto:` de VAPID y URL pública de la API (enlaces a medios dentro del push). |
 | `REFRESH_TOKEN_DIAS` | **DP-1**, configurable — valor inicial de trabajo a revisar con la institución (default en código: 30). |
 | `OFFLINE_SESSION_DIAS` | **DP-1**, configurable — validez de la sesión local offline de la PWA (default en código: 30). |
 

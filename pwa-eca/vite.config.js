@@ -50,26 +50,17 @@ export default defineConfig({
           { src: '/icon-512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
-      workbox: {
-        navigateFallback: '/index.html',
-        // Bug real encontrado en producción: sin esto, un SW nuevo se
-        // queda "esperando" (`waiting`) para siempre — `registerType:
-        // 'autoUpdate'` en el cliente asume que el SW se activa solo
-        // (escucha el evento `activated`, no manda `skipWaiting` él
-        // mismo), pero Workbox NO activa un SW nuevo automáticamente a
-        // menos que el propio SW llame `self.skipWaiting()` — que es
-        // justo lo que faltaba aquí. Confirmado con
-        // `registration.waiting` no nulo en producción, incluso tras
-        // varios despliegues y recargas seguidas: la pestaña quedaba
-        // sirviendo el `index.html`/JS del SW viejo indefinidamente.
-        skipWaiting: true,
-        clientsClaim: true,
-        // `version.json` NUNCA debe salir de la caché del SW: el sondeo de
-        // auto-actualización necesita ver siempre la respuesta real de red.
-        runtimeCaching: [
-          { urlPattern: /\/api\/.*/i, handler: 'NetworkOnly' },
-          { urlPattern: /\/version\.json(\?.*)?$/i, handler: 'NetworkOnly' },
-        ],
+      // Service worker propio (`src/sw.js`): además del precache y la
+      // auto-actualización trae los manejadores de Web Push. `skipWaiting` y
+      // `clientsClaim` están en el propio sw.js (ver el comentario del bug
+      // histórico de SW "esperando" en `autoUpdate.js`).
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
+      injectManifest: {
+        // `version.json` NO va al precache: el sondeo de auto-actualización
+        // necesita ver siempre la respuesta real de red.
+        globPatterns: ['**/*.{js,css,html}'],
       },
     }),
   ],

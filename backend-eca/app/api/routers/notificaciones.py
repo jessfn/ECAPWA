@@ -24,6 +24,9 @@ from app.core.storage import get_storage
 from app.models.notificacion import Notificacion
 from app.models.usuario import Usuario
 from app.schemas.notificacion import (
+    PushClave,
+    PushDesuscribir,
+    PushSuscripcion,
     AdjuntoPublico,
     BandejaRespuesta,
     DestinatarioBasico,
@@ -34,6 +37,7 @@ from app.schemas.notificacion import (
     SubidaIniciar,
 )
 from app.services import notificaciones_service as svc
+from app.services import push_service
 
 router = APIRouter(prefix="/notificaciones", tags=["notificaciones"])
 
@@ -79,6 +83,8 @@ def crear_notificacion(
     except svc.NotificacionError as e:
         db.rollback()
         raise _http(e)
+    if notif.estado == "PUBLICADA":
+        push_service.enviar_en_segundo_plano(notif.id)
     return _a_admin(db, notif, 0)
 
 
@@ -228,4 +234,35 @@ def marcar_leida(
         svc.marcar_leida(db, usuario=usuario, notif_uuid=notif_uuid)
     except svc.NotificacionError as e:
         raise _http(e)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# --------------------------------------------------------------- Web Push
+@router.get("/push/clave", response_model=PushClave)
+def clave_push(_usuario: Usuario = Depends(get_current_user)) -> PushClave:
+    return PushClave(clave=push_service.clave_publica())
+
+
+@router.post("/push/suscribir", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
+def suscribir_push(
+    peticion: PushSuscripcion,
+    request: Request,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(get_current_user),
+) -> Response:
+    try:
+        push_service.suscribir(
+            db, usuario=usuario, endpoint=peticion.endpoint, p256dh=peticion.keys.p256dh,
+            auth=peticion.keys.auth, user_agent=request.headers.get("user-agent"),
+        )
+    except svc.NotificacionError as e:
+        raise _http(e)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/push/desuscribir", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
+def desuscribir_push(
+    peticion: PushDesuscribir, db: Session = Depends(get_db), usuario: Usuario = Depends(get_current_user)
+) -> Response:
+    push_service.desuscribir(db, usuario=usuario, endpoint=peticion.endpoint)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

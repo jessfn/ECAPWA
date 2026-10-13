@@ -132,6 +132,25 @@
     <template v-else-if="name === 'chevron-left'">
       <path d="M15 5.5 8 12l7 6.5" />
     </template>
+    <template v-else-if="name === 'bell'">
+      <path d="M6 9a6 6 0 0 1 12 0c0 5.2 2 6.6 2 6.6H4S6 14.2 6 9Z" />
+      <path d="M10 19a2.2 2.2 0 0 0 4 0" />
+    </template>
+    <template v-else-if="name === 'link'">
+      <path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1" />
+      <path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1" />
+    </template>
+    <template v-else-if="name === 'play'">
+      <path d="M8 5.5v13l11-6.5-11-6.5Z" fill="currentColor" />
+    </template>
+    <template v-else-if="name === 'check-all'">
+      <path d="m2.5 12.5 4.2 4.2L15 8" />
+      <path d="m10 14.5 1.2 1.2L21 6.5" />
+    </template>
+    <template v-else-if="name === 'inbox'">
+      <path d="M3.5 13.5 6 5.5h12l2.5 8" />
+      <path d="M3.5 13.5V18a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-4.5H15a3 3 0 0 1-6 0H3.5Z" />
+    </template>
     <template v-else-if="name === 'chevron-right'">
       <path d="M9 5.5 16 12l-7 6.5" />
     </template>
