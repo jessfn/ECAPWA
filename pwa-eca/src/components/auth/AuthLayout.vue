@@ -20,10 +20,7 @@
             <i></i>{{ badge }}
           </div>
 
-          <span class="au-wordmark on-dark au-brand-mark">
-            <b>ECA</b>
-            <small>Escuelas de Campo</small>
-          </span>
+          <TituloEca oscuro class="au-brand-mark" />
 
           <p class="au-brand-desc">{{ desc }}</p>
 
@@ -45,10 +42,7 @@
               <span class="au-card-mark-circulo">
                 <img src="/logo.png" alt="ECA" class="au-card-logo" />
               </span>
-              <span class="au-wordmark au-card-mark-texto">
-                <b>ECA</b>
-                <small>App de seguimiento</small>
-              </span>
+              <TituloEca class="au-card-mark-texto" />
             </div>
             <slot />
           </div>
@@ -62,6 +56,7 @@
 
 <script setup>
 import AuthIcon from './AuthIcon.vue'
+import TituloEca from './TituloEca.vue'
 
 defineProps({
   wide: { type: Boolean, default: false },
