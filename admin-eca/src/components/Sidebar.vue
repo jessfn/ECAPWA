@@ -42,6 +42,13 @@ const enlaces = [
     icono: 'check-circle',
   },
   {
+    nombre: 'notificaciones',
+    etiqueta: 'Notificaciones',
+    ruta: { name: 'notificaciones' },
+    permiso: 'vista.notificaciones',
+    icono: 'bell',
+  },
+  {
     nombre: 'tecnicos',
     etiqueta: 'Técnicos',
     ruta: { name: 'tecnicos' },

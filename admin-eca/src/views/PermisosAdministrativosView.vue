@@ -38,6 +38,7 @@ const VISTAS = [
   { clave: 'vista.actividades', etiqueta: 'Actividades', icono: 'clock', modulos: ['actividades'] },
   { clave: 'vista.asistencia', etiqueta: 'Asistencia', icono: 'check-circle', modulos: ['jornadas'] },
   { clave: 'vista.modificaciones', etiqueta: 'Modificaciones', icono: 'edit', modulos: ['ecas', 'ambitos', 'asignaciones', 'catalogos'] },
+  { clave: 'vista.notificaciones', etiqueta: 'Notificaciones', icono: 'bell', modulos: ['notificaciones'] },
   { clave: 'vista.permisos_administrativos', etiqueta: 'Permisos administrativos', icono: 'shield-check', modulos: [] },
   { clave: 'vista.tecnicos', etiqueta: 'Técnicos', icono: 'user', modulos: ['usuarios'] },
   { clave: 'vista.visor_seguimiento', etiqueta: 'Visor de Seguimiento', icono: 'map-pin', modulos: [] },

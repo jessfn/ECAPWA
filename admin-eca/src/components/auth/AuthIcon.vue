@@ -140,6 +140,34 @@
       <path d="M6.5 6.5l2 2M15.5 15.5l2 2M17.5 6.5l-2 2M8.5 15.5l-2 2" />
       <circle cx="12" cy="12" r="2.3" />
     </template>
+    <template v-else-if="name === 'bell'">
+      <path d="M6 9a6 6 0 0 1 12 0c0 5.2 2 6.6 2 6.6H4S6 14.2 6 9Z" />
+      <path d="M10 19a2.2 2.2 0 0 0 4 0" />
+    </template>
+    <template v-else-if="name === 'plus'">
+      <path d="M12 5v14M5 12h14" />
+    </template>
+    <template v-else-if="name === 'send'">
+      <path d="M21 3 10.5 13.5" />
+      <path d="M21 3 14.5 21l-4-7.5L3 9.5 21 3Z" />
+    </template>
+    <template v-else-if="name === 'calendar'">
+      <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" />
+      <path d="M3.5 10h17M8 3v4M16 3v4" />
+    </template>
+    <template v-else-if="name === 'image'">
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
+      <circle cx="9" cy="10" r="1.6" />
+      <path d="m4 17 5-4.5 4 3.5 3-2.5 4 3.5" />
+    </template>
+    <template v-else-if="name === 'video'">
+      <rect x="3" y="6" width="13" height="12" rx="2.5" />
+      <path d="m16 10.5 5-3v9l-5-3" />
+    </template>
+    <template v-else-if="name === 'link'">
+      <path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1" />
+      <path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1" />
+    </template>
     <template v-else-if="name === 'trash'">
       <path d="M4 7h16" />
       <path d="M9 7V4.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V7" />

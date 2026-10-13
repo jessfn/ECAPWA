@@ -9,6 +9,7 @@ import ActividadesView from '../views/ActividadesView.vue'
 import ActividadDetalleView from '../views/ActividadDetalleView.vue'
 import TecnicosView from '../views/TecnicosView.vue'
 import AsistenciaView from '../views/AsistenciaView.vue'
+import NotificacionesView from '../views/NotificacionesView.vue'
 import PermisosAdministrativosView from '../views/PermisosAdministrativosView.vue'
 
 // admin-eca — rutas (ECA-005 + ECA-006 + ECA-007 + ECA-008 + ECA-009).
@@ -57,6 +58,12 @@ const routes = [
         name: 'asistencia',
         component: AsistenciaView,
         meta: { requierePermiso: 'vista.asistencia' },
+      },
+      {
+        path: 'notificaciones',
+        name: 'notificaciones',
+        component: NotificacionesView,
+        meta: { requierePermiso: 'vista.notificaciones' },
       },
       {
         path: 'actividades',
