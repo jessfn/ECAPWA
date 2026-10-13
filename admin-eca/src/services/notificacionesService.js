@@ -21,6 +21,10 @@ export async function retirarNotificacion(uuid) {
   return data
 }
 
+export async function eliminarNotificacion(uuid) {
+  await api.post(`/notificaciones/${uuid}/eliminar`)
+}
+
 export async function buscarDestinatarios(texto) {
   const { data } = await api.get('/notificaciones/destinatarios', { params: { texto } })
   return data

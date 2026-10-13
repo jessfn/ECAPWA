@@ -11,6 +11,7 @@ import {
   listarNotificaciones,
   crearNotificacion,
   retirarNotificacion,
+  eliminarNotificacion,
   buscarDestinatarios,
   subirMedio,
   MAX_VIDEO,
@@ -327,6 +328,24 @@ async function confirmarRetiro() {
   }
 }
 
+// Eliminar del historial (solo notificaciones ya retiradas)
+const eliminando = ref(null)
+const eliminandoCargando = ref(false)
+async function confirmarEliminar() {
+  eliminandoCargando.value = true
+  try {
+    await eliminarNotificacion(eliminando.value.uuid)
+    eliminando.value = null
+    detalle.value = null
+    await cargar()
+  } catch (e) {
+    error.value = e.response?.data?.detail || 'No se pudo eliminar la notificación.'
+    eliminando.value = null
+  } finally {
+    eliminandoCargando.value = false
+  }
+}
+
 // Refresco periódico: las programadas pasan a publicadas y suben las lecturas.
 let intervalo = null
 onMounted(() => {
@@ -463,6 +482,15 @@ onBeforeUnmount(() => {
                     class="notif__accion notif__accion--retirar"
                     title="Retirar"
                     @click="retirando = n"
+                  >
+                    <AuthIcon name="trash" />
+                  </button>
+                  <button
+                    v-if="puedeRetirar && n.estado === 'RETIRADA'"
+                    type="button"
+                    class="notif__accion notif__accion--eliminar"
+                    title="Eliminar del historial"
+                    @click="eliminando = n"
                   >
                     <AuthIcon name="trash" />
                   </button>
@@ -717,6 +745,25 @@ onBeforeUnmount(() => {
           </Transition>
         </div>
       </Transition>
+
+      <!-- Eliminar -->
+      <Transition name="notif-fondo">
+        <div v-if="eliminando" class="notif-modal__fondo" @click.self="!eliminandoCargando && (eliminando = null)">
+          <Transition name="notif-tarjeta" appear>
+            <div class="notif-retirar" role="alertdialog" aria-modal="true">
+              <div class="notif-retirar__icono notif-retirar__icono--gris"><AuthIcon name="trash" /></div>
+              <h3>¿Eliminar del historial?</h3>
+              <p><strong>{{ eliminando.titulo }}</strong><br />Dejará de aparecer en esta lista. Esta acción no se puede deshacer.</p>
+              <div class="notif-retirar__acciones">
+                <button type="button" class="eca-btn eca-btn-secundario" :disabled="eliminandoCargando" @click="eliminando = null">Cancelar</button>
+                <button type="button" class="notif-retirar__confirmar notif-retirar__confirmar--gris" :disabled="eliminandoCargando" @click="confirmarEliminar">
+                  {{ eliminandoCargando ? 'Eliminando…' : 'Sí, eliminar' }}
+                </button>
+              </div>
+            </div>
+          </Transition>
+        </div>
+      </Transition>
     </Teleport>
   </section>
 </template>
@@ -780,6 +827,9 @@ onBeforeUnmount(() => {
 .notif__accion:hover { transform: scale(1.1); }
 .notif__accion svg { width: 0.95rem; height: 0.95rem; }
 .notif__accion--detalle { background: linear-gradient(135deg, #2f7a33, #14501c); }
+.notif__accion--eliminar { background: linear-gradient(135deg, #8a929b, #5f6670); }
+.notif-retirar__icono--gris { background: linear-gradient(135deg, #8a929b, #5f6670); }
+.notif-retirar__confirmar--gris { background: linear-gradient(135deg, #7b838c, #565d66); }
 .notif__accion--retirar { background: linear-gradient(135deg, #8b1a1a, #5c0f0f); }
 
 /* ---- modales ---- */

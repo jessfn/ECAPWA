@@ -71,6 +71,8 @@ class Notificacion(Base):
     publicada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     expira_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     retirada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Borrado lógico: una notificación retirada puede eliminarse del historial.
+    eliminada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     destinatarios_total: Mapped[int | None] = mapped_column(Integer, nullable=True)
     push_enviados: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))

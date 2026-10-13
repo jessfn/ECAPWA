@@ -274,6 +274,27 @@ def retirar(db: Session, *, actor: Usuario, notif_uuid: uuid_lib.UUID) -> Notifi
     return notif
 
 
+def eliminar(db: Session, *, actor: Usuario, notif_uuid: uuid_lib.UUID) -> None:
+    """Quita del historial una notificación YA retirada (borrado lógico)."""
+    notif = obtener_por_uuid(db, notif_uuid)
+    if notif.eliminada_en is not None:
+        return
+    if notif.estado != "RETIRADA":
+        raise NotificacionError("Primero retira la notificación; después podrás eliminarla.")
+    notif.eliminada_en = ahora_utc()
+    registrar_evento(
+        db,
+        accion="NOTIFICACION_ELIMINADA",
+        modulo="notificaciones",
+        actor_usuario_id=actor.id,
+        entidad_tipo="notificacion",
+        entidad_id=notif.id,
+        entidad_uuid=notif.uuid,
+        descripcion=f"Eliminó del historial la notificación «{notif.titulo}».",
+    )
+    db.commit()
+
+
 def obtener_por_id(db: Session, notif_id: int) -> Notificacion | None:
     return db.execute(
         select(Notificacion).options(selectinload(Notificacion.adjuntos)).where(Notificacion.id == notif_id)
@@ -291,7 +312,9 @@ def obtener_por_uuid(db: Session, notif_uuid: uuid_lib.UUID) -> Notificacion:
 
 # ------------------------------------------------------------------- historial
 def listar_admin(db: Session, *, estado: str | None, texto: str | None, limite: int = 200) -> list[Notificacion]:
-    consulta = select(Notificacion).options(selectinload(Notificacion.adjuntos))
+    consulta = (
+        select(Notificacion).options(selectinload(Notificacion.adjuntos)).where(Notificacion.eliminada_en.is_(None))
+    )
     if estado:
         consulta = consulta.where(Notificacion.estado == estado)
     if texto and texto.strip():

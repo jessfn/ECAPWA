@@ -128,6 +128,19 @@ def retirar_notificacion(
     return _a_admin(db, notif, svc.lecturas_por_notificacion(db, [notif.id]).get(notif.id, 0))
 
 
+@router.post("/{notif_uuid}/eliminar", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
+def eliminar_notificacion(
+    notif_uuid: uuid_lib.UUID,
+    db: Session = Depends(get_db),
+    actor: Usuario = Depends(require_permission("notificaciones.retirar")),
+) -> Response:
+    try:
+        svc.eliminar(db, actor=actor, notif_uuid=notif_uuid)
+    except svc.NotificacionError as e:
+        raise _http(e)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 # --- subida de medios por partes
 @router.post("/subidas", response_model=SubidaIniciada, status_code=status.HTTP_201_CREATED)
 def iniciar_subida(
