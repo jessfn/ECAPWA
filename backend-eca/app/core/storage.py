@@ -20,12 +20,17 @@ class Storage(Protocol):
     def guardar(self, clave: str, contenido: bytes) -> None: ...
     def leer(self, clave: str) -> bytes: ...
     def eliminar(self, clave: str) -> None: ...
+    def ruta(self, clave: str) -> Path: ...
 
 
 class LocalStorage:
     def __init__(self, directorio_base: str) -> None:
         self._base = Path(directorio_base)
         self._base.mkdir(parents=True, exist_ok=True)
+
+    def ruta(self, clave: str) -> Path:
+        """Ruta en disco de la clave (para streaming con Range / escritura por partes)."""
+        return self._ruta(clave)
 
     def _ruta(self, clave: str) -> Path:
         # `clave` la genera siempre el servicio (nunca el cliente

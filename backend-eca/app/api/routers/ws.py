@@ -8,6 +8,8 @@ manda no lleva ningún dato, solo avisa "pide tu perfil de nuevo".
 """
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
@@ -39,7 +41,12 @@ async def ws_permisos(socket: WebSocket, token: str = "", db: Session = Depends(
             # No se espera nada del cliente — este `receive` solo existe
             # para que la corrutina se quede viva y detecte la desconexión
             # (cierre de pestaña, pérdida de red, etc.) vía la excepción.
-            await socket.receive_text()
+            # Latido cada 25 s: Cloudflare corta los WebSocket sin tráfico
+            # (~100 s) y así el cliente también detecta una conexión muerta.
+            try:
+                await asyncio.wait_for(socket.receive_text(), timeout=25)
+            except asyncio.TimeoutError:
+                await socket.send_json({"tipo": "ping"})
     except WebSocketDisconnect:
         pass
     finally:

@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 import logging
 
 import psycopg
@@ -35,6 +36,21 @@ from app.core.settings import get_settings
 logger = logging.getLogger("app.ws_permisos")
 
 CANAL_PERMISOS = "permisos_cambiados"
+CANAL_NOTIFICACIONES = "notificaciones_cambiaron"
+
+
+async def _avisar_notificaciones(payload: str) -> None:
+    """Hay notificaciones nuevas/retiradas: el mensaje no lleva contenido, la
+    PWA vuelve a pedir su bandeja (`GET /notificaciones/mias?desde=...`)."""
+    mensaje = {"tipo": "notificaciones_cambiaron"}
+    try:
+        datos = json.loads(payload)
+    except (TypeError, ValueError):
+        datos = {}
+    if datos.get("destino") == "USUARIO" and datos.get("usuario_id"):
+        await gestor.avisar(int(datos["usuario_id"]), mensaje)
+    else:
+        await gestor.avisar_a_todos(mensaje)
 
 
 class GestorConexionesPermisos:
@@ -52,14 +68,19 @@ class GestorConexionesPermisos:
         if not conexiones:
             self._conexiones.pop(usuario_id, None)
 
-    async def avisar(self, usuario_id: int) -> None:
+    async def avisar(self, usuario_id: int, mensaje: dict | None = None) -> None:
+        mensaje = mensaje or {"tipo": "permisos_cambiados"}
         for socket in list(self._conexiones.get(usuario_id, ())):
             try:
-                await socket.send_json({"tipo": "permisos_cambiados"})
+                await socket.send_json(mensaje)
             except Exception:
                 # Conexión muerta que el propio WebSocketDisconnect todavía
                 # no limpió — mejor esfuerzo, se autolimpia en su momento.
                 pass
+
+    async def avisar_a_todos(self, mensaje: dict) -> None:
+        for usuario_id in list(self._conexiones):
+            await self.avisar(usuario_id, mensaje)
 
 
 gestor = GestorConexionesPermisos()
@@ -92,9 +113,13 @@ async def escuchar_notificaciones() -> None:
         try:
             async with await psycopg.AsyncConnection.connect(dsn, autocommit=True) as conexion:
                 await conexion.execute(f"LISTEN {CANAL_PERMISOS}")
-                logger.info("escuchando notificaciones de permisos (%s)", CANAL_PERMISOS)
+                await conexion.execute(f"LISTEN {CANAL_NOTIFICACIONES}")
+                logger.info("escuchando %s y %s", CANAL_PERMISOS, CANAL_NOTIFICACIONES)
                 espera = 1
                 async for aviso in conexion.notifies():
+                    if aviso.channel == CANAL_NOTIFICACIONES:
+                        await _avisar_notificaciones(aviso.payload)
+                        continue
                     try:
                         usuario_id = int(aviso.payload)
                     except (TypeError, ValueError):

@@ -15,6 +15,12 @@ from app.models.evidencia import ActividadEvidencia
 from app.models.geo import Estado, Municipio
 from app.models.jornada import Jornada
 from app.models.lote_importacion import LoteImportacion
+from app.models.notificacion import (
+    Notificacion,
+    NotificacionAdjunto,
+    NotificacionLectura,
+    SuscripcionPush,
+)
 from app.models.parametro_config import ParametroConfig
 from app.models.rbac import Permiso, Rol, RolPermiso, UsuarioRol
 from app.models.solicitud_acceso import SolicitudAcceso
@@ -22,6 +28,10 @@ from app.models.token_refresco import TokenRefresco
 from app.models.usuario import Usuario
 
 __all__ = [
+    "Notificacion",
+    "NotificacionAdjunto",
+    "NotificacionLectura",
+    "SuscripcionPush",
     "Usuario",
     "TokenRefresco",
     "Rol",

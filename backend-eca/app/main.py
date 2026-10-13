@@ -26,6 +26,7 @@ from app.api.routers import (
     geo,
     health,
     jornadas,
+    notificaciones,
     parametros_config,
     permisos,
     solicitudes_acceso,
@@ -37,6 +38,7 @@ from app.core.errors import ManejadorExcepcionesNoControladasMiddleware, registr
 from app.core.logging import configurar_logging
 from app.core.security_headers import CabecerasSeguridadMiddleware
 from app.core.settings import get_settings
+from app.core.notificaciones_tareas import arrancar_tarea_programadas
 from app.core.ws_permisos import arrancar_tarea_escucha, detener_tarea_escucha
 
 settings = get_settings()
@@ -61,8 +63,16 @@ async def _ciclo_de_vida(app: FastAPI) -> AsyncIterator[None]:
     except Exception:
         logger.warning("no se pudo arrancar la escucha de permisos", exc_info=True)
 
+    tarea_programadas = None
+    try:
+        tarea_programadas = arrancar_tarea_programadas()
+    except Exception:
+        logger.warning("no se pudo arrancar el publicador de notificaciones programadas", exc_info=True)
+
     yield
 
+    if tarea_programadas is not None:
+        await detener_tarea_escucha(tarea_programadas)
     if tarea_escucha is not None:
         await detener_tarea_escucha(tarea_escucha)
 
@@ -114,6 +124,7 @@ def crear_app() -> FastAPI:
     app.include_router(evidencias.router)
     app.include_router(sync.router)
     app.include_router(solicitudes_acceso.router)
+    app.include_router(notificaciones.router)
     app.include_router(ws.router)
     # Los routers del HITO C (PWA técnico) siguen aquí, SIEMPRE antes de la
     # ruta comodín de abajo.

@@ -20,6 +20,9 @@ RUTAS_PUBLICAS = {
     # token ES la credencial ahí, no hace falta además un `access_token`
     # vigente (deliberado: debe poder cerrar sesión aunque haya expirado).
     ("POST", "/auth/logout"),
+    # Medios de notificaciones: URL firmada (HMAC + vencimiento) porque un
+    # <img>/<video> no puede mandar `Authorization`.
+    ("GET", "/notificaciones/medios/{adjunto_uuid}"),
 }
 
 # Comodín de 404 al final de main.py: nunca toca datos, solo responde el
